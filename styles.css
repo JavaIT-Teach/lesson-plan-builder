@@ -1,0 +1,20 @@
+body{margin:0;background:#F2F4FA;color:#14213D;font-family:'DM Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+a{color:#2F5BEA}a:hover{color:#14213D}
+input,textarea,button{font-family:inherit;color:inherit}
+input::placeholder,textarea::placeholder{color:#9AA1B6}
+
+/* hover states from the design */
+.hov-card{transition:box-shadow .15s,transform .15s}
+.hov-card:hover{box-shadow:0 10px 28px rgba(20,33,61,.10);transform:translateY(-2px)}
+.hov-small:hover{box-shadow:0 8px 22px rgba(20,33,61,.08)}
+.hov-nav:hover{background:#24345C !important}
+.hov-white:hover{background:#fff !important}
+.hov-side:hover{background:#24345C !important}
+
+@media print{
+  [data-noprint]{display:none !important}
+  body,#app>div,[data-printwrap]{background:#fff !important;padding:0 !important;display:block !important}
+  [data-printpage]{box-shadow:none !important;border:none !important;padding:0 !important;aspect-ratio:auto !important}
+  @page{size:A4 landscape;margin:10mm}
+}
