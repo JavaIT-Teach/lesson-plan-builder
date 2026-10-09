@@ -54,13 +54,16 @@ class App {
     return { LV, KINDS, WHO, CW, RM, TPL, MORE, KEY: 'lesson-plan-builder-v1' };
   })();
 
+  SYNC_KEY = 'lesson-plan-builder-sync';
   state = this.init();
 
   init() {
     let db = null;
     try { db = JSON.parse(localStorage.getItem(this.K.KEY)); } catch (e) {}
     if (!this.validDb(db)) { db = this.seed(); this.save(db); }
-    return { db, screen: 'week', gid: 'b-odd', rmGid: null, sel: null, del: null, noteEdit: null, toast: '', aimsOpen: false, confirmReset: false, restore: null, now: Date.now() };
+    return { db, screen: 'week', gid: 'b-odd', rmGid: null, sel: null, del: null, noteEdit: null, toast: '', aimsOpen: false, confirmReset: false, restore: null, now: Date.now(),
+      sync: { status: this.cfg() ? 'pending' : 'off', msg: '' }, syncConflict: null, syncBusy: false, confirmDisconnect: false,
+      syncForm: { owner: 'JavaIT-Teach', repo: 'lesson-plan-data', token: '' } };
   }
   validDb(db) {
     const ids = ['b-odd', 'e-odd', 'b30-odd', 'b-even', 'e-even', 'p-even', 'i-even'];
@@ -85,6 +88,15 @@ class App {
       if (live || Math.floor(n / 60000) !== Math.floor(this.state.now / 60000)) this.setState({ now: n });
     }, 1000);
     try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+    // GitHub sync: check on open, on return to the tab, when back online, and every few minutes
+    this.lastPull = 0;
+    if (this.cfg()) this.syncNow();
+    this.syncIv = setInterval(() => {
+      const c = this.cfg(); if (!c || this.state.syncConflict) return;
+      if (c.dirty || Date.now() - this.lastPull > 5 * 60000) this.syncNow();
+    }, 60000);
+    document.addEventListener('visibilitychange', () => { if (this.cfg() && !this.state.syncConflict) this.syncNow(); });
+    window.addEventListener('online', () => { if (this.cfg()) this.syncNow(); });
   }
 
   // ---------- data ----------
@@ -158,7 +170,7 @@ class App {
   hm(n) { return `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`; }
 
   today() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
-  clock() { const n = new Date(); return `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}`; }
+  clock(t) { const n = t ? new Date(t) : new Date(); return `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}`; }
   nextText(g, c) {
     if (!c.isToday) return this.fmtS(c.next);
     return c.live === 'now' ? `Today · on now, ends ${g.end}` : c.live === 'over' ? `Today · finished ${g.end}` : `Today · starts ${g.start}`;
@@ -210,7 +222,9 @@ class App {
     this.setState(s => {
       const db = JSON.parse(JSON.stringify(s.db));
       const more = fn(db, s) || {};
+      db.updatedAt = Date.now();
       this.save(db);
+      this.changed();
       return Object.assign({ db }, extra || {}, more);
     });
   }
@@ -268,6 +282,7 @@ class App {
       g.draft = this.newLesson(g);
       return { screen: 'week', sel: null, noteEdit: null, dbDayType: null };
     });
+    this.queuePush(500);
     this.toast('Lesson saved. Carry-over is ready for the next lesson.');
   }
 
@@ -301,9 +316,194 @@ class App {
   }
   applyRestore() {
     const db = this.state.restore.db;
+    db.updatedAt = Date.now();
     this.save(db);
+    this.changed();
     this.setState({ db, restore: null, screen: 'week', gid: 'b-odd', sel: null, editId: null, del: null, delEx: null, delLesson: null, noteEdit: null });
     this.toast('Backup restored.');
+  }
+
+  // ---------- GitHub sync ----------
+  // Lessons are mirrored to one file (lessons.json) in a private repo, using the GitHub contents API.
+  // Settings (incl. the key) live in their own localStorage entry, never in backups or on GitHub.
+  cfg() { try { return JSON.parse(localStorage.getItem(this.SYNC_KEY)) || null; } catch (e) { return null; } }
+  setCfg(c) { try { if (c) localStorage.setItem(this.SYNC_KEY, JSON.stringify(c)); else localStorage.removeItem(this.SYNC_KEY); } catch (e) {} }
+  patchCfg(p) { const c = this.cfg(); if (c) this.setCfg(Object.assign(c, p)); }
+  setSync(status, msg) { this.setState({ sync: { status, msg: msg || '', at: Date.now() } }); }
+  changed() {
+    if (!this.cfg()) return;
+    this.patchCfg({ dirty: true });
+    this.queuePush();
+  }
+  queuePush(ms) {
+    if (!this.cfg() || this.state.syncConflict) return;
+    clearTimeout(this.pushT);
+    this.pushT = setTimeout(() => this.syncNow(), ms == null ? (window.LPB_SYNC_DELAY || 8000) : ms);
+    if (this.state.sync.status !== 'saving' && this.state.sync.status !== 'error') setTimeout(() => this.setSync('pending'), 0);
+  }
+  b64enc(str) {
+    const bytes = new TextEncoder().encode(str); let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+  b64dec(b64) { const bin = atob(b64.replace(/\s/g, '')); return new TextDecoder().decode(Uint8Array.from(bin, ch => ch.charCodeAt(0))); }
+  gh(c, method, path, body, accept) {
+    const headers = { Authorization: 'Bearer ' + c.token, Accept: accept || 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+    if (body) headers['Content-Type'] = 'application/json';
+    return fetch('https://api.github.com' + path, { method, headers, cache: 'no-store', body: body ? JSON.stringify(body) : undefined });
+  }
+  filePath(c) { return `/repos/${encodeURIComponent(c.owner)}/${encodeURIComponent(c.repo)}/contents/lessons.json`; }
+  httpErr(status) { const e = new Error('HTTP ' + status); e.status = status; return e; }
+  async ghRead(c) {
+    const r = await this.gh(c, 'GET', this.filePath(c));
+    if (r.status === 404) return null;
+    if (!r.ok) throw this.httpErr(r.status);
+    const meta = await r.json();
+    let text;
+    if (meta.encoding === 'base64' && meta.content) text = this.b64dec(meta.content);
+    else {
+      const r2 = await this.gh(c, 'GET', this.filePath(c), null, 'application/vnd.github.raw+json');
+      if (!r2.ok) throw this.httpErr(r2.status);
+      text = await r2.text();
+    }
+    let db = null;
+    try { db = JSON.parse(text); } catch (e) {}
+    if (!this.validDb(db)) { const e = new Error('bad file'); e.plain = 'The lessons file on GitHub is damaged. Nothing was changed.'; throw e; }
+    return { sha: meta.sha, db };
+  }
+  async syncNow() {
+    if (!this.cfg() || this.state.syncConflict) return;
+    if (this.syncing) { this.syncAgain = true; return; }
+    this.syncing = true; clearTimeout(this.pushT);
+    try { await this.syncOnce(0); }
+    catch (e) { this.syncFail(e); }
+    finally {
+      this.syncing = false;
+      if (this.syncAgain) { this.syncAgain = false; this.syncNow(); }
+    }
+  }
+  async syncOnce(depth) {
+    let c = this.cfg(); if (!c) return;
+    const remote = await this.ghRead(c);
+    this.lastPull = Date.now();
+    c = this.cfg(); if (!c) return;
+    if (remote && remote.sha !== c.sha) {
+      // GitHub has a version this browser has not seen
+      if (!c.dirty) { this.applyRemote(remote); return; }
+      if (JSON.stringify(remote.db) === JSON.stringify(this.state.db)) { this.patchCfg({ sha: remote.sha, dirty: false }); this.setSync('ok'); return; }
+      this.setState({ syncConflict: remote }); this.setSync('conflict');
+      return;
+    }
+    if (!c.dirty && remote) { this.setSync('ok'); return; }
+    // send this browser's lessons
+    this.setSync('saving');
+    const db = this.state.db, sent = db.updatedAt;
+    const body = { message: `Lessons saved ${this.fmtS(new Date())} ${this.clock()}`, content: this.b64enc(JSON.stringify(db)) };
+    if (remote) body.sha = remote.sha;
+    const r = await this.gh(c, 'PUT', this.filePath(c), body);
+    if ((r.status === 409 || r.status === 422) && depth < 2) return this.syncOnce(depth + 1);
+    if (!r.ok) throw this.httpErr(r.status);
+    const j = await r.json();
+    const still = this.state.db.updatedAt !== sent;
+    this.patchCfg({ sha: j.content.sha, dirty: still });
+    this.setSync(still ? 'pending' : 'ok');
+    if (still) this.queuePush();
+  }
+  applyRemote(remote) {
+    this.save(remote.db);
+    this.patchCfg({ sha: remote.sha, dirty: false });
+    const gid = remote.db.groups[this.state.gid] ? this.state.gid : 'b-odd';
+    this.setState({ db: remote.db, gid, syncConflict: null, del: null, delEx: null, delLesson: null });
+    this.setSync('ok');
+  }
+  syncFail(e) {
+    let msg;
+    if (e.plain) msg = e.plain;
+    else if (!e.status) msg = 'No internet. Saved in this browser. Will send to GitHub when back online.';
+    else if (e.status === 401) msg = 'Your GitHub key does not work any more. Paste a new one on the Sync screen.';
+    else if (e.status === 403 || e.status === 404) msg = 'GitHub would not let the app in. Check the key can read and write the lessons repository.';
+    else msg = 'GitHub did not answer properly. Saved in this browser. Will try again.';
+    this.setSync('error', msg);
+  }
+  async connect() {
+    const f = this.state.syncForm, owner = f.owner.trim(), repo = f.repo.trim(), token = f.token.trim();
+    if (!owner || !repo || !token) { this.toast('Fill in all three boxes.'); return; }
+    this.setState({ syncBusy: true });
+    const fail = msg => { this.setState({ syncBusy: false }); this.setSync('off', msg); };
+    let r;
+    try { r = await this.gh({ token }, 'GET', `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`); }
+    catch (e) { fail('No internet. Try again when you are online.'); return; }
+    if (r.status === 401) { fail('This key does not work. Check that you copied all of it.'); return; }
+    if (!r.ok) { fail(`Cannot open ${owner}/${repo} with this key. Check the names, and that the key was made for this repository.`); return; }
+    const info = await r.json();
+    if (!info.private) { fail('This repository is public, so anyone could read your lessons. Make it private on GitHub first.'); return; }
+    // a browser with its own lessons must not be silently replaced by the GitHub copy
+    this.setCfg({ owner, repo, token, sha: null, dirty: !!this.state.db.updatedAt });
+    this.setState({ syncBusy: false, syncForm: Object.assign({}, f, { token: '' }) });
+    this.setSync('pending');
+    await this.syncNow();
+    if (this.state.sync.status === 'ok') this.toast('Connected. Your lessons now save to GitHub.');
+  }
+  disconnect() {
+    clearTimeout(this.pushT);
+    this.setCfg(null);
+    this.setState({ confirmDisconnect: false, syncConflict: null });
+    this.setSync('off');
+    this.toast('Disconnected. Lessons stay in this browser and on GitHub.');
+  }
+  resolveConflict(which) {
+    const remote = this.state.syncConflict;
+    if (!remote) return;
+    if (which === 'github') { this.applyRemote(remote); this.toast('Using the GitHub copy.'); return; }
+    this.patchCfg({ sha: remote.sha, dirty: true });
+    this.setState({ syncConflict: null });
+    this.syncNow();
+    this.toast("Keeping this browser's copy. GitHub still has the old one in its history.");
+  }
+  syncVals(v, s) {
+    const c = this.cfg(), st = s.sync.status;
+    const lines = {
+      off: c ? '' : 'Not saved to GitHub',
+      pending: 'Changes not on GitHub yet',
+      saving: 'Saving to GitHub…',
+      ok: `Saved to GitHub ${s.sync.at ? this.clock(s.sync.at) : ''}`,
+      conflict: 'Choose which copy to keep',
+      error: 'Not saved to GitHub'
+    };
+    v.syncLine = c || st !== 'off' ? (lines[st] || '') : 'Not saved to GitHub';
+    v.syncDot = st === 'ok' ? '#3CCB8F' : st === 'error' || st === 'conflict' ? '#FF8A80' : st === 'off' ? '#8E97B5' : '#FFB020';
+    v.goSync = () => this.go('sync');
+    // conflict bar
+    v.hasConflict = !!s.syncConflict;
+    if (s.syncConflict) {
+      const taught = d => Object.values(d.groups).reduce((a, g) => a + g.taught.length, 0);
+      const when = d => d.updatedAt ? `${this.fmtS(new Date(d.updatedAt))} ${this.clock(d.updatedAt)}` : 'earlier';
+      const R = s.syncConflict.db, Lo = s.db;
+      v.conflictGh = `GitHub copy: saved ${when(R)} · ${taught(R)} lessons taught`;
+      v.conflictLocal = `This browser: saved ${when(Lo)} · ${taught(Lo)} lessons taught`;
+      v.keepGh = () => this.resolveConflict('github');
+      v.keepLocal = () => this.resolveConflict('local');
+    }
+    if (s.screen !== 'sync') return;
+    v.syncOn = !!c; v.syncOffForm = !c;
+    v.syncRepo = c ? `${c.owner}/${c.repo}` : '';
+    v.syncRepoUrl = c ? `https://github.com/${encodeURIComponent(c.owner)}/${encodeURIComponent(c.repo)}/commits` : '';
+    v.syncMsg = s.sync.msg;
+    v.syncMsgBg = st === 'error' || (!c && s.sync.msg) ? '#FDE3E3' : '#DDF3EC';
+    v.syncMsgFg = st === 'error' || (!c && s.sync.msg) ? '#A32020' : '#0F6B55';
+    v.hasSyncMsg = !!s.sync.msg;
+    v.syncBig = !c ? 'Not connected' : st === 'ok' ? 'Your lessons are on GitHub' : st === 'saving' ? 'Saving to GitHub…' : st === 'pending' ? 'Changes waiting to be sent' : st === 'conflict' ? 'Choose which copy to keep' : 'Not saved to GitHub right now';
+    v.syncSmall = c && s.sync.at && st === 'ok' ? `Last saved ${this.fmtS(new Date(s.sync.at))} at ${this.clock(s.sync.at)}` : '';
+    v.form = s.syncForm;
+    const setF = k => e => this.setState({ syncForm: Object.assign({}, this.state.syncForm, { [k]: e.target.value }) });
+    v.onOwner = setF('owner'); v.onRepo = setF('repo'); v.onToken = setF('token');
+    v.connectLabel = s.syncBusy ? 'Connecting…' : 'Connect';
+    v.doConnect = () => { if (!this.state.syncBusy) this.connect(); };
+    v.doSync = () => { this.syncNow(); };
+    v.askDisconnect = () => this.setState({ confirmDisconnect: true });
+    v.confirmDisconnect = s.confirmDisconnect;
+    v.yesDisconnect = () => this.disconnect();
+    v.keepConnect = () => this.setState({ confirmDisconnect: false });
   }
 
   // ---------- render values ----------
@@ -312,10 +512,10 @@ class App {
     const g = db.groups[s.gid], L = this.T(g, s), lv = K.LV[g.level], gc = this.calc(g);
     const scr = s.screen;
     const v = {};
-    const sideScreens = ['week', 'roadmap', 'carry', 'notes'];
+    const sideScreens = ['week', 'roadmap', 'carry', 'notes', 'sync'];
     Object.assign(v, {
       showSide: sideScreens.includes(scr), showJump: !sideScreens.includes(scr),
-      isWeek: scr === 'week', isRoadmap: scr === 'roadmap', isCarry: scr === 'carry', isNotes: scr === 'notes',
+      isWeek: scr === 'week', isRoadmap: scr === 'roadmap', isCarry: scr === 'carry', isNotes: scr === 'notes', isSync: scr === 'sync',
       isPlan: scr === 'plan', isStart: scr === 'start', isMid: scr === 'mid', isAfter: scr === 'after', isCamb: scr === 'camb',
       isLive: scr === 'start' || scr === 'mid',
       hasToast: !!s.toast, toast: s.toast,
@@ -339,7 +539,7 @@ class App {
       resetLabel: s.confirmReset ? 'Tap again to reset everything' : 'Reset to starting state',
       askReset: () => {
         if (!s.confirmReset) { this.setState({ confirmReset: true }); return; }
-        const fresh = this.seed(); this.save(fresh);
+        const fresh = this.seed(); fresh.updatedAt = Date.now(); this.save(fresh); this.changed();
         this.setState({ db: fresh, confirmReset: false, screen: 'week', gid: 'b-odd', sel: null, editId: null });
         this.toast('Back to the starting state.');
       },
@@ -349,12 +549,13 @@ class App {
       restoreYes: () => this.applyRestore(),
       restoreNo: () => this.setState({ restore: null })
     });
-    const navDefs = [['Week', 'week'], ['Plan a lesson', 'plan'], ['Roadmap', 'roadmap'], ['Carry-over', 'carry'], ['Notes', 'notes'], ['Cambridge copy', 'camb']];
+    const navDefs = [['Week', 'week'], ['Plan a lesson', 'plan'], ['Roadmap', 'roadmap'], ['Carry-over', 'carry'], ['Notes', 'notes'], ['Cambridge copy', 'camb'], ['GitHub sync', 'sync']];
     v.navItems = navDefs.map(([label, key]) => ({ label, bg: scr === key ? '#24345C' : 'transparent', weight: scr === key ? 700 : 500,
       onClick: () => { if (key === 'roadmap') this.setState({ rmGid: s.gid }); this.go(key); } }));
     const steps = [['Plan', 'plan'], ['Lesson starts', 'start'], ['Mid-lesson', 'mid'], ['After class', 'after'], ['Cambridge copy', 'camb']];
     v.jumpSteps = steps.map(([label, key], i) => ({ label, num: i + 1, bg: scr === key ? '#14213D' : 'transparent', fg: scr === key ? '#fff' : '#3A4566', onClick: () => this.go(key) }));
 
+    this.syncVals(v, s);
     if (scr === 'week') this.weekVals(v, db);
     if (scr === 'roadmap') this.roadmapVals(v, db, s);
     if (scr === 'carry') this.carryVals(v, db, s);
@@ -836,6 +1037,7 @@ function tSidebar(v) {
     <span style="font-family:'Bricolage Grotesque';font-size:24px;font-weight:700;line-height:1.1;letter-spacing:-0.01em">Lesson Plan Builder</span>
     <span style="font-size:13px;color:#B8C0D8">Cambridge Learning Centre</span>
     <span style="font-family:'DM Mono';font-size:14px;color:#FFB020;margin-top:6px">${esc(v.sideClock)}</span>
+    <button${click(v.goSync)} style="align-self:flex-start;border:none;background:transparent;color:#D5DAEA;font-size:12.5px;padding:2px 0;cursor:pointer;display:flex;align-items:center;gap:7px;text-align:left"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:${esc(v.syncDot)}"></span>${esc(v.syncLine)}</button>
   </div>
   <div style="display:flex;flex-direction:column;gap:8px">
     <button${click(v.setOdd)} style="text-align:left;border:1px solid ${esc(v.oddBorder)};background:${esc(v.oddBg)};color:${esc(v.oddFg)};border-radius:10px;padding:10px 14px;cursor:pointer;display:flex;flex-direction:column;gap:2px">
@@ -872,6 +1074,7 @@ function tJump(v) {
   return `<div data-noprint="1" style="background:#fff;border-bottom:1px solid #E2E6F0;padding:8px 32px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
   <button${click(v.goWeek)} style="border:none;background:#F2F4FA;color:#14213D;font-weight:700;font-size:14px;padding:8px 14px;border-radius:8px;cursor:pointer">← Week</button>
   <span style="font-family:'DM Mono';font-size:14px;color:#3A4566;padding:0 6px">${esc(v.sideClock)}</span>
+  <button${click(v.goSync)} style="border:none;background:transparent;color:#5A6482;font-size:13px;padding:4px 6px;cursor:pointer;display:flex;align-items:center;gap:6px"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:${esc(v.syncDot)}"></span>${esc(v.syncLine)}</button>
   <span style="width:1px;height:22px;background:#E2E6F0;margin:0 6px"></span>
   ${FOR(v.jumpSteps, j => `<button${click(j.onClick)} style="border:none;background:${esc(j.bg)};color:${esc(j.fg)};font-weight:600;font-size:14px;padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;gap:6px;align-items:center"><span style="font-family:'DM Mono';opacity:0.6">${j.num}</span>${esc(j.label)}</button>`)}
 </div>`;
@@ -1390,11 +1593,72 @@ function tCamb(v) {
 </main>`;
 }
 
+function tConflict(v) {
+  return `<div data-noprint="1" style="background:#FFEBA8;border-bottom:1px solid #E0A400;padding:14px 32px;display:flex;flex-direction:column;gap:8px">
+  <span style="font-weight:700;font-size:17px">Your lessons changed in two places. Which copy do you want to keep?</span>
+  <span style="font-size:15px">${esc(v.conflictGh)}</span>
+  <span style="font-size:15px">${esc(v.conflictLocal)}</span>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:4px">
+    <button${click(v.keepGh)} style="border:none;background:#14213D;color:#fff;font-weight:700;font-size:14px;padding:9px 14px;border-radius:8px;cursor:pointer">Keep the GitHub copy</button>
+    <button${click(v.keepLocal)} style="border:1.5px solid #14213D;background:#fff;font-weight:700;font-size:14px;padding:8px 14px;border-radius:8px;cursor:pointer">Keep this browser's copy</button>
+    <button${click(v.downloadBackup)} style="border:none;background:transparent;color:#14213D;font-size:13.5px;cursor:pointer;text-decoration:underline">Not sure? Download a backup of this browser first</button>
+  </div>
+</div>`;
+}
+
+function tSync(v) {
+  const box = 'height:44px;border:1.5px solid #C9CFDE;border-radius:10px;padding:0 14px;font-size:16px;color:#14213D;background:#fff';
+  const step = (n, title, body) => `<div style="display:flex;gap:14px;align-items:flex-start">
+      <span style="flex:none;width:30px;height:30px;border-radius:8px;background:#14213D;color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px">${n}</span>
+      <div style="display:flex;flex-direction:column;gap:4px;font-size:15px;line-height:1.5"><span style="font-weight:700;font-size:16px">${title}</span>${body}</div>
+    </div>`;
+  return `<main data-screen-label="GitHub sync" style="padding:36px 40px 56px;display:flex;flex-direction:column;gap:20px;max-width:900px">
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <span style="font-family:'DM Mono';font-size:13px;letter-spacing:0.12em;color:#5A6482">GITHUB SYNC</span>
+    <h1 style="margin:0;font-family:'Bricolage Grotesque';font-size:40px;font-weight:700;letter-spacing:-0.02em">Keep your lessons safe</h1>
+    <span style="font-size:15px;color:#5A6482">Every change is also saved to a private GitHub repository. If this browser loses its data, connect again and your lessons come back. GitHub keeps every old version too.</span>
+  </div>
+  ${IF(v.hasSyncMsg, () => `<div style="background:${esc(v.syncMsgBg)};color:${esc(v.syncMsgFg)};border-radius:12px;padding:12px 16px;font-size:15px;font-weight:600">${esc(v.syncMsg)}</div>`)}
+  ${IF(v.syncOn, () => `<div style="background:#fff;border:1px solid #E2E6F0;border-left:6px solid ${esc(v.syncDot)};border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;gap:10px">
+      <span style="font-family:'Bricolage Grotesque';font-size:24px;font-weight:700">${esc(v.syncBig)}</span>
+      ${IF(v.syncSmall, () => `<span style="font-size:14px;color:#5A6482">${esc(v.syncSmall)}</span>`)}
+      <span style="font-size:15px">Repository: <a href="${esc(v.syncRepoUrl)}" target="_blank" rel="noopener">${esc(v.syncRepo)}</a> <span style="color:#5A6482">(the link shows every saved version)</span></span>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+        <button${click(v.doSync)} style="border:none;background:#138A6E;color:#fff;font-weight:700;font-size:15px;padding:11px 18px;border-radius:10px;cursor:pointer">Sync now</button>
+        <button${click(v.askDisconnect)} style="${BTN_DEL};font-size:14px;padding:10px 16px;border-radius:10px">Disconnect</button>
+      </div>
+      ${IF(v.confirmDisconnect, () => `<div style="background:#FFE3E0;border:1.5px solid #D63A3A;border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:220px;display:flex;flex-direction:column"><span style="font-weight:700;font-size:15px">Disconnect from GitHub?</span><span style="font-size:12.5px;color:#8A2A2A">Lessons stay in this browser and on GitHub. New changes will not be sent.</span></div>
+          <button${click(v.yesDisconnect)} style="border:none;background:#D63A3A;color:#fff;font-weight:700;font-size:13px;padding:8px 12px;border-radius:8px;cursor:pointer">Yes, disconnect</button>
+          <button${click(v.keepConnect)} style="border:1.5px solid #8E97B5;background:#fff;font-weight:700;font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer">Keep it</button>
+        </div>`)}
+      <span style="font-size:13px;color:#5A6482">Your GitHub key is kept in this browser only. It is never in backups or on GitHub.</span>
+    </div>`)}
+  ${IF(v.syncOffForm, () => `<div style="background:#fff;border:1px solid #E2E6F0;border-radius:18px;padding:22px 24px;display:flex;flex-direction:column;gap:20px">
+      <span style="font-family:'Bricolage Grotesque';font-size:24px;font-weight:700">Set up once, about 5 minutes</span>
+      ${step(1, 'Make a private repository', `<span>On GitHub, create a new repository called <b>lesson-plan-data</b>. Choose <b>Private</b>. <a href="https://github.com/new" target="_blank" rel="noopener">Open GitHub</a></span>`)}
+      ${step(2, 'Make a key for it', `<span><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Open the key page</a>, then:</span>
+        <span>· Name: <b>Lesson Plan Builder</b>. Expiration: the longest you can choose.</span>
+        <span>· Repository access: <b>Only select repositories</b>, then pick <b>lesson-plan-data</b>.</span>
+        <span>· Permissions: <b>Contents</b>, set to <b>Read and write</b>.</span>
+        <span>· Tap <b>Generate token</b> and copy it.</span>`)}
+      ${step(3, 'Paste it here', `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A6482">GitHub username<input value="${esc(v.form.owner)}"${input(v.onOwner)} autocomplete="off" style="${box}"></label>
+          <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A6482">Repository<input value="${esc(v.form.repo)}"${input(v.onRepo)} autocomplete="off" style="${box}"></label>
+          <label style="grid-column:1 / -1;display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A6482">Key<input type="password" value="${esc(v.form.token)}"${input(v.onToken)} autocomplete="off" placeholder="github_pat_…" style="${box}"></label>
+        </div>
+        <button${click(v.doConnect)} style="align-self:flex-start;margin-top:8px;border:none;background:#138A6E;color:#fff;font-weight:700;font-size:16px;padding:12px 24px;border-radius:10px;cursor:pointer">${esc(v.connectLabel)}</button>
+        <span style="font-size:13px;color:#5A6482">The key only opens this one repository. It is kept in this browser only.</span>`)}
+    </div>`)}
+</main>`;
+}
+
 function tApp(v) {
   return `<div style="min-height:100vh;display:flex;background:#F2F4FA;color:#14213D;font-family:'DM Sans',system-ui,sans-serif">
 ${IF(v.showSide, () => tSidebar(v))}
 <div style="flex:1;min-width:0;display:flex;flex-direction:column">
 ${IF(v.showJump, () => tJump(v))}
+${IF(v.hasConflict, () => tConflict(v))}
 ${IF(v.isWeek, () => tWeek(v))}
 ${IF(v.isRoadmap, () => tRoadmap(v))}
 ${IF(v.isCarry, () => tCarry(v))}
@@ -1405,6 +1669,7 @@ ${IF(v.isStart, () => tStart(v))}
 ${IF(v.isMid, () => tMid(v))}
 ${IF(v.isAfter, () => tAfter(v))}
 ${IF(v.isCamb, () => tCamb(v))}
+${IF(v.isSync, () => tSync(v))}
 </div>
 ${IF(v.hasToast, () => `<div data-noprint="1" role="status" style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#14213D;color:#fff;font-weight:600;font-size:15px;padding:12px 20px;border-radius:12px;box-shadow:0 10px 30px rgba(20,33,61,.25);z-index:50">${esc(v.toast)}</div>`)}
 </div>`;

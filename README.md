@@ -20,7 +20,19 @@ Open the live page on a laptop. Then work through these steps:
 - Everything is saved in this browser only, in `localStorage`. Another browser or computer will not see it.
 - To keep a copy, go to Week and tap **Download backup** in the left bar. Do this often. You get a `.json` file.
 - To bring lessons back, tap **Restore backup** and pick that file. It asks before it replaces anything.
-- If you clear browsing data for the site, your lessons are deleted. Download a backup before you do that.
+- If you clear browsing data for the site, your lessons are deleted from this browser. With GitHub sync on, connect again and they come back.
+
+## GitHub sync (recommended)
+
+Every change is also saved to `lessons.json` in a **private** repository of yours (for example `lesson-plan-data`). GitHub keeps every old version as its history.
+
+Setup (once): open **GitHub sync** in the left bar and follow the 3 steps. You create the private repo, make a fine-grained key that can only read and write that repo's contents, then paste it in.
+
+- Changes are sent about 8 seconds after you stop, and straight away when you close a lesson.
+- The app checks GitHub when it opens, when you come back to the tab, and every few minutes.
+- If two browsers changed the lessons, the app asks which copy to keep. It never overwrites without asking.
+- No internet: lessons stay in the browser and are sent when you are back online.
+- The key is kept in this browser only (not in backups, not on GitHub). When it expires, the app says so. Make a new one and paste it in.
 
 ## Files
 
