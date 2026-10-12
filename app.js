@@ -736,6 +736,55 @@ class App {
     });
     v.savedLessons = saved;
     v.newPlan = () => { this.upd(d => { const gg = d.groups[g.id]; gg.plans = gg.plans || []; const cur = gg.draft; if (cur.exercises.length || cur.name) { cur.savedAt = Date.now(); gg.plans.push(cur); } gg.draft = this.newLesson(gg); }, { editId: null, sel: null }); this.toast('Saved. New empty plan for the next lesson.'); };
+    // copy this plan to other groups (carry-over never travels: it belongs to one group)
+    const copyOpen = !!s.copy && s.copy.gid === g.id, copySel = copyOpen ? s.copy.sel : [];
+    const own = L.exercises.filter(e => !e.fromCarry), carriedN = L.exercises.length - own.length;
+    v.copyOpen = copyOpen;
+    v.toggleCopy = () => this.setState({ copy: copyOpen ? null : { gid: g.id, sel: [] } });
+    v.copyCarryNote = carriedN ? `${carriedN} carried-over exercise${carriedN > 1 ? 's stay' : ' stays'} with ${this.gLabel(g)} only.` : '';
+    v.hasCopyCarryNote = !!carriedN;
+    const others = Object.values(db.groups).filter(x => x.id !== g.id)
+      .sort((a, b) => (b.level === g.level) - (a.level === g.level) || (a.dayType === b.dayType ? a.start.localeCompare(b.start) : a.dayType === 'odd' ? -1 : 1));
+    v.copyTargets = others.map(x => {
+      const xd = x.draft, xc = this.calc(x), started = !!xd.run.lessonStart;
+      const xOwn = xd.exercises.filter(e => !e.fromCarry).length, hasPlan = xOwn > 0 || !!xd.name;
+      const on = copySel.includes(x.id), same = x.level === g.level;
+      const nextU = xc.nextSlot ? this.uLabel(xc.nextSlot.u) : 'Course finished';
+      return {
+        label: this.gLong(x), same, tag: same ? 'Same level' : this.K.LV[x.level].name, tagBg: same ? lv.tint : '#ECEEF3',
+        sub: `Next lesson ${this.fmtS(xc.next)} · on ${nextU}` + (L.unit && xc.nextSlot && xc.nextSlot.u !== L.unit ? ` (this plan is ${this.uLabel(L.unit)})` : ''),
+        warn: started ? 'Lesson in progress. Finish it first.' : hasPlan ? `Has a plan (${this.lTitle(xd)}, ${xOwn} exercise${xOwn === 1 ? '' : 's'}). It moves to its Saved lessons.` : '',
+        hasWarn: started || hasPlan, warnFg: started ? '#A32020' : '#8A4B00',
+        disabled: started, on, box: on ? '✓' : '', boxBg: on ? '#14213D' : '#fff', boxBorder: started ? '#D5DAEA' : on ? '#14213D' : '#9AA1B6',
+        rowBg: on ? lv.tint : started ? '#F4F6FB' : '#fff', rowBorder: on ? lv.c : '#E2E6F0', fg: started ? '#8E97B5' : '#14213D', cursor: started ? 'default' : 'pointer',
+        onToggle: () => { if (started) return; this.setState({ copy: { gid: g.id, sel: on ? copySel.filter(id => id !== x.id) : copySel.concat(x.id) } }); }
+      };
+    });
+    v.copyBtn = copySel.length ? `Copy to ${copySel.length} group${copySel.length > 1 ? 's' : ''}` : 'Pick a group first';
+    v.copyBtnBg = copySel.length ? '#138A6E' : '#C9CFDE';
+    v.doCopy = () => {
+      if (!copySel.length) return;
+      if (!own.length && !L.name) { this.toast('Nothing to copy yet. Add exercises first.'); return; }
+      const names = copySel.map(id => this.gLabel(db.groups[id]) + ' ' + db.groups[id].start);
+      this.upd((d, st) => {
+        const src = this.T(d.groups[g.id], st);
+        const exs = src.exercises.filter(e => !e.fromCarry);
+        copySel.forEach(tid => {
+          const tg = d.groups[tid], cur = tg.draft;
+          if (cur.run.lessonStart) return;
+          const keepCarry = cur.exercises.filter(e => e.fromCarry);
+          if (cur.exercises.length > keepCarry.length || cur.name) {
+            const old = JSON.parse(JSON.stringify(cur));
+            Object.assign(old, { id: this.uid(), savedAt: Date.now(), exercises: old.exercises.filter(e => !e.fromCarry) });
+            tg.plans = (tg.plans || []).concat(old);
+          }
+          cur.unit = src.unit; cur.name = src.name;
+          cur.aims = Object.assign({}, src.aims);
+          cur.exercises = keepCarry.concat(exs.map(e => Object.assign(JSON.parse(JSON.stringify(e)), { id: this.uid(), saved: true, fromCarry: null })));
+        });
+      }, { copy: null });
+      this.toast(`Copied to ${names.join(', ')}. Open each one to adjust it.`);
+    };
     const live = L.exercises.filter(e => !e.skipped);
     const sum = live.reduce((a, e) => a + this.em(e), 0);
     v.minText = `${5 + sum}-${7 + sum} of 80 min`;
@@ -1282,6 +1331,22 @@ function tPlan(v) {
         <button${click(v.toggleAims)} style="width:100%;border:none;background:transparent;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:700;font-size:14px"><span>For the Cambridge copy: aims and problems</span><span style="font-family:'DM Mono';color:#5A6482">${esc(v.aimsCount)}</span></button>
         ${IF(v.aimsOpen, () => `<div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:10px">
             ${FOR(v.aimFields, af => `<label style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;font-weight:700;color:#5A6482">${esc(af.label)}</span><input value="${esc(af.value)}"${input(af.onChange)} placeholder="${esc(af.ph)}" style="height:38px;border:1.5px solid #C9CFDE;border-radius:8px;padding:0 10px;font-size:14px;background:${esc(af.bg)}"></label>`)}
+          </div>`)}
+      </div>
+      <div style="background:#fff;border:1px solid #E2E6F0;border-radius:12px;margin-top:8px;overflow:hidden">
+        <button${click(v.toggleCopy)} style="width:100%;border:none;background:transparent;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:700;font-size:14px"><span>Copy plan to other groups</span><span style="font-family:'DM Mono';color:#5A6482">${v.copyOpen ? '▲' : '▼'}</span></button>
+        ${IF(v.copyOpen, () => `<div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:8px">
+            <span style="font-size:13px;color:#5A6482">Copies the unit, lesson name, exercises and aims. Carry-over is not copied. Each group keeps its own.</span>
+            ${IF(v.hasCopyCarryNote, () => `<span style="font-size:12.5px;font-weight:700;color:#9A4A0A">${esc(v.copyCarryNote)}</span>`)}
+            ${FOR(v.copyTargets, ct => `<div${click(ct.onToggle)} style="background:${esc(ct.rowBg)};border:1.5px solid ${esc(ct.rowBorder)};border-radius:10px;padding:9px 11px;display:flex;align-items:flex-start;gap:10px;cursor:${ct.cursor};color:${esc(ct.fg)}">
+                <span style="flex:none;width:22px;height:22px;margin-top:1px;border-radius:6px;border:1.5px solid ${esc(ct.boxBorder)};background:${esc(ct.boxBg)};color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700">${ct.box}</span>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-weight:700;font-size:14.5px">${esc(ct.label)}</span><span style="background:${esc(ct.tagBg)};color:#14213D;font-weight:700;font-size:11px;padding:2px 7px;border-radius:999px">${esc(ct.tag)}</span></div>
+                  <span style="font-size:12.5px;color:#5A6482">${esc(ct.sub)}</span>
+                  ${IF(ct.hasWarn, () => `<span style="font-size:12.5px;font-weight:700;color:${esc(ct.warnFg)}">${esc(ct.warn)}</span>`)}
+                </div>
+              </div>`)}
+            <button${click(v.doCopy)} style="align-self:flex-start;margin-top:4px;border:none;background:${esc(v.copyBtnBg)};color:#fff;font-weight:700;font-size:14px;padding:10px 16px;border-radius:9px;cursor:pointer">${esc(v.copyBtn)}</button>
           </div>`)}
       </div>
       <div style="background:#fff;border:1px solid #E2E6F0;border-radius:12px;padding:14px;margin-top:8px;display:flex;flex-direction:column;gap:8px">

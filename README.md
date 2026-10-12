@@ -15,6 +15,8 @@ Open the live page on a laptop. Then work through these steps:
 5. **After class**: mark each exercise Full, Part or None, add notes, then tap "Save and close lesson".
 6. **Cambridge copy**: fill the yellow boxes. Tap "Download PDF" and choose "Save as PDF".
 
+**Same lesson for several groups:** on the Plan screen, open **Copy plan to other groups**, tick the groups and tap Copy. You get the unit, lesson name, exercises and aims, and then you adjust each group's copy. Carry-over is never copied: each group keeps its own. If a group already had a plan, it moves to that group's Saved lessons.
+
 ## Your data
 
 - Everything is saved in this browser only, in `localStorage`. Another browser or computer will not see it.
