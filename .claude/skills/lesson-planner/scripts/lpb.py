@@ -9,6 +9,8 @@ Commands
   show  GROUP [--all]         the group's next-lesson draft (and with --all its taught lessons) in full
   write GROUP PLAN.json       put a plan into GROUP's next lesson (draft); see SKILL.md for the plan format
                               add --dry-run to validate and preview without saving
+                              add --replace to overwrite the current draft without keeping a copy
+                              (only for revising a plan you wrote yourself that Java hasn't edited)
   push  "message"             commit lessons.json and push it to GitHub
 
 Options
@@ -190,7 +192,7 @@ def build_ex(x, n, presets):
     return e
 
 
-def cmd_write(db, gid, plan_path, dry):
+def cmd_write(db, gid, plan_path, dry, replace=False):
     g = db['groups'].get(gid) or die(f'unknown group {gid}')
     with open(plan_path, encoding='utf-8') as f:
         plan = json.load(f)
@@ -222,7 +224,7 @@ def cmd_write(db, gid, plan_path, dry):
     if dry:
         print('(dry run: nothing saved)')
         return
-    if old_own or dr.get('name'):
+    if (old_own or dr.get('name')) and not replace:
         old = json.loads(json.dumps(dr))
         old.update({'id': uid(), 'savedAt': int(time.time() * 1000), 'exercises': old_own})
         g['plans'] = (g.get('plans') or []) + [old]
@@ -257,9 +259,9 @@ def main():
     elif c == 'show':
         cmd_show(db, args[1], '--all' in args)
     elif c == 'write':
-        dry = '--dry-run' in args
-        args = [a for a in args if a != '--dry-run']
-        if cmd_write(db, args[1], args[2], dry):
+        dry, replace = '--dry-run' in args, '--replace' in args
+        args = [a for a in args if a not in ('--dry-run', '--replace')]
+        if cmd_write(db, args[1], args[2], dry, replace):
             save(d, db)
             print('saved lessons.json (run: lpb.py push "message")')
     else:

@@ -35,7 +35,8 @@ Exercises total 74 min, plus the 5–7 min warm-up, which makes about 80.
 2. **Kind = the book section the exercise sits in.** Every exercise in the Writing section is Writing,
    even when students are reading the model email. Grammar rows always fill `grammar` with the point
    being practised.
-3. **The TB Warmer is folded into exercise 1** (in `note` and `self`). It is not a separate row.
+3. In this plan Java folded the TB Warmer into exercise 1. **He has since decided the Warmer gets its
+   own row** with `num` = `Warmer` (see SKILL.md). Follow SKILL.md, not this row.
 4. **TB procedure becomes a short imperative `note`:** the one or two teacher moves that matter (lead-in
    question, concept check, "do 1st together", "model with example 0", "call out pairs to read answers",
    "ask Ss to predict"). Never the TB's full paragraph.

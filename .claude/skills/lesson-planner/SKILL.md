@@ -51,10 +51,13 @@ That file is Java's own plan, built from CB + TB. It is the model for voice, den
   ex 1.
 - Unnumbered CB parts that are real activities (for example "About you", "Talking points") get their own
   row, with the part's name as `num`.
-- The TB **Warmer** goes into the first exercise of its section: a lead-in in `note`, "Do Warmer: …" in
-  `self`. It is not its own row.
-- The TB **Cooler** becomes a final `Other` (or `Speaking`) row only if the lesson has room. Otherwise
-  mention it in the summary.
+- The TB **Warmer** is **its own row**, placed before the first exercise of its section, with `num` =
+  `Warmer`. Kind and grammar are the same as that section, and it is usually In pairs or All together,
+  2–4 min. It is NOT Java's warm-up: the app's fixed Warm-up row is his own warm-up app, so never
+  touch or mention it. Exercise 1 then starts after the Warmer.
+- The TB **Cooler** becomes a final row with `num` = `Cooler` when the lesson has room (Java approved
+  this). Use the kind of the activity, for example Speaking for a class survey. Otherwise mention it in
+  the summary.
 - "Prepare for the exam page 130" references and Grammar Reference pointers are not rows. Put them in
   `self` if useful.
 
@@ -68,7 +71,7 @@ That file is Java's own plan, built from CB + TB. It is the model for voice, den
   TB, for example `06`, or `Video 03`. **Every exercise with an audio icon needs its track.** If the
   exercise has audio but sits in a Speaking section (for example "Listen to an interview"), keep kind
   Speaking and write the track at the start of `note`: `Track 07: …`. The app only shows `track` for
-  Listening rows.
+  Listening rows. (Java confirmed this.)
 - `note` (one short line, shown big during the lesson): what Java does or says. Imperative, terse, his
   style: abbreviations like Ss, ex-le, 1st are fine. Take the one or two TB moves that matter: lead-in
   question, concept check, "do 1st together", "model …", "Ss predict …", "nominate Ss to read answers",
@@ -117,6 +120,9 @@ That file is Java's own plan, built from CB + TB. It is the model for voice, den
    python3 scripts/lpb.py write GROUP plan.json
    python3 scripts/lpb.py push "Plan: <group> Unit <u> <name>"
    ```
+   To revise a plan you wrote earlier in the session, check first that Java hasn't edited it since:
+   `git pull`, `git log`, and make sure the newest commit is yours. Then use `write … --replace`, so no
+   duplicate lands in Saved lessons. If he has edited it, ask before you overwrite.
    What the script does:
    - puts the plan in the group's **next lesson**
    - keeps that group's carried-over exercises at the top
