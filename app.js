@@ -270,13 +270,34 @@ class App {
     L.run.idx = i;
     L.run.curStart = Date.now();
   }
-  closeLesson() {
+  // class days a lesson can be filed under: not "No class", not already used by another lesson
+  dayOptions(g, keep) {
+    const today = this.today(), next = this.iso(this.calc(g).next), end = this.add(today, 7), out = [];
+    for (let d = this.D(g.startDate); d <= end; d = this.add(d, 1)) {
+      if (!this.isType(d, g.dayType)) continue;
+      const id = this.iso(d);
+      if (g.noClass.includes(id) && id !== keep) continue;
+      if (g.taught.some(t => t.date === id) && id !== keep) continue;
+      out.push(id);
+    }
+    if (!out.includes(next)) out.push(next);
+    if (keep && !out.includes(keep)) out.push(keep);
+    return out.sort();
+  }
+  // the oldest recent class day with no lesson recorded; otherwise the next class day
+  suggestDay(g) {
+    const today = this.today(), from = this.add(today, -14);
+    const open = this.dayOptions(g, null).filter(id => this.D(id) <= today && this.D(id) >= from);
+    return open[0] || this.iso(this.calc(g).next);
+  }
+  dayLabel(id) { return this.fmtS(this.D(id)) + (id === this.iso(this.today()) ? ' (today)' : ''); }
+  closeLesson(day) {
     this.upd((db, s) => {
       const g = db.groups[s.gid]; const L = g.draft; const c = this.calc(g);
       this.syncCarry(db, g, L, true);
       if (L.results.warm == null) L.results.warm = L.run.warmDone ? 'Full' : 'None';
       const un = this.findUnit(g.level, L.unit);
-      L.date = this.iso(c.next);
+      L.date = day || this.iso(c.next);
       g.taught.push({ unit: L.unit, name: L.name, date: L.date, slot: !!(un && !un.skip), lessonId: L.id });
       g.history.push(L);
       g.draft = this.newLesson(g);
@@ -693,6 +714,13 @@ class App {
     // editing a taught lesson
     const editingTaught = !!s.editId && L !== g.draft;
     v.editingTaught = editingTaught; v.canStart = !editingTaught;
+    v.taughtDays = editingTaught && L.date ? this.dayOptions(g, L.date).map(id => ({ id, label: this.dayLabel(id), sel: id === L.date })) : [];
+    v.hasTaughtDay = v.taughtDays.length > 0;
+    v.onTaughtDay = e => {
+      const val = e.target.value;
+      this.upd(d => { const gg = d.groups[g.id], T = this.T(gg, s); const te = gg.taught.find(t => t.lessonId === T.id); T.date = val; if (te) te.date = val; });
+      this.toast(`Moved to ${this.fmtS(this.D(val))}.`);
+    };
     v.editBanner = editingTaught ? `You are editing a taught lesson from ${L.date ? this.fmtS(this.D(L.date)) : 'earlier'}. Changes save as you type.` : '';
     v.backToNext = () => this.setState({ editId: null, sel: null, delEx: null });
     // saved lessons
@@ -1027,7 +1055,10 @@ class App {
     const items = db.carry.filter(k => k.lessonId === L.id).map(k => ({ head: `Carried over from ${this.uLabel(L.unit || '?')}${L.name ? ' · ' + L.name : ''}`, text: `${this.exShort(k.ex)} (${k.mark === 'Part' ? 'part done' : 'not done'})`, canDel: false }));
     L.notes.forEach(n => items.push({ head: 'Note to self', text: n.text, canDel: true, onDel: () => this.upd(d => { const a = this.T(d.groups[g.id], s).notes; const j = a.findIndex(x => x.id === n.id); if (j >= 0) a.splice(j, 1); }) }));
     v.nlItems = items; v.nlEmpty = !items.length;
-    v.closeLesson = () => this.closeLesson();
+    const cd = s.closeDay && s.closeDay.gid === g.id && this.dayOptions(g, null).includes(s.closeDay.date) ? s.closeDay.date : this.suggestDay(g);
+    v.closeDays = this.dayOptions(g, null).map(id => ({ id, label: this.dayLabel(id), sel: id === cd }));
+    v.onCloseDay = e => this.setState({ closeDay: { gid: g.id, date: e.target.value } });
+    v.closeLesson = () => { this.closeLesson(cd); this.setState({ closeDay: null }); };
   }
 
   cambVals(v, db, s, g, L, gc) {
@@ -1281,6 +1312,7 @@ function tPlan(v) {
     </div>`)}
   ${IF(v.editingTaught, () => `<div style="background:#E6EDFF;border-bottom:1px solid #2F5BEA;padding:12px 32px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
       <span style="font-size:16px;font-weight:600;flex:1;min-width:260px">${esc(v.editBanner)}</span>
+      ${IF(v.hasTaughtDay, () => `<label style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600">Taught on<select${input(v.onTaughtDay)} style="height:38px;border:1.5px solid #14213D;border-radius:8px;padding:0 10px;font-size:15px;font-weight:700;background:#fff;color:#14213D;cursor:pointer">${FOR(v.taughtDays, o => `<option value="${o.id}"${o.sel ? ' selected' : ''}>${esc(o.label)}</option>`)}</select></label>`)}
       <button${click(v.backToNext)} style="border:1.5px solid #14213D;background:#fff;font-weight:700;font-size:14px;padding:8px 14px;border-radius:8px;cursor:pointer">Back to the next lesson</button>
     </div>`)}
   <main style="padding:22px 32px 48px;display:grid;grid-template-columns:minmax(300px,410px) minmax(0,1fr);gap:24px;align-items:start">
@@ -1557,7 +1589,8 @@ function tAfter(v) {
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
     <span style="background:${esc(v.lvTint)};font-weight:700;font-size:14px;padding:5px 12px;border-radius:999px">${esc(v.lvName)}</span>
     <span style="font-family:'Bricolage Grotesque';font-size:32px;font-weight:700;letter-spacing:-0.01em">Wrap-up · ${esc(v.lessonTitle)}</span>
-    <button${click(v.closeLesson)} style="margin-left:auto;border:none;background:#14213D;color:#fff;font-weight:700;font-size:16px;padding:14px 24px;border-radius:10px;cursor:pointer">Save and close lesson</button>
+    <label style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:#3A4566">Lesson day<select${input(v.onCloseDay)} style="height:38px;border:1.5px solid #14213D;border-radius:8px;padding:0 10px;font-size:15px;font-weight:700;background:#fff;color:#14213D;cursor:pointer">${FOR(v.closeDays, o => `<option value="${o.id}"${o.sel ? ' selected' : ''}>${esc(o.label)}</option>`)}</select></label>
+    <button${click(v.closeLesson)} style="border:none;background:#14213D;color:#fff;font-weight:700;font-size:16px;padding:14px 24px;border-radius:10px;cursor:pointer">Save and close lesson</button>
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:stretch">
     <div style="background:#fff;border:1px solid #E2E6F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px">
@@ -1746,6 +1779,7 @@ function morph(from, to) {
   for (const a of Array.from(to.attributes)) if (from.getAttribute(a.name) !== a.value) from.setAttribute(a.name, a.value);
   if (from.tagName === 'INPUT') { const val = to.getAttribute('value') || ''; if (from.value !== val) from.value = val; return; }
   if (from.tagName === 'TEXTAREA') { const val = to.textContent; if (from.value !== val) from.value = val; return; }
+  if (from.tagName === 'SELECT') { morphChildren(from, to); const o = to.querySelector('option[selected]'); if (o && from.value !== o.value) from.value = o.value; return; }
   morphChildren(from, to);
 }
 function morphChildren(from, to) {
