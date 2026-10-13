@@ -127,6 +127,20 @@ That file is Java's own plan, built from CB + TB. It is the model for voice, den
     Ex 4.*
   - Use the full words here. Never TTT, PW or similar: write "teacher talking time".
 
+## Carry-over items Java wants to teach
+
+If Java says to include carry-over (`show GROUP` lists it), take those items into the plan **as carried-over
+exercises**, the way the app's "Add to today" button does:
+- Put them at the top, in book order.
+- Give each a new `id` and `fromCarry: {unit, name}` from the carry item.
+- Enrich them with the new pages: note, self, track, correct page.
+- Remove those items from `db.carry`. Leave carry items he didn't choose untouched.
+
+Write the new material with `lpb.py write` first (it keeps fromCarry rows on top), then inject the carry
+rows with a short Python edit of `lessons.json` before `push`. Total minutes include the carry rows. If
+everything doesn't fit, move a whole section (e.g. the grammar) to next lesson rather than half of it,
+and say so.
+
 ## Step 3: write it into the app
 
 1. Write the plan as JSON, for example to the session scratchpad as `plan.json`:
