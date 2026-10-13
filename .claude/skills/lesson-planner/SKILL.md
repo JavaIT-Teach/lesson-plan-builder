@@ -60,6 +60,10 @@ That file is Java's own plan, built from CB + TB. It is the model for voice, den
   `Warmer`. Kind and grammar are the same as that section, and it is usually In pairs or All together,
   2–4 min. It is NOT Java's warm-up: the app's fixed Warm-up row is his own warm-up app, so never
   touch or mention it. Exercise 1 then starts after the Warmer.
+- If Java asks to **review** something (e.g. "review to be"), add a row right at the top, before the
+  Warmer: `num` = `Review`, `page` empty, kind Grammar (or Vocabulary) with the point in `grammar`, and
+  All together, 4–6 min. Give a quick board prompt in `note` and concrete prompts and questions in `self`.
+  The Cambridge copy shows it as its own Review stage.
 - The TB **Cooler** becomes a final row with `num` = `Cooler` when the lesson has room (Java approved
   this). Use the kind of the activity, for example Speaking for a class survey. Otherwise mention it in
   the summary.

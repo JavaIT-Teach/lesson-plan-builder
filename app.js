@@ -1141,7 +1141,7 @@ class App {
     const Y = '#FFF1B8';
     // one row per stage: Warm-up, Lead-in (the book's Warmer), then each run of same-kind exercises, then Cooler / Review
     const AIM = { Listening: 'Develop listening for gist and specific information.', Vocabulary: 'Present and practise new vocabulary.', Speaking: 'Develop speaking fluency.', Reading: 'Develop reading for gist and detail.', Writing: 'Develop writing skills.', Other: '' };
-    const kindOf = e => /^(warmer|lead-?in)$/i.test(String(e.num).trim()) ? 'lead' : /^(cooler|review)$/i.test(String(e.num).trim()) ? 'cool' : e.kind || 'Other';
+    const kindOf = e => { const n = String(e.num).trim(); return /^(warmer|lead-?in)$/i.test(n) ? 'lead' : /^review/i.test(n) ? 'review' : /^cooler/i.test(n) ? 'cool' : e.kind || 'Other'; };
     const groups = [];
     C.exercises.filter(e => !e.skipped).forEach(e => { const k = kindOf(e), last = groups[groups.length - 1]; if (last && last.k === k) last.ex.push(e); else groups.push({ k, ex: [e] }); });
     const rows = [{ stage: 'Warm-up', time: '5-7', proc: 'Warm-up game from the app.', aim: 'Wake up the class. Review.', inter: 'GW' }];
@@ -1150,12 +1150,12 @@ class App {
       const nums = ex.map(e => e.num).filter(n => /^\d+$/.test(String(n)));
       const where = [pages.length && `p. ${pages.join(', ')}`, nums.length && `ex. ${nums.length > 1 ? nums[0] + '-' + nums[nums.length - 1] : nums[0]}`].filter(Boolean).join(', ');
       const points = [...new Set(ex.map(e => e.grammar).filter(Boolean))];
-      const stage = k === 'lead' ? 'Lead-in' : k === 'cool' ? 'Cooler / Review' : k === 'Grammar' ? `Grammar${points.length ? ': ' + points.join(' / ') : ''}` : k;
+      const stage = k === 'lead' ? 'Lead-in' : k === 'review' ? `Review${points.length ? ': ' + points.join(' / ') : ''}` : k === 'cool' ? 'Cooler' : k === 'Grammar' ? `Grammar${points.length ? ': ' + points.join(' / ') : ''}` : k;
       const mins = ex.reduce((a, e) => a + this.em(e), 0);
       const step = e => [e.note, e.kind === 'Listening' && e.track ? `Track ${e.track}.` : ''].filter(Boolean).join(' ');
-      const proc = ex.length === 1 && (k === 'lead' || k === 'cool') ? step(ex[0]) : ex.map(e => step(e) && `Ex ${e.num}: ${step(e)}`).filter(Boolean).join('\n');
-      const aim = k === 'lead' ? 'Engage Ss, set the context and activate the topic.' : k === 'cool' ? 'Review the lesson and end on a positive note.' : k === 'Grammar' ? (points.length ? `Clarify and practise ${points.join(' and ')}.` : '') : AIM[k] || '';
-      rows.push({ stage: stage + (where && k !== 'lead' && k !== 'cool' ? ` (${where})` : ''), time: mins ? String(mins) : '', proc, aim, inter: [...new Set(ex.map(e => K.CW[e.who]).filter(Boolean))].join(', ') });
+      const proc = ex.length === 1 && ['lead', 'cool', 'review'].includes(k) ? step(ex[0]) : ex.map(e => step(e) && `Ex ${e.num}: ${step(e)}`).filter(Boolean).join('\n');
+      const aim = k === 'lead' ? 'Engage Ss, set the context and activate the topic.' : k === 'review' ? `Review ${points.length ? points.join(' and ') : 'language from previous lessons'}.` : k === 'cool' ? 'Review the lesson and end on a positive note.' : k === 'Grammar' ? (points.length ? `Clarify and practise ${points.join(' and ')}.` : '') : AIM[k] || '';
+      rows.push({ stage: stage + (where && !['lead', 'cool', 'review'].includes(k) ? ` (${where})` : ''), time: mins ? String(mins) : '', proc, aim, inter: [...new Set(ex.map(e => K.CW[e.who]).filter(Boolean))].join(', ') });
     });
     v.cambRows = rows.map(r => {
       const o = {};
@@ -1164,7 +1164,7 @@ class App {
     });
     v.cambNoEx = !C.exercises.length;
     v.legend = [
-      { a: 'Your exercises', b: 'Grouped into stages: Warm-up, Lead-in (Warmer), each part of the lesson, Cooler / Review. Time is the stage total.' },
+      { a: 'Your exercises', b: 'Grouped into stages: Warm-up, Review, Lead-in (Warmer), each part of the lesson, Cooler. Time is the stage total.' },
       { a: 'Who does it', b: 'Interaction column. On their own = Individual, All together = Frontal, In pairs = PW' },
       { a: 'Short notes', b: 'Procedure column, one line per exercise. Notes to self stay private.' },
       { a: 'Exercise kind', b: 'Aim of stage, written for you' },
@@ -1217,7 +1217,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 13 Oct</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 13 Oct b</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
