@@ -8,9 +8,11 @@ Commands
   status                      every group: next lesson date, roadmap unit/section, current draft, carry-over
   show  GROUP [--all]         the group's next-lesson draft (and with --all its taught lessons) in full
   write GROUP PLAN.json       put a plan into GROUP's next lesson (draft); see SKILL.md for the plan format
+                              add --for SECTION (e.g. --for 2.2) to plan a later roadmap lesson ahead
                               add --dry-run to validate and preview without saving
                               add --replace to overwrite the current draft without keeping a copy
                               (only for revising a plan you wrote yourself that Java hasn't edited)
+  set-aims GROUP AIMS.json    fill only the Cambridge aims of the next lesson (or --for SECTION); exercises untouched
   push  "message"             commit lessons.json and push it to GitHub
 
 Options
@@ -79,6 +81,34 @@ def next_day(g):
     return d
 
 
+def done_of(g):
+    return sum(1 for t in g['taught'] if t.get('slot'))
+
+
+def plan_for(g, k):
+    return g['draft'] if k == done_of(g) else next((p for p in g.get('plans') or [] if p.get('forSlot') == k), None)
+
+
+def has_own(L):
+    return bool(L) and any(not e.get('fromCarry') for e in L['exercises'])
+
+
+def slot_date(g, k):
+    d = next_day(g)
+    for _ in range(done_of(g), k):
+        d += timedelta(days=1)
+        while not is_type(d, g['dayType']) or d.isoformat() in g['noClass']:
+            d += timedelta(days=1)
+    return d
+
+
+def sec_label(sl):
+    if sl['u'] == 'FE':
+        return f"Final exam {sl['i'] + 1}"
+    u = 'Exam prep' if sl['u'] == 'PREP' else f"Unit {sl['u']}"
+    return f"{u}{', Part ' + str(sl['i'] + 1) if sl['n'] > 1 else ''} ({sl['sec']})"
+
+
 def label(g):
     return f"{LEVEL[g['level']]}{' 30+' if g.get('is30') else ''}, {g['dayType']} days, {g['start']}"
 
@@ -139,11 +169,19 @@ def cmd_status(db):
         done = sum(1 for t in g['taught'] if t.get('slot'))
         sl = slots(g['level'])
         nxt = sl[done] if done < len(sl) else None
-        where = f"Unit {nxt['u']}, book {nxt['sec']} (lesson {nxt['i'] + 1} of {nxt['n']})" if nxt else 'course finished'
+        where = sec_label(nxt) if nxt else 'course finished'
         dr = g['draft']
         own = [e for e in dr['exercises'] if not e.get('fromCarry')]
         carry = [c for c in db['carry'] if c['groupId'] == gid and c['lessonId'] != dr['id']]
         print(f"{gid:8} {label(g):36} next {next_day(g).strftime('%a %d %b')} · {where} · {done}/38 done")
+        ahead = []
+        for k in range(done, len(sl)):
+            if has_own(plan_for(g, k)):
+                ahead.append(sec_label(sl[k]))
+            else:
+                print(f"         next LP to prepare: {sec_label(sl[k])} for {slot_date(g, k).strftime('%a %d %b')}"
+                      + (f" · already planned: {', '.join(ahead)}" if ahead else ''))
+                break
         print(f"         draft: Unit {dr.get('unit') or '?'} {dr.get('name') or ''} · {len(own)} own exercises"
               f"{' · ' + str(len(dr['exercises']) - len(own)) + ' carried-over in plan' if len(own) < len(dr['exercises']) else ''}"
               f" · {len(carry)} waiting in carry-over{' · LESSON IN PROGRESS' if dr['run'].get('lessonStart') else ''}")
@@ -153,6 +191,12 @@ def cmd_show(db, gid, all_):
     g = db['groups'].get(gid) or die(f'unknown group {gid}')
     print(label(g))
     show_lesson(f"Next lesson ({next_day(g).strftime('%a %d %b')})", g['draft'])
+    print('  aims: ' + json.dumps(g['draft']['aims'], ensure_ascii=False))
+    for p in sorted([p for p in g.get('plans') or [] if p.get('forSlot') is not None and p['forSlot'] > done_of(g)], key=lambda p: p['forSlot']):
+        show_lesson(f"Planned ahead for {sec_label(slots(g['level'])[p['forSlot']])} ({slot_date(g, p['forSlot']).strftime('%a %d %b')})", p)
+    used = [L['aims'].get('personal') for L in g['history'][-4:] + [g['draft']] if L['aims'].get('personal')]
+    if used:
+        print('Recent personal aims (pick a different one): ' + ' | '.join(used))
     carry = [c for c in db['carry'] if c['groupId'] == gid and c['lessonId'] != g['draft']['id']]
     if carry:
         print('Carry-over waiting (only for this group):')
@@ -192,13 +236,32 @@ def build_ex(x, n, presets):
     return e
 
 
-def cmd_write(db, gid, plan_path, dry, replace=False):
+def cmd_write(db, gid, plan_path, dry, replace=False, sec=None):
     g = db['groups'].get(gid) or die(f'unknown group {gid}')
     with open(plan_path, encoding='utf-8') as f:
         plan = json.load(f)
-    dr = g['draft']
-    if dr['run'].get('lessonStart'):
-        die(f'{label(g)}: the lesson is in progress in the app. Finish it first.')
+    done, sl = done_of(g), slots(g['level'])
+    k = done
+    if sec:
+        k = next((i for i in range(done, len(sl)) if sl[i]['sec'] == sec), None)
+        if k is None:
+            die(f"{sec} is not an upcoming {LEVEL[g['level']]} roadmap lesson. Upcoming: {', '.join(sec_label(x) for x in sl[done:done + 6])}")
+    ahead_new = None
+    if k == done:
+        dr = g['draft']
+        if dr['run'].get('lessonStart'):
+            die(f'{label(g)}: the lesson is in progress in the app. Finish it first.')
+    else:
+        dr = plan_for(g, k)
+        if not dr:
+            ahead_new = dr = {'id': uid(), 'unit': sl[k]['u'], 'name': '', 'date': None, 'exercises': [],
+                              'aims': {'main': '', 'sub': '', 'personal': '', 'prob1': '', 'prob2': ''},
+                              'run': {'lessonStart': None, 'warmDone': False, 'idx': None, 'status': {}, 'curStart': None},
+                              'results': {}, 'drop': {}, 'notes': [], 'forSlot': k}
+        if not plan.get('unit'):
+            plan['unit'] = sl[k]['u']
+        elif str(plan['unit']) != sl[k]['u']:
+            print(f"warning: plan says Unit {plan['unit']} but {sec} is {sec_label(sl[k])}", file=sys.stderr)
     base = {1, 2, 3, 5, 7, 15, 20}
     presets = base | set(db.get('customMins') or [])
     exs = [build_ex(x, i, presets) for i, x in enumerate(plan.get('exercises', []), 1)]
@@ -217,7 +280,9 @@ def cmd_write(db, gid, plan_path, dry, replace=False):
     if plan.get('aims'):
         new['aims'] = {**dr['aims'], **{k: v for k, v in plan['aims'].items() if k in dr['aims']}}
     total = sum(e['min'] for e in exs if not e['skipped'] and isinstance(e['min'], int))
-    print(f"{label(g)} · next lesson {next_day(g).strftime('%a %d %b')}")
+    print(f"{label(g)} · {'next lesson' if k == done else 'planned ahead: ' + sec_label(sl[k])} {slot_date(g, k).strftime('%a %d %b')}")
+    if not any((new.get('aims') or {}).values()):
+        print('warning: aims are empty; the skill should fill main, sub, personal, prob1, prob2', file=sys.stderr)
     show_lesson('New plan', new)
     if total + 7 > 82 or total + 5 < 70:
         print(f"warning: exercises add up to {total} min; with the 5-7 min warm-up the lesson is {total + 5}-{total + 7} of 80", file=sys.stderr)
@@ -227,9 +292,13 @@ def cmd_write(db, gid, plan_path, dry, replace=False):
     if (old_own or dr.get('name')) and not replace:
         old = json.loads(json.dumps(dr))
         old.update({'id': uid(), 'savedAt': int(time.time() * 1000), 'exercises': old_own})
+        old.pop('forSlot', None)
         g['plans'] = (g.get('plans') or []) + [old]
-        print(f"The group's previous plan ({len(old_own)} exercises) was moved to its Saved lessons.")
-    g['draft'] = new
+        print(f"The previous plan for this lesson ({len(old_own)} exercises) was moved to Saved lessons.")
+    if k == done:
+        g['draft'] = new
+    else:
+        g['plans'] = [p for p in g.get('plans') or [] if p is not dr] + [new]
     added = sorted(presets - base - set(db.get('customMins') or []))
     if added:
         db['customMins'] = (db.get('customMins') or []) + added
@@ -258,10 +327,31 @@ def main():
         cmd_status(db)
     elif c == 'show':
         cmd_show(db, args[1], '--all' in args)
+    elif c == 'set-aims':
+        sec = None
+        if '--for' in args:
+            i = args.index('--for'); sec = args[i + 1]; del args[i:i + 2]
+        g = db['groups'].get(args[1]) or die(f'unknown group {args[1]}')
+        sl, done = slots(g['level']), done_of(g)
+        k = done if not sec else next((i for i in range(done, len(sl)) if sl[i]['sec'] == sec), None)
+        L = plan_for(g, k) if k is not None else None
+        if not L:
+            die('no plan for that lesson yet')
+        with open(args[2], encoding='utf-8') as f:
+            aims = json.load(f)
+        bad = set(aims) - set(L['aims'])
+        if bad:
+            die(f'unknown aim fields {bad}; use main, sub, personal, prob1, prob2')
+        L['aims'].update(aims)
+        save(d, db)
+        print('aims set: ' + json.dumps(L['aims'], ensure_ascii=False, indent=1))
     elif c == 'write':
         dry, replace = '--dry-run' in args, '--replace' in args
+        sec = None
+        if '--for' in args:
+            i = args.index('--for'); sec = args[i + 1]; del args[i:i + 2]
         args = [a for a in args if a not in ('--dry-run', '--replace')]
-        if cmd_write(db, args[1], args[2], dry, replace):
+        if cmd_write(db, args[1], args[2], dry, replace, sec):
             save(d, db)
             print('saved lessons.json (run: lpb.py push "message")')
     else:

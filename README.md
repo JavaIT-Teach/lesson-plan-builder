@@ -15,6 +15,10 @@ Open the live page on a laptop. Then work through these steps:
 5. **After class**: mark each exercise Full, Part or None, add notes, then tap "Save and close lesson".
 6. **Cambridge copy**: fill the yellow boxes. Tap "Download PDF" and choose "Save as PDF".
 
+**Today and next to prepare:** each group card on the Week screen shows the lesson to be taught today (for example "Unit 3, Part 1 (2.1)") and the next lesson that still needs a plan, with a **Prepare it** button. On the Plan screen, **Upcoming lessons** lists the next roadmap lessons. Plan any of them ahead. A lesson planned ahead becomes the next lesson by itself once the one before it is closed.
+
+**Cambridge copy:** the table is grouped by stage: Warm-up, Lead-in (the book's Warmer), one row for each part of the lesson, and Cooler / Review.
+
 **Same lesson for several groups:** on the Plan screen, open **Copy plan to other groups**, tick the groups and tap Copy. You get the unit, lesson name, exercises and aims, and then you adjust each group's copy. Carry-over is never copied: each group keeps its own. If a group already had a plan, it moves to that group's Saved lessons.
 
 ## Your data

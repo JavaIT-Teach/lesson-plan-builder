@@ -26,18 +26,23 @@ it by hand in the app.
 
 ## Step 1: check the input and the group
 
-1. Run `python3 scripts/lpb.py status`. It shows each group's next lesson date, its roadmap unit and
-   book section, what is already in its draft, and its carry-over.
-2. Work out which group the plan is for. If Java didn't say, ask. Group ids:
+1. Run `python3 scripts/lpb.py status`. It shows each group's next lesson as "Unit 3, Part 1 (2.1)",
+   its date, the **next lesson still to be prepared** (Java often plans a few ahead), what is already
+   planned, and the carry-over. Always name lessons this way: Unit number, Part 1 or 2 when the unit
+   takes two lessons, and the book section in brackets.
+2. Work out which roadmap lesson the pages are for. Match the CB pages to a book section. If it isn't
+   the group's next lesson, it is a lesson planned **ahead**: write it with `--for SECTION`, e.g.
+   `--for 2.2`. If unsure, ask: "Is this Unit 4, Part 1 (2.2) for Thu 15 Oct?"
+3. Work out which group the plan is for. If Java didn't say, ask. Group ids:
    - Odd days: `b-odd` Beginner 15:30, `e-odd` Elementary 17:00, `b30-odd` Beginner 30+ 18:30
    - Even days: `b-even` Beginner 14:00, `e-even` Elementary 15:30, `p-even` Pre-Intermediate 17:00,
      `i-even` Intermediate 18:30
-3. Wait until he says all pages are uploaded. He can only attach 5 images per message and will say
+4. Wait until he says all pages are uploaded. He can only attach 5 images per message and will say
    "all done". Don't start before that.
-4. Sort the pages into **coursebook (CB)** and **teacher's book (TB)**, and match every CB exercise to its
+5. Sort the pages into **coursebook (CB)** and **teacher's book (TB)**, and match every CB exercise to its
    TB notes. If a TB page or a CB page is missing for a section, say so plainly. Plan that section from
    what you have, and mark it in the plan's `self` as "TB page missing".
-5. The CB page number of a section is often not visible in a cropped image. Use the visible page number
+6. The CB page number of a section is often not visible in a cropped image. Use the visible page number
    from the same spread, or the footer (for example "BEST FRIENDS FOREVER 17"). If you are not sure,
    **say which pages you assumed** in your summary.
 
@@ -100,13 +105,31 @@ That file is Java's own plan, built from CB + TB. It is the model for voice, den
 **Lesson fields**
 - `unit`: the group's roadmap unit from `status` (the app also uses it for the roadmap count).
 - `name`: the CB unit or page title, for example `Best Friends Forever`.
-- `aims`: leave empty unless Java asks. He fills the Cambridge aims himself.
+- `aims`: **always fill all five.** They go on the Cambridge copy for his supervisor, so write them in
+  Cambridge's usual style:
+  - `main`: "By the end of the lesson, Ss will be able to …". This is the lesson's main language or skill
+    goal, in a real-use context (e.g. use -ing forms after verbs and adjective + preposition to talk about
+    themselves and their friends).
+  - `sub`: 2–3 short items covering the other stages: vocabulary, the skill practised (listening for
+    specific information, speaking fluency) and the exam task if there is one.
+  - `personal`: **Java's own teaching goal**, one short sentence with how he'll do it, e.g. *Reduce
+    teacher talking time: short instructions, pairs check before feedback.* Others: manage time better
+    (keep to the minutes, use a timer), grade language to the level, clearer instructions with checking
+    questions, monitor more actively, more peer correction, better board work, give everyone a turn.
+    Pick one that fits this lesson's risk. `show GROUP` lists his recent personal aims, so **don't repeat
+    the last one**.
+  - `prob1`, `prob2`: a likely problem **and** its solution, specific to this material, e.g. *Ss use the
+    infinitive after enjoy (enjoyed to visit). Solution: board the 3 rules from Ex 1 and point back during
+    Ex 4.*
+  - Use the full words here. Never TTT, PW or similar: write "teacher talking time".
 
 ## Step 3: write it into the app
 
 1. Write the plan as JSON, for example to the session scratchpad as `plan.json`:
    ```json
    {"unit": "2", "name": "Best Friends Forever",
+    "aims": {"main": "By the end of the lesson, Ss will be able to …", "sub": "…", "personal": "…",
+             "prob1": "… Solution: …", "prob2": "… Solution: …"},
     "exercises": [
       {"page": "16", "num": "1", "kind": "Grammar", "grammar": "-ing forms", "who": "All together, I lead",
        "min": 5, "note": "…", "self": "Do Warmer: … Answers 1a 2c 3b"}
@@ -117,9 +140,13 @@ That file is Java's own plan, built from CB + TB. It is the model for voice, den
 3. Before writing, tell Java in one line to make sure the app's dot says **"Saved to GitHub"** (green).
    Then save and push:
    ```
-   python3 scripts/lpb.py write GROUP plan.json
-   python3 scripts/lpb.py push "Plan: <group> Unit <u> <name>"
+   python3 scripts/lpb.py write GROUP plan.json              # the group's next lesson
+   python3 scripts/lpb.py write GROUP plan.json --for 2.2    # or a later lesson, planned ahead
+   python3 scripts/lpb.py push "Plan: <group> Unit <u> Part <n> <name>"
    ```
+   A lesson planned ahead appears in the app under **Upcoming lessons**. It becomes the next lesson by
+   itself once the lessons before it are closed. To fill only the aims of a plan Java has already edited,
+   use `set-aims GROUP aims.json [--for SECTION]`. It leaves the exercises untouched.
    To revise a plan you wrote earlier in the session, check first that Java hasn't edited it since:
    `git pull`, `git log`, and make sure the newest commit is yours. Then use `write … --replace`, so no
    duplicate lands in Saved lessons. If he has edited it, ask before you overwrite.
@@ -135,7 +162,8 @@ That file is Java's own plan, built from CB + TB. It is the model for voice, den
 
 ## Step 4: report (short, plain words)
 
-- Group, date, unit, how many exercises, and total minutes.
+- Group, lesson ("Unit 4, Part 1 (2.2)"), date, how many exercises, and total minutes.
+- The 5 aims you wrote, in one short block.
 - Tracks you assigned, exercise by exercise.
 - Assumptions you made (page numbers, missing TB pages, anything you simplified or suggest skipping).
 - "Open it in the app and adjust."

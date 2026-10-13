@@ -193,6 +193,32 @@ class App {
     const live = isToday ? (nowMin < this.tm(g.start) ? 'later' : nowMin <= this.tm(g.end) ? 'now' : 'over') : null;
     return { slots, done, passed, diff, ref, today, next, isToday, live, nextSlot: slots[done] };
   }
+  // roadmap position: slot k = the k-th lesson on the roadmap (0-based). The draft is always slot "done";
+  // lessons planned ahead live in g.plans with forSlot = k and become the draft when their turn comes.
+  slotDate(g, k) {
+    const c = this.calc(g); let d = c.next;
+    for (let i = c.done; i < k; i++) { d = this.add(d, 1); while (!this.isType(d, g.dayType) || g.noClass.includes(this.iso(d))) d = this.add(d, 1); }
+    return d;
+  }
+  aheadFor(g, k) { return (g.plans || []).find(p => p.forSlot === k); }
+  hasOwnPlan(L) { return !!L && L.exercises.some(e => !e.fromCarry); }
+  planFor(g, k) { return k === this.calc(g).done ? g.draft : this.aheadFor(g, k); }
+  nextToPrepare(g) {
+    const c = this.calc(g);
+    for (let k = c.done; k < c.slots.length; k++) if (!this.hasOwnPlan(this.planFor(g, k))) return k;
+    return null;
+  }
+  // "Unit 3, Part 1 (2.1)" · "Unit 2 (1.3)" · "Final exam 1"
+  secLabel(sl) { return !sl ? '—' : sl.u === 'FE' ? `Final exam ${sl.i + 1}` : `${this.uLabel(sl.u)}${sl.n > 1 ? `, Part ${sl.i + 1}` : ''} (${sl.sec})`; }
+  slotOf(g, L) { const c = this.calc(g); return L === g.draft ? c.done : L.forSlot != null ? L.forSlot : null; }
+  planAhead(gid, k) {
+    const g = this.state.db.groups[gid], c = this.calc(g);
+    const go = editId => { this.setState({ gid, screen: 'plan', editId, sel: null, delEx: null, delLesson: null, copy: null }); window.scrollTo(0, 0); };
+    if (k === c.done) return go(null);
+    const p = this.aheadFor(g, k), id = p ? p.id : this.uid();
+    if (!p) this.upd(d => { const gg = d.groups[gid]; const nl = this.newLesson(gg); Object.assign(nl, { id, unit: c.slots[k].u, forSlot: k }); gg.plans = (gg.plans || []).concat(nl); });
+    go(id);
+  }
   pill(diff) {
     if (diff === 0) return { t: 'On track', bg: '#DDF3EC', fg: '#0F6B55' };
     if (diff > 0) return { t: `Ahead by ${diff}`, bg: '#DDF1F7', fg: '#0B5568' };
@@ -239,7 +265,7 @@ class App {
   }
   T(gg, s) {
     const id = (s || this.state).editId;
-    if (id) { const h = gg.history.find(x => x.id === id); if (h) return h; }
+    if (id) { const h = gg.history.find(x => x.id === id) || (gg.plans || []).find(x => x.id === id); if (h) return h; }
     return gg.draft;
   }
   lTitle(L) { return `${this.uLabel(L.unit || '?')}${L.name ? ' · ' + L.name : ''}`; }
@@ -300,7 +326,8 @@ class App {
       L.date = day || this.iso(c.next);
       g.taught.push({ unit: L.unit, name: L.name, date: L.date, slot: !!(un && !un.skip), lessonId: L.id });
       g.history.push(L);
-      g.draft = this.newLesson(g);
+      const nk = g.taught.filter(t => t.slot).length, ah = (g.plans || []).find(p => p.forSlot === nk);
+      if (ah) { g.plans = g.plans.filter(p => p !== ah); delete ah.forSlot; g.draft = ah; } else g.draft = this.newLesson(g);
       return { screen: 'week', sel: null, noteEdit: null, dbDayType: null };
     });
     this.queuePush(500);
@@ -600,6 +627,19 @@ class App {
       if (prev && prev.skip && !x.taught.some(t => t.unit === prev.u)) skipNote = `Unit ${prev.u} is skipped`;
     }
     const nu = slot ? this.findUnit(x.level, slot.u) : null;
+    const todayIso = this.iso(c.today), tIdx = x.taught.filter(t => t.slot).findIndex(t => t.date === todayIso);
+    const ready = this.hasOwnPlan(x.draft);
+    let todayHead, todayVal, todayTag = '', todayTagBg = '', todayTagFg = '';
+    if (tIdx >= 0) { todayHead = 'Taught today:'; todayVal = this.secLabel(c.slots[tIdx]); }
+    else if (c.isToday && slot) { todayHead = 'To be taught today:'; todayVal = this.secLabel(slot); todayTag = ready ? 'Plan ready' : 'No plan yet'; }
+    else { todayHead = 'No class today. Next:'; todayVal = slot ? `${this.secLabel(slot)} on ${this.fmtS(c.next)}` : 'Course finished'; todayTag = slot ? (ready ? 'Plan ready' : 'No plan yet') : ''; }
+    if (todayTag) { todayTagBg = ready ? '#DDF3EC' : '#FFF1C7'; todayTagFg = ready ? '#0F6B55' : '#8A4B00'; }
+    const pk = this.nextToPrepare(x), ps = pk != null ? c.slots[pk] : null;
+    const prep = {
+      prepVal: ps ? this.secLabel(ps) : 'All planned', prepSub: ps ? `for ${this.fmtS(this.slotDate(x, pk))}` : '',
+      hasPrep: !!ps, prepBtn: ps ? 'Prepare it →' : '',
+      onPrepare: ev => { ev.stopPropagation(); this.planAhead(x.id, pk); }
+    };
     const draftDiff = x.draft.unit && slot && x.draft.unit !== slot.u;
     return {
       time: `${x.start} - ${x.end}`, level: lv.name, is30: x.is30, tint: lv.tint, dark: lv.dark, color: lv.c,
@@ -614,6 +654,7 @@ class App {
       planText: [planned ? `${planned} exercise${planned > 1 ? 's' : ''} planned` : '', draftDiff ? `Planned unit: ${x.draft.unit}` : ''].filter(Boolean).join(' · '),
       btn: planned ? `Open plan · ${this.uLabel(x.draft.unit || (slot && slot.u))}` : `Plan ${this.uLabel(x.draft.unit || (slot && slot.u))}`,
       hasSkipNote: !!skipNote, skipNote,
+      todayHead, todayVal, todayTag, hasTodayTag: !!todayTag, todayTagBg, todayTagFg, ...prep,
       onOpen: () => { this.setState({ gid: x.id, screen: 'plan', sel: null, editId: null, delEx: null, delLesson: null }); window.scrollTo(0, 0); }
     };
   }
@@ -713,6 +754,7 @@ class App {
     v.onName = e => this.upd(d => { const gg = d.groups[g.id], T = this.T(gg, s); T.name = e.target.value; syncTaught(gg, T); });
     // editing a taught lesson
     const editingTaught = !!s.editId && L !== g.draft;
+    const isAhead = editingTaught && L.forSlot != null && !L.date;
     v.editingTaught = editingTaught; v.canStart = !editingTaught;
     v.taughtDays = editingTaught && L.date ? this.dayOptions(g, L.date).map(id => ({ id, label: this.dayLabel(id), sel: id === L.date })) : [];
     v.hasTaughtDay = v.taughtDays.length > 0;
@@ -721,7 +763,8 @@ class App {
       this.upd(d => { const gg = d.groups[g.id], T = this.T(gg, s); const te = gg.taught.find(t => t.lessonId === T.id); T.date = val; if (te) te.date = val; });
       this.toast(`Moved to ${this.fmtS(this.D(val))}.`);
     };
-    v.editBanner = editingTaught ? `You are editing a taught lesson from ${L.date ? this.fmtS(this.D(L.date)) : 'earlier'}. Changes save as you type.` : '';
+    v.editBanner = isAhead ? `Planning ahead: the lesson for ${this.fmtS(this.slotDate(g, L.forSlot))} (${this.secLabel(gc.slots[L.forSlot])}). It becomes the next lesson by itself when its turn comes. Changes save as you type.`
+      : editingTaught ? `You are editing a taught lesson from ${L.date ? this.fmtS(this.D(L.date)) : 'earlier'}. Changes save as you type.` : '';
     v.backToNext = () => this.setState({ editId: null, sel: null, delEx: null });
     // saved lessons
     const rowFor = (key, type, when, Lx, tag, extra) => {
@@ -740,9 +783,24 @@ class App {
       onOpen: () => this.setState({ editId: null, sel: null, delEx: null }),
       onYes: () => { this.upd(d => { const gg = d.groups[g.id]; gg.draft = this.newLesson(gg); }, { delLesson: null, editId: null, sel: null }); this.toast('Lesson plan deleted. Carry-over from it stays.'); }
     }));
-    (g.plans || []).slice().sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0)).forEach(p => {
+    // upcoming roadmap lessons: what is planned and what still needs a plan
+    v.upcoming = [];
+    for (let k = gc.done; k < Math.min(gc.slots.length, gc.done + 4); k++) {
+      const sl = gc.slots[k], Lk = this.planFor(g, k), ready = this.hasOwnPlan(Lk), open = !!Lk && Lk === L;
+      const n = Lk ? Lk.exercises.filter(e => !e.fromCarry).length : 0;
+      v.upcoming.push({ when: this.fmtS(this.slotDate(g, k)) + (k === gc.done ? ' · next lesson' : ''), sec: this.secLabel(sl),
+        status: ready ? `Ready · ${n} exercise${n === 1 ? '' : 's'}${Lk.name ? ' · ' + Lk.name : ''}` : 'Not planned yet', statusFg: ready ? '#0F6B55' : '#8A4B00',
+        rowBg: open ? lv.tint : '#fff', rowBorder: open ? lv.c : '#E2E6F0', isOpen: open, notOpen: !open, btn: ready ? 'Open' : 'Plan it', onOpen: () => this.planAhead(g.id, k) });
+    }
+    (g.plans || []).filter(p => p.forSlot != null && p.forSlot > gc.done && this.hasOwnPlan(p)).sort((a, b) => a.forSlot - b.forSlot).forEach(p => {
+      saved.push(rowFor('p:' + p.id, 'plan', `Planned ahead · for ${this.fmtS(this.slotDate(g, p.forSlot))} · ${this.secLabel(gc.slots[p.forSlot])}`, p, 'Planned ahead', {
+        onOpen: () => this.planAhead(g.id, p.forSlot),
+        onYes: () => { this.upd(d => { const gg = d.groups[g.id]; gg.plans = (gg.plans || []).filter(x => x.id !== p.id); }, { delLesson: null, editId: s.editId === p.id ? null : s.editId, sel: null }); this.toast('Lesson plan deleted.'); }
+      }));
+    });
+    (g.plans || []).filter(p => p.forSlot == null || p.forSlot <= gc.done).slice().sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0)).forEach(p => {
       saved.push(rowFor('p:' + p.id, 'plan', `Not taught yet · saved ${this.fmtS(new Date(p.savedAt || Date.now()))}`, p, 'Saved plan', {
-        onOpen: () => { this.upd(d => { const gg = d.groups[g.id]; gg.plans = (gg.plans || []).filter(x => x.id !== p.id); const cur = gg.draft; if (cur.exercises.length || cur.name) { cur.savedAt = Date.now(); gg.plans.push(cur); } const np = JSON.parse(JSON.stringify(p)); gg.draft = np; }, { editId: null, sel: null, delLesson: null }); this.toast('Plan loaded into the planner.'); },
+        onOpen: () => { this.upd(d => { const gg = d.groups[g.id]; gg.plans = (gg.plans || []).filter(x => x.id !== p.id); const cur = gg.draft; if (cur.exercises.length || cur.name) { cur.savedAt = Date.now(); gg.plans.push(cur); } const np = JSON.parse(JSON.stringify(p)); delete np.forSlot; gg.draft = np; }, { editId: null, sel: null, delLesson: null }); this.toast('Plan loaded into the planner.'); },
         onYes: () => { this.upd(d => { const gg = d.groups[g.id]; gg.plans = (gg.plans || []).filter(x => x.id !== p.id); }, { delLesson: null }); this.toast('Lesson plan deleted. Carry-over from it stays.'); }
       }));
     });
@@ -773,14 +831,17 @@ class App {
     v.hasCopyCarryNote = !!carriedN;
     const others = Object.values(db.groups).filter(x => x.id !== g.id)
       .sort((a, b) => (b.level === g.level) - (a.level === g.level) || (a.dayType === b.dayType ? a.start.localeCompare(b.start) : a.dayType === 'odd' ? -1 : 1));
+    const srcK = this.slotOf(g, L), srcSl = srcK != null ? gc.slots[srcK] : null;
+    const targetK = x => { const xc = this.calc(x); if (!srcSl) return xc.done; const k = xc.slots.findIndex((sl, i) => i >= xc.done && sl.u === srcSl.u && sl.sec === srcSl.sec); return k < 0 ? xc.done : k; };
     v.copyTargets = others.map(x => {
-      const xd = x.draft, xc = this.calc(x), started = !!xd.run.lessonStart;
+      const xc = this.calc(x), tk = targetK(x), xd = this.planFor(x, tk) || { exercises: [], name: '', unit: '', run: {} }, started = tk === xc.done && !!x.draft.run.lessonStart;
       const xOwn = xd.exercises.filter(e => !e.fromCarry).length, hasPlan = xOwn > 0 || !!xd.name;
       const on = copySel.includes(x.id), same = x.level === g.level;
       const nextU = xc.nextSlot ? this.uLabel(xc.nextSlot.u) : 'Course finished';
       return {
         label: this.gLong(x), same, tag: same ? 'Same level' : this.K.LV[x.level].name, tagBg: same ? lv.tint : '#ECEEF3',
-        sub: `Next lesson ${this.fmtS(xc.next)} · on ${nextU}` + (L.unit && xc.nextSlot && xc.nextSlot.u !== L.unit ? ` (this plan is ${this.uLabel(L.unit)})` : ''),
+        sub: tk === xc.done ? `Goes to its next lesson, ${this.fmtS(xc.next)} · on ${nextU}` + (L.unit && xc.nextSlot && xc.nextSlot.u !== L.unit ? ` (this plan is ${this.uLabel(L.unit)})` : '')
+          : `Goes to its ${this.secLabel(xc.slots[tk])} lesson, planned ahead for ${this.fmtS(this.slotDate(x, tk))}`,
         warn: started ? 'Lesson in progress. Finish it first.' : hasPlan ? `Has a plan (${this.lTitle(xd)}, ${xOwn} exercise${xOwn === 1 ? '' : 's'}). It moves to its Saved lessons.` : '',
         hasWarn: started || hasPlan, warnFg: started ? '#A32020' : '#8A4B00',
         disabled: started, on, box: on ? '✓' : '', boxBg: on ? '#14213D' : '#fff', boxBorder: started ? '#D5DAEA' : on ? '#14213D' : '#9AA1B6',
@@ -794,16 +855,20 @@ class App {
       if (!copySel.length) return;
       if (!own.length && !L.name) { this.toast('Nothing to copy yet. Add exercises first.'); return; }
       const names = copySel.map(id => this.gLabel(db.groups[id]) + ' ' + db.groups[id].start);
+      const tks = Object.fromEntries(copySel.map(id => [id, targetK(db.groups[id])]));
       this.upd((d, st) => {
         const src = this.T(d.groups[g.id], st);
         const exs = src.exercises.filter(e => !e.fromCarry);
         copySel.forEach(tid => {
-          const tg = d.groups[tid], cur = tg.draft;
+          const tg = d.groups[tid], tk = tks[tid];
+          let cur = tk === this.calc(tg).done ? tg.draft : this.aheadFor(tg, tk);
+          if (!cur) { cur = this.newLesson(tg); cur.forSlot = tk; tg.plans = (tg.plans || []).concat(cur); }
           if (cur.run.lessonStart) return;
           const keepCarry = cur.exercises.filter(e => e.fromCarry);
           if (cur.exercises.length > keepCarry.length || cur.name) {
             const old = JSON.parse(JSON.stringify(cur));
             Object.assign(old, { id: this.uid(), savedAt: Date.now(), exercises: old.exercises.filter(e => !e.fromCarry) });
+            delete old.forSlot;
             tg.plans = (tg.plans || []).concat(old);
           }
           cur.unit = src.unit; cur.name = src.name;
@@ -1065,25 +1130,32 @@ class App {
     const K = this.K, lv = K.LV[g.level];
     const useLast = !s.editId && !L.exercises.length && g.history.length;
     const C = useLast ? g.history[g.history.length - 1] : L;
-    const date = C.date ? this.D(C.date) : gc.next;
+    const date = C.date ? this.D(C.date) : C.forSlot != null && C !== g.draft ? this.slotDate(g, C.forSlot) : gc.next;
     v.cambLevel = `${lv.name}${g.is30 ? ' 30+' : ''} (${lv.cefr})`;
     v.cambDate = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     v.cambSub = `${this.gLabel(g)} · ${this.fmtS(date)} · ${this.uLabel(C.unit || '?')}${C.name ? ' · ' + C.name : ''}. Built from your planner. Nothing to retype.`;
-    const setAim = key => e => this.upd(d => { const gg = d.groups[g.id]; const T = gg.draft.id === C.id ? gg.draft : gg.history.find(h => h.id === C.id); T.aims[key] = e.target.value; });
+    const setAim = key => e => this.upd(d => { const gg = d.groups[g.id]; const T = gg.draft.id === C.id ? gg.draft : gg.history.find(h => h.id === C.id) || (gg.plans || []).find(h => h.id === C.id); T.aims[key] = e.target.value; });
     const f = (key, label, ph) => ({ label, ph, value: C.aims[key], bg: C.aims[key] ? 'transparent' : '#FFF1B8', onChange: setAim(key) });
     v.cambAimsL = [f('main', 'Main aim', '[By the end of the lesson, Ss will be able to…]'), f('sub', 'Sub-aims', '[Add sub-aims]'), f('personal', 'Personal aim', '[Add your personal aim]')];
     v.cambProbs = [f('prob1', '', '1. [Add a problem and solution]'), f('prob2', '', '2. [Add a second problem, or leave empty]')];
     const Y = '#FFF1B8';
-    const AIM = { Grammar: e => e.grammar ? `Practise ${e.grammar}.` : '', Listening: () => 'Listen for gist and detail.', Vocabulary: () => 'Learn and practise new words.', Speaking: () => 'Practise speaking fluently.', Reading: () => 'Read for gist and detail.', Writing: () => 'Practise writing.', Other: () => '' };
+    // one row per stage: Warm-up, Lead-in (the book's Warmer), then each run of same-kind exercises, then Cooler / Review
+    const AIM = { Listening: 'Develop listening for gist and specific information.', Vocabulary: 'Present and practise new vocabulary.', Speaking: 'Develop speaking fluency.', Reading: 'Develop reading for gist and detail.', Writing: 'Develop writing skills.', Other: '' };
+    const kindOf = e => /^(warmer|lead-?in)$/i.test(String(e.num).trim()) ? 'lead' : /^(cooler|review)$/i.test(String(e.num).trim()) ? 'cool' : e.kind || 'Other';
+    const groups = [];
+    C.exercises.filter(e => !e.skipped).forEach(e => { const k = kindOf(e), last = groups[groups.length - 1]; if (last && last.k === k) last.ex.push(e); else groups.push({ k, ex: [e] }); });
     const rows = [{ stage: 'Warm-up', time: '5-7', proc: 'Warm-up game from the app.', aim: 'Wake up the class. Review.', inter: 'GW' }];
-    C.exercises.filter(e => !e.skipped).forEach(e => {
-      const where = [e.page && `p. ${e.page}`, e.num && `ex. ${e.num}`].filter(Boolean).join(', ');
-      rows.push({
-        stage: e.kind ? `${e.kind}${where ? ' (' + where + ')' : ''}` : '',
-        time: this.em(e) ? String(this.em(e)) : '',
-        proc: [e.note, e.kind === 'Listening' && e.track ? `Track ${e.track}.` : '', e.self].filter(Boolean).join(' '),
-        aim: e.kind ? AIM[e.kind](e) : '', inter: K.CW[e.who] || ''
-      });
+    groups.forEach(({ k, ex }) => {
+      const pages = [...new Set(ex.map(e => e.page).filter(Boolean))];
+      const nums = ex.map(e => e.num).filter(n => /^\d+$/.test(String(n)));
+      const where = [pages.length && `p. ${pages.join(', ')}`, nums.length && `ex. ${nums.length > 1 ? nums[0] + '-' + nums[nums.length - 1] : nums[0]}`].filter(Boolean).join(', ');
+      const points = [...new Set(ex.map(e => e.grammar).filter(Boolean))];
+      const stage = k === 'lead' ? 'Lead-in' : k === 'cool' ? 'Cooler / Review' : k === 'Grammar' ? `Grammar${points.length ? ': ' + points.join(' / ') : ''}` : k;
+      const mins = ex.reduce((a, e) => a + this.em(e), 0);
+      const step = e => [e.note, e.kind === 'Listening' && e.track ? `Track ${e.track}.` : ''].filter(Boolean).join(' ');
+      const proc = ex.length === 1 && (k === 'lead' || k === 'cool') ? step(ex[0]) : ex.map(e => step(e) && `Ex ${e.num}: ${step(e)}`).filter(Boolean).join('\n');
+      const aim = k === 'lead' ? 'Engage Ss, set the context and activate the topic.' : k === 'cool' ? 'Review the lesson and end on a positive note.' : k === 'Grammar' ? (points.length ? `Clarify and practise ${points.join(' and ')}.` : '') : AIM[k] || '';
+      rows.push({ stage: stage + (where && k !== 'lead' && k !== 'cool' ? ` (${where})` : ''), time: mins ? String(mins) : '', proc, aim, inter: [...new Set(ex.map(e => K.CW[e.who]).filter(Boolean))].join(', ') });
     });
     v.cambRows = rows.map(r => {
       const o = {};
@@ -1092,15 +1164,15 @@ class App {
     });
     v.cambNoEx = !C.exercises.length;
     v.legend = [
-      { a: 'Your exercises', b: 'Stage and Time columns' },
+      { a: 'Your exercises', b: 'Grouped into stages: Warm-up, Lead-in (Warmer), each part of the lesson, Cooler / Review. Time is the stage total.' },
       { a: 'Who does it', b: 'Interaction column. On their own = Individual, All together = Frontal, In pairs = PW' },
-      { a: 'Short note and note to self', b: 'Procedure column' },
+      { a: 'Short notes', b: 'Procedure column, one line per exercise. Notes to self stay private.' },
       { a: 'Exercise kind', b: 'Aim of stage, written for you' },
       { a: 'Aims and problems', b: 'Typed here or on the Plan screen. Both stay the same.' }
     ];
     v.printPdf = () => window.print();
     v.copyTable = () => {
-      const tsv = [['Stage', 'Time', 'Procedure', 'Aim of stage', 'Interaction'], ...rows.map(r => [r.stage, r.time, r.proc, r.aim, r.inter])].map(r => r.join('\t')).join('\n');
+      const tsv = [['Stage', 'Time', 'Procedure', 'Aim of stage', 'Interaction'], ...rows.map(r => [r.stage, r.time, r.proc.replace(/\n/g, ' / '), r.aim, r.inter])].map(r => r.join('\t')).join('\n');
       const done = () => this.toast('Table copied. Paste it into the Cambridge document.');
       if (navigator.clipboard) navigator.clipboard.writeText(tsv).then(done, () => this.toast('Could not copy. Select the table and copy by hand.'));
       else done();
@@ -1145,7 +1217,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 12 Oct b</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 13 Oct</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
@@ -1192,6 +1264,12 @@ function tWeek(v) {
             <span style="font-family:'Bricolage Grotesque';font-size:30px;font-weight:700;letter-spacing:-0.01em">${esc(c.unit)}</span>
             <span style="font-size:15px;color:#3A4566">${esc(c.desc)}</span>
           </div>
+          <div style="background:#F4F6FB;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:7px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:14px;color:#3A4566">${esc(c.todayHead)}</span><b style="font-size:16px">${esc(c.todayVal)}</b>${IF(c.hasTodayTag, () => `<span style="margin-left:auto;background:${esc(c.todayTagBg)};color:${esc(c.todayTagFg)};font-weight:700;font-size:12px;padding:3px 9px;border-radius:999px">${esc(c.todayTag)}</span>`)}</div>
+            <div style="height:1px;background:#E2E6F0"></div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:14px;color:#3A4566">Next LP to be prepared:</span><b style="font-size:16px">${esc(c.prepVal)}</b></div>
+            ${IF(c.hasPrep, () => `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:13px;color:#5A6482">${esc(c.prepSub)}</span><button${click(c.onPrepare)} style="margin-left:auto;border:1.5px solid #14213D;background:#fff;font-weight:700;font-size:13px;padding:5px 10px;border-radius:8px;cursor:pointer">${esc(c.prepBtn)}</button></div>`)}
+          </div>
           <div style="display:flex;flex-direction:column;gap:6px">
             <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:#5A6482">Roadmap</span><span style="font-weight:700">${esc(c.progress)}</span></div>
             <div style="height:8px;background:#E6E9F2;border-radius:999px;overflow:hidden"><div style="height:100%;width:${esc(c.pct)};background:${esc(c.color)};border-radius:999px"></div></div>
@@ -1211,7 +1289,8 @@ function tWeek(v) {
     ${FOR(v.smallCards, c => `<div${click(c.onOpen)} class="hov-small" style="background:#fff;border:1px solid #E2E6F0;border-top:5px solid ${esc(c.color)};border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;cursor:pointer">
         <span style="font-family:'DM Mono';font-size:13px">${esc(c.time)}</span>
         <div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;font-size:17px">${esc(c.level)}</span>${IF(c.is30, () => `<span style="background:${esc(c.dark)};color:#fff;font-family:'DM Mono';font-size:12px;padding:2px 7px;border-radius:999px">30+</span>`)}</div>
-        <span style="font-size:15px">Next: <b>${esc(c.unit)}</b> · ${esc(c.secs)}</span>
+        <span style="font-size:14px">${esc(c.todayHead)} <b>${esc(c.todayVal)}</b></span>
+        <span style="font-size:14px">Next LP to be prepared: <b>${esc(c.prepVal)}</b></span>
         <span style="font-size:14px;font-weight:700;color:${esc(c.pillFg)}">${esc(c.pill)} · ${esc(c.progressShort)}</span>
         ${IF(c.hasSkipNote, () => `<span style="font-size:13px;color:#5A6482">${esc(c.skipNote)}</span>`)}
         ${IF(c.hasCarry, () => `<span style="font-size:13px;color:#B5530A;font-weight:600">${esc(c.carry)}</span>`)}
@@ -1380,6 +1459,15 @@ function tPlan(v) {
                 </div>
               </div>`)}
             <button${click(v.doCopy)} style="align-self:flex-start;margin-top:4px;border:none;background:${esc(v.copyBtnBg)};color:#fff;font-weight:700;font-size:14px;padding:10px 16px;border-radius:9px;cursor:pointer">${esc(v.copyBtn)}</button>
+          </div>`)}
+      </div>
+      <div style="background:#fff;border:1px solid #E2E6F0;border-radius:12px;padding:14px;margin-top:8px;display:flex;flex-direction:column;gap:8px">
+        <span style="font-weight:700;font-size:16px">Upcoming lessons</span>
+        <span style="font-size:12.5px;color:#5A6482;margin-top:-4px">Next lessons on the roadmap. Plan ahead as far as you like.</span>
+        ${FOR(v.upcoming, u => `<div style="background:${esc(u.rowBg)};border:1.5px solid ${esc(u.rowBorder)};border-radius:10px;padding:9px 12px;display:flex;align-items:center;gap:10px">
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px"><b style="font-size:15px">${esc(u.sec)}</b><span style="font-family:'DM Mono';font-size:12.5px;color:#3A4566">${esc(u.when)}</span><span style="font-size:13px;font-weight:700;color:${esc(u.statusFg)}">${esc(u.status)}</span></div>
+            ${IF(u.notOpen, () => `<button${click(u.onOpen)} style="border:none;background:#14213D;color:#fff;font-weight:700;font-size:13px;padding:7px 12px;border-radius:7px;cursor:pointer">${esc(u.btn)}</button>`)}
+            ${IF(u.isOpen, () => `<span style="font-weight:700;font-size:12.5px;padding:0 4px">Open now</span>`)}
           </div>`)}
       </div>
       <div style="background:#fff;border:1px solid #E2E6F0;border-radius:12px;padding:14px;margin-top:8px;display:flex;flex-direction:column;gap:8px">
@@ -1646,7 +1734,7 @@ function tAfter(v) {
 
 function tCamb(v) {
   const ta = (x, extra) => `<textarea data-autogrow="1"${input(x.onChange)} placeholder="${esc(x.ph)}" rows="2" style="font-family:Arial,Helvetica,sans-serif;font-size:13.5px;color:#000;border:none;resize:none;overflow:hidden;padding:2px 4px;background:${esc(x.bg)};outline-color:#2F5BEA${extra || ''}">${esc(x.value)}</textarea>`;
-  const cell = (val, bg, last) => `<span style="padding:7px 8px;${last ? '' : 'border-right:1px solid #000;'}border-bottom:1px solid #000;background:${esc(bg)}">${esc(val)}</span>`;
+  const cell = (val, bg, last) => `<span style="padding:7px 8px;white-space:pre-line;${last ? '' : 'border-right:1px solid #000;'}border-bottom:1px solid #000;background:${esc(bg)}">${esc(val)}</span>`;
   return `<main data-screen-label="06 Cambridge copy" data-printwrap="1" style="padding:24px 32px 40px;display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:26px;align-items:start">
   <div data-noprint="1" style="display:flex;flex-direction:column;gap:16px">
     <div style="display:flex;flex-direction:column;gap:4px">
