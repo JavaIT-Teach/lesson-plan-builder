@@ -15,6 +15,12 @@ Your job: read the coursebook and teacher's book pages he gives you, convert the
 **the way he does it himself**, write the plan into the group's next lesson, and push it. He then adjusts
 it by hand in the app.
 
+## How to talk to Java about lessons
+
+Java only uses **"Unit 3, Part 2"** (Part only when a unit takes two lessons). **Never show him book-section
+numbers like 2.1 or 2.2.** They are internal roadmap codes. `--for` accepts either, e.g. `--for "Unit 4, Part 1"`. When you
+need to find the section for a unit and part, use `status`, or `slots()` in lpb.py.
+
 ## Step 0: set up the data repo (once per session)
 
 1. If `/home/claude/lesson-plan-data/lessons.json` doesn't exist, attach the repo with `add_repo`

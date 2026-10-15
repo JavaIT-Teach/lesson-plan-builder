@@ -108,7 +108,7 @@ def sec_label(sl):
     if sl['u'] == 'FE':
         return f"Final exam {sl['i'] + 1}"
     u = 'Exam prep' if sl['u'] == 'PREP' else f"Unit {sl['u']}"
-    return f"{u}{', Part ' + str(sl['i'] + 1) if sl['n'] > 1 else ''} ({sl['sec']})"
+    return f"{u}{', Part ' + str(sl['i'] + 1) if sl['n'] > 1 else ''}"
 
 
 def label(g):
@@ -245,7 +245,7 @@ def cmd_write(db, gid, plan_path, dry, replace=False, sec=None):
     done, sl = done_of(g), slots(g['level'])
     k = done
     if sec:
-        k = next((i for i in range(done, len(sl)) if sl[i]['sec'] == sec), None)
+        k = next((i for i in range(done, len(sl)) if sec in (sl[i]['sec'], sec_label(sl[i]))), None)
         if k is None:
             die(f"{sec} is not an upcoming {LEVEL[g['level']]} roadmap lesson. Upcoming: {', '.join(sec_label(x) for x in sl[done:done + 6])}")
     ahead_new = None
@@ -339,7 +339,7 @@ def main():
             i = args.index('--for'); sec = args[i + 1]; del args[i:i + 2]
         g = db['groups'].get(args[1]) or die(f'unknown group {args[1]}')
         sl, done = slots(g['level']), done_of(g)
-        k = done if not sec else next((i for i in range(done, len(sl)) if sl[i]['sec'] == sec), None)
+        k = done if not sec else next((i for i in range(done, len(sl)) if sec in (sl[i]['sec'], sec_label(sl[i]))), None)
         L = plan_for(g, k) if k is not None else None
         if not L:
             die('no plan for that lesson yet')
@@ -362,7 +362,7 @@ def main():
             L = next((h for h in g['history'] if h.get('date') == date_), None)
         else:
             sl, done = slots(g['level']), done_of(g)
-            k = done if not sec else next((i for i in range(done, len(sl)) if sl[i]['sec'] == sec), None)
+            k = done if not sec else next((i for i in range(done, len(sl)) if sec in (sl[i]['sec'], sec_label(sl[i]))), None)
             L = plan_for(g, k) if k is not None else None
         if not L:
             die('no lesson found for that group / date / section')

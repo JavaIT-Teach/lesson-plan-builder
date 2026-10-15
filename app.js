@@ -156,8 +156,8 @@ class App {
     if (s.u === 'FE') return `Final exam ${s.i + 1} of 2`;
     if (s.u === 'PREP') return `Book ${s.sec} · exam preparation`;
     const un = this.findUnit(level, s.u);
-    if (s.all) return `Book ${s.sec} · all 4 pages at once`;
-    return `Book ${un.secs.join(', ')} · lesson ${s.i + 1} of ${s.n}`;
+    if (s.all) return 'One lesson · all 4 pages at once';
+    return s.n > 1 ? `Part ${s.i + 1} of ${s.n}` : 'One lesson';
   }
 
   // ---------- dates ----------
@@ -210,7 +210,7 @@ class App {
     return null;
   }
   // "Unit 3, Part 1 (2.1)" · "Unit 2 (1.3)" · "Final exam 1"
-  secLabel(sl) { return !sl ? '—' : sl.u === 'FE' ? `Final exam ${sl.i + 1}` : `${this.uLabel(sl.u)}${sl.n > 1 ? `, Part ${sl.i + 1}` : ''} (${sl.sec})`; }
+  secLabel(sl) { return !sl ? '—' : sl.u === 'FE' ? `Final exam ${sl.i + 1}` : `${this.uLabel(sl.u)}${sl.n > 1 ? `, Part ${sl.i + 1}` : ''}`; }
   slotOf(g, L) { const c = this.calc(g); return L === g.draft ? c.done : L.forSlot != null ? L.forSlot : null; }
   planAhead(gid, k) {
     const g = this.state.db.groups[gid], c = this.calc(g);
@@ -1266,7 +1266,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 15 Oct c</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 15 Oct d</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
