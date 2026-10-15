@@ -34,7 +34,7 @@ it by hand in the app.
    the group's next lesson, it is a lesson planned **ahead**: write it with `--for SECTION`, e.g.
    `--for 2.2`. If unsure, ask: "Is this Unit 4, Part 1 (2.2) for Thu 15 Oct?"
 3. Work out which group the plan is for. If Java didn't say, ask. Group ids:
-   - Odd days: `b-odd` Beginner 15:30, `e-odd` Elementary 17:00, `b30-odd` Beginner 30+ 18:30
+   - Odd days: `e-odd2` Elementary 10:30, `b-odd` Beginner 15:30, `e-odd` Elementary 17:00, `b30-odd` Beginner 30+ 18:30
    - Even days: `b-even` Beginner 14:00, `e-even` Elementary 15:30, `p-even` Pre-Intermediate 17:00,
      `i-even` Intermediate 18:30
 4. Wait until he says all pages are uploaded. He can only attach 5 images per message and will say

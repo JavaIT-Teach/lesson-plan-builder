@@ -114,7 +114,8 @@ class App {
       'b-even': mk('b-even', 'beginner', false, 'even', '14:00', '15:20', '2026-10-06', '2026-10-08', '0', '1'),
       'e-even': mk('e-even', 'elementary', false, 'even', '15:30', '16:50', '2026-10-06', '2026-10-08', '0', '1'),
       'p-even': mk('p-even', 'preint', false, 'even', '17:00', '18:20', '2026-10-06', '2026-10-08', '1', '1'),
-      'i-even': mk('i-even', 'inter', false, 'even', '18:30', '19:50', '2026-10-06', '2026-10-08', '1', '1')
+      'i-even': mk('i-even', 'inter', false, 'even', '18:30', '19:50', '2026-10-06', '2026-10-08', '1', '1'),
+      'e-odd2': Object.assign(mk('e-odd2', 'elementary', false, 'odd', '10:30', '11:50', '2026-10-14', '2026-10-14', '0', '0'), { taught: [{ unit: '0', name: '', date: '2026-10-14', slot: true }] })
     };
     Object.values(groups).forEach(g => { g.draft = this.newLesson(g); });
     return { version: 1, teacher: 'Java Akhmedov', dayType: 'odd', groups, carry: [] };
@@ -696,7 +697,7 @@ class App {
     v.clockNow = this.clock();
     const all = Object.values(db.groups).map(x => this.calc(x).diff);
     const on = all.filter(d => d === 0).length, ah = all.filter(d => d > 0).length, be = all.filter(d => d < 0).length;
-    v.statusTitle = on === 7 ? 'All 7 groups on track' : [on && `${on} on track`, ah && `${ah} ahead`, be && `${be} behind`].filter(Boolean).join(' · ');
+    v.statusTitle = on === all.length ? `All ${all.length} groups on track` : [on && `${on} on track`, ah && `${ah} ahead`, be && `${be} behind`].filter(Boolean).join(' · ');
     v.statusBg = be ? '#FDE3E3' : '#D9F2E4'; v.statusFg = be ? '#A32020' : '#0F6B55';
     v.statusSub = `Next ${other} day: ${this.fmtS(nextOf(other))}`;
   }
@@ -1246,7 +1247,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 15 Oct</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 15 Oct b</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;

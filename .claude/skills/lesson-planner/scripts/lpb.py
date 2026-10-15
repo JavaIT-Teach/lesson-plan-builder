@@ -20,7 +20,7 @@ Commands
 Options
   --data DIR                  folder of the lesson-plan-data clone (default: $LPB_DATA or /home/claude/lesson-plan-data)
 
-Group ids: b-odd e-odd b30-odd (Mon/Wed/Fri)   b-even e-even p-even i-even (Tue/Thu/Sat)
+Group ids: e-odd2 b-odd e-odd b30-odd (Mon/Wed/Fri)   b-even e-even p-even i-even (Tue/Thu/Sat)
 """
 import json, os, random, string, subprocess, sys, time
 from datetime import date, timedelta
