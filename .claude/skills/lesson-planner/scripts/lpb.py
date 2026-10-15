@@ -13,6 +13,8 @@ Commands
                               add --replace to overwrite the current draft without keeping a copy
                               (only for revising a plan you wrote yourself that Java hasn't edited)
   set-aims GROUP AIMS.json    fill only the Cambridge aims of the next lesson (or --for SECTION); exercises untouched
+  set-tg GROUP MSG.txt        set the Telegram message of the next lesson (or --for SECTION, or --date YYYY-MM-DD
+                              for a lesson already taught)
   push  "message"             commit lessons.json and push it to GitHub
 
 Options
@@ -277,6 +279,10 @@ def cmd_write(db, gid, plan_path, dry, replace=False, sec=None):
     old_own = [e for e in dr['exercises'] if not e.get('fromCarry')]
     new = dict(dr)
     new.update({'unit': unit, 'name': plan.get('name', dr.get('name', '')), 'exercises': keep_carry + exs})
+    if plan.get('telegram'):
+        new['tg'] = plan['telegram'].strip()
+    elif not new.get('tg'):
+        print('warning: no telegram message in the plan; the skill should write one', file=sys.stderr)
     if plan.get('aims'):
         new['aims'] = {**dr['aims'], **{k: v for k, v in plan['aims'].items() if k in dr['aims']}}
     total = sum(e['min'] for e in exs if not e['skipped'] and isinstance(e['min'], int))
@@ -345,6 +351,27 @@ def main():
         L['aims'].update(aims)
         save(d, db)
         print('aims set: ' + json.dumps(L['aims'], ensure_ascii=False, indent=1))
+    elif c == 'set-tg':
+        sec = date_ = None
+        if '--for' in args:
+            i = args.index('--for'); sec = args[i + 1]; del args[i:i + 2]
+        if '--date' in args:
+            i = args.index('--date'); date_ = args[i + 1]; del args[i:i + 2]
+        g = db['groups'].get(args[1]) or die(f'unknown group {args[1]}')
+        if date_:
+            L = next((h for h in g['history'] if h.get('date') == date_), None)
+        else:
+            sl, done = slots(g['level']), done_of(g)
+            k = done if not sec else next((i for i in range(done, len(sl)) if sl[i]['sec'] == sec), None)
+            L = plan_for(g, k) if k is not None else None
+        if not L:
+            die('no lesson found for that group / date / section')
+        with open(args[2], encoding='utf-8') as f:
+            L['tg'] = f.read().strip()
+        save(d, db)
+        print(f"telegram message set ({len(L['tg'])} chars) on Unit {L.get('unit')} {L.get('name') or ''}")
+        if len(L['tg']) > 4000:
+            print('warning: Telegram messages are limited to 4096 characters', file=sys.stderr)
     elif c == 'write':
         dry, replace = '--dry-run' in args, '--replace' in args
         sec = None

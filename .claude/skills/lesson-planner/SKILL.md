@@ -127,6 +127,34 @@ That file is Java's own plan, built from CB + TB. It is the model for voice, den
     Ex 4.*
   - Use the full words here. Never TTT, PW or similar: write "teacher talking time".
 
+## Telegram message for students (always write one)
+
+Every plan gets a `telegram` field: a summary Java pastes into the group's Telegram chat after class. The
+app shows it on the Plan and After class screens (editable, with a Copy button). Java approved this format:
+
+- **Header:** `📘 Unit 3 · My Home · Part 1` (Part only when the unit has 2 lessons), then
+  `🗓 Tue 13 Oct · Book p. 24–25`.
+- **✏️ GRAMMAR: <point>** first, the most important part: numbered rules ➊ ➋ ➌, each with one short
+  example from the lesson. Then `⚠️ <typical mistake> ❌ → <correct> ✅`.
+- **📖** vocabulary: word lists grouped by topic, and a 🔊 pronunciation point if one was taught. Carried-over
+  material from the previous unit is included and labelled "(Unit 2)".
+- **❓ CHECK YOURSELF:** 3–4 CCQs about the grammar and vocabulary, with answers in brackets.
+- **📝 REMEMBER THE TASKS:** 2 ICQs about the main exercises, with answers in brackets.
+- **No homework section.** Students already get homework.
+- If a section was moved to the next lesson, add `⏭ Next lesson: <topic>`.
+- **Beginner and Elementary only:** after the English, a line `━━━━━━━━━━━━━━`, then a full block
+  `🇺🇿 O'ZBEKCHA` and then a full block `🇷🇺 РУССКИЙ`. Each block repeats the grammar rules, the ⚠️ mistake,
+  the CHECK YOURSELF questions and the REMEMBER THE TASKS questions in that language. Example sentences
+  stay in English. Never mix the languages line by line. Uzbek is in Latin script. Short, simple
+  sentences.
+- **Pre-Intermediate and Intermediate:** English only.
+- Plain text and emojis only (no * or _ markup, because Telegram copy-paste loses it). Under 3500
+  characters.
+- Only what is planned for the lesson. After class, the app warns Java about exercises marked Part or
+  None, and he trims the message himself.
+
+For a lesson already taught, or to rewrite only the message: `set-tg GROUP msg.txt [--for SECTION | --date YYYY-MM-DD]`.
+
 ## Carry-over items Java wants to teach
 
 If Java says to include carry-over (`show GROUP` lists it), take those items into the plan **as carried-over
@@ -146,6 +174,7 @@ and say so.
 1. Write the plan as JSON, for example to the session scratchpad as `plan.json`:
    ```json
    {"unit": "2", "name": "Best Friends Forever",
+    "telegram": "📘 Unit 2 · Best Friends Forever · Part 2\n🗓 Tue 13 Oct · Book p. 16–17\n\n✏️ GRAMMAR: …",
     "aims": {"main": "By the end of the lesson, Ss will be able to …", "sub": "…", "personal": "…",
              "prob1": "… Solution: …", "prob2": "… Solution: …"},
     "exercises": [

@@ -19,6 +19,8 @@ Open the live page on a laptop. Then work through these steps:
 
 **Cambridge copy:** the table is grouped by stage: Warm-up, Lead-in (the book's Warmer), one row for each part of the lesson, and Cooler / Review.
 
+**Telegram message:** each lesson has a summary for students (grammar rules, words, check-yourself questions; Uzbek and Russian blocks for Beginner and Elementary). Find it on the After class screen or on the Plan screen, edit it if needed, and tap **Copy message**.
+
 **Same lesson for several groups:** on the Plan screen, open **Copy plan to other groups**, tick the groups and tap Copy. You get the unit, lesson name, exercises and aims, and then you adjust each group's copy. Carry-over is never copied: each group keeps its own. If a group already had a plan, it moves to that group's Saved lessons.
 
 ## Your data

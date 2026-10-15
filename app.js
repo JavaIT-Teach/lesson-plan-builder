@@ -219,6 +219,32 @@ class App {
     if (!p) this.upd(d => { const gg = d.groups[gid]; const nl = this.newLesson(gg); Object.assign(nl, { id, unit: c.slots[k].u, forSlot: k }); gg.plans = (gg.plans || []).concat(nl); });
     go(id);
   }
+  // Telegram summary for students. The skill writes L.tg; otherwise a basic one is built from the plan.
+  tgAuto(g, L) {
+    const c = this.calc(g), k = this.slotOf(g, L), sl = k != null ? c.slots[k] : c.slots.find(x => x.u === L.unit);
+    const date = L.date ? this.D(L.date) : k != null ? this.slotDate(g, k) : c.next;
+    const covered = L.exercises.filter(e => !e.skipped && L.results[e.id] !== 'None');
+    const pages = [...new Set(covered.map(e => e.page).filter(Boolean))].sort((a, b) => a - b);
+    const head = `📘 ${this.uLabel(L.unit || '?')}${L.name ? ' · ' + L.name : ''}${sl && sl.n > 1 ? ' · Part ' + (sl.i + 1) : ''}\n🗓 ${this.fmtS(date)}${pages.length ? ' · Book p. ' + (pages.length > 1 ? pages[0] + '–' + pages[pages.length - 1] : pages[0]) : ''}`;
+    const gram = [...new Set(covered.map(e => e.kind === 'Grammar' && e.grammar).filter(Boolean))];
+    const parts = [...new Set(covered.map(e => e.kind).filter(x => x && x !== 'Grammar' && x !== 'Other'))];
+    return [head, gram.length ? '✏️ GRAMMAR: ' + gram.join(' · ') : '', parts.length ? '📖 We also did: ' + parts.join(', ').toLowerCase() : ''].filter(Boolean).join('\n\n');
+  }
+  tgVals(v, g, L, s) {
+    v.tgOpen = !!s.tgOpen; v.toggleTg = () => this.setState({ tgOpen: !s.tgOpen });
+    v.tgText = L.tg || this.tgAuto(g, L);
+    v.tgFromSkill = !!L.tg;
+    v.tgHint = L.tg ? 'Written when the lesson was planned. Edit anything before you copy.' : 'Basic message built from your plan. Plans made with Claude get full rules, checks and translations.';
+    const missed = L.exercises.filter(e => !e.skipped && (L.results[e.id] === 'None' || L.results[e.id] === 'Part'));
+    v.tgWarn = missed.length ? `Not fully covered: ${missed.map(e => `${e.kind || 'Exercise'} ex ${e.num}`).join(', ')}. Remove those parts from the message if needed.` : '';
+    v.hasTgWarn = !!missed.length;
+    v.onTg = e => this.upd(d => { this.T(d.groups[g.id], s).tg = e.target.value; });
+    v.copyTg = () => {
+      const done = () => this.toast('Copied. Paste it into the Telegram group.');
+      if (navigator.clipboard) navigator.clipboard.writeText(v.tgText).then(done, () => this.toast('Could not copy. Select the text and copy by hand.'));
+      else done();
+    };
+  }
   pill(diff) {
     if (diff === 0) return { t: 'On track', bg: '#DDF3EC', fg: '#0F6B55' };
     if (diff > 0) return { t: `Ahead by ${diff}`, bg: '#DDF1F7', fg: '#0B5568' };
@@ -873,6 +899,7 @@ class App {
           }
           cur.unit = src.unit; cur.name = src.name;
           cur.aims = Object.assign({}, src.aims);
+          if (src.tg) cur.tg = src.tg.replace(/🗓 [A-Za-z]{3} \d{1,2} [A-Za-z]{3}/, '🗓 ' + this.fmtS(this.slotDate(tg, tk))); else delete cur.tg;
           cur.exercises = keepCarry.concat(exs.map(e => Object.assign(JSON.parse(JSON.stringify(e)), { id: this.uid(), saved: true, fromCarry: null })));
         });
       }, { copy: null });
@@ -927,6 +954,7 @@ class App {
     v.aimsOpen = s.aimsOpen; v.toggleAims = () => this.setState({ aimsOpen: !s.aimsOpen });
     const aimDefs = [['main', 'Main aim', 'By the end of the lesson, students will be able to…'], ['sub', 'Sub-aims', 'e.g. Vocabulary: classroom objects'], ['personal', 'Personal aim', 'e.g. Give instructions in short steps'], ['prob1', 'Problem 1 and solution', 'e.g. They say "a apple". I drill both forms.'], ['prob2', 'Problem 2 and solution', 'Optional']];
     v.aimFields = aimDefs.map(([key, label, ph]) => ({ label, ph, value: L.aims[key], bg: L.aims[key] ? '#fff' : '#FFF8D9', onChange: e => this.upd(d => { this.T(d.groups[g.id], s).aims[key] = e.target.value; }) }));
+    this.tgVals(v, g, L, s);
     v.aimsCount = `${aimDefs.filter(([k]) => L.aims[k]).length} of 5 filled ${s.aimsOpen ? '▲' : '▼'}`;
     // editor
     const idx = L.exercises.findIndex(e => e.id === s.sel), e = L.exercises[idx];
@@ -1123,6 +1151,7 @@ class App {
     const cd = s.closeDay && s.closeDay.gid === g.id && this.dayOptions(g, null).includes(s.closeDay.date) ? s.closeDay.date : this.suggestDay(g);
     v.closeDays = this.dayOptions(g, null).map(id => ({ id, label: this.dayLabel(id), sel: id === cd }));
     v.onCloseDay = e => this.setState({ closeDay: { gid: g.id, date: e.target.value } });
+    this.tgVals(v, g, L, s);
     v.closeLesson = () => { this.closeLesson(cd); this.setState({ closeDay: null }); };
   }
 
@@ -1217,7 +1246,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 13 Oct b</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 15 Oct</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
@@ -1445,6 +1474,7 @@ function tPlan(v) {
             ${FOR(v.aimFields, af => `<label style="display:flex;flex-direction:column;gap:4px"><span style="font-size:13px;font-weight:700;color:#5A6482">${esc(af.label)}</span><input value="${esc(af.value)}"${input(af.onChange)} placeholder="${esc(af.ph)}" style="height:38px;border:1.5px solid #C9CFDE;border-radius:8px;padding:0 10px;font-size:14px;background:${esc(af.bg)}"></label>`)}
           </div>`)}
       </div>
+      ${tgPanel(v, false)}
       <div style="background:#fff;border:1px solid #E2E6F0;border-radius:12px;margin-top:8px;overflow:hidden">
         <button${click(v.toggleCopy)} style="width:100%;border:none;background:transparent;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:700;font-size:14px"><span>Copy plan to other groups</span><span style="font-family:'DM Mono';color:#5A6482">${v.copyOpen ? '▲' : '▼'}</span></button>
         ${IF(v.copyOpen, () => `<div style="padding:0 14px 14px;display:flex;flex-direction:column;gap:8px">
@@ -1673,6 +1703,17 @@ function tMid(v) {
 </main>`;
 }
 
+const tgPanel = (v, open) => `<div style="background:#fff;border:1px solid #E2E6F0;border-radius:${open ? 16 : 12}px;padding:${open ? '18px 20px' : '0'};display:flex;flex-direction:column;gap:10px;margin-top:${open ? 0 : 8}px;overflow:hidden">
+  ${open ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-weight:700;font-size:16px">4 · Telegram message for students</span><button${click(v.copyTg)} style="margin-left:auto;border:none;background:#2AABEE;color:#fff;font-weight:700;font-size:14px;padding:9px 16px;border-radius:9px;cursor:pointer">Copy message</button></div>`
+  : `<button${click(v.toggleTg)} style="width:100%;border:none;background:transparent;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:700;font-size:14px"><span>Telegram message for students</span><span style="font-family:'DM Mono';color:#5A6482">${v.tgOpen ? '▲' : '▼'}</span></button>`}
+  ${IF(open || v.tgOpen, () => `<div style="padding:${open ? 0 : '0 14px 14px'};display:flex;flex-direction:column;gap:8px">
+    <span style="font-size:12.5px;color:#5A6482">${esc(v.tgHint)}</span>
+    ${IF(v.hasTgWarn, () => `<span style="background:#FFF1C7;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#6B4E00">${esc(v.tgWarn)}</span>`)}
+    <textarea data-autogrow="1"${input(v.onTg)} rows="8" style="border:1.5px solid #C9CFDE;border-radius:10px;padding:12px 14px;font-size:14.5px;line-height:1.5;resize:none;overflow:hidden;background:#F7FAFD;font-family:'DM Sans',system-ui,sans-serif">${esc(v.tgText)}</textarea>
+    ${open ? '' : `<button${click(v.copyTg)} style="align-self:flex-start;border:none;background:#2AABEE;color:#fff;font-weight:700;font-size:13.5px;padding:8px 14px;border-radius:8px;cursor:pointer">Copy message</button>`}
+  </div>`)}
+</div>`;
+
 function tAfter(v) {
   return `<main data-screen-label="05 After class" style="padding:22px 32px 40px;display:flex;flex-direction:column;gap:18px">
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
@@ -1729,6 +1770,7 @@ function tAfter(v) {
       <span style="margin-top:auto;font-size:13px;color:#B8C0D8;line-height:1.45;padding-top:12px">These show on the ${esc(v.groupShort)} planner and the first screen of the next lesson. Other groups never see them.</span>
     </div>
   </div>
+  ${tgPanel(v, true)}
 </main>`;
 }
 
