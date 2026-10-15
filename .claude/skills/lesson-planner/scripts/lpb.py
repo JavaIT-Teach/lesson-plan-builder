@@ -88,7 +88,9 @@ def done_of(g):
 
 
 def plan_for(g, k):
-    return g['draft'] if k == done_of(g) else next((p for p in g.get('plans') or [] if p.get('forSlot') == k), None)
+    if k == done_of(g) and not g['draft'].get('extra'):
+        return g['draft']
+    return next((p for p in g.get('plans') or [] if p.get('forSlot') == k and not p.get('extra')), None)
 
 
 def has_own(L):

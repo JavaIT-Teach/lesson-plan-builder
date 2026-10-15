@@ -196,14 +196,19 @@ class App {
   }
   // roadmap position: slot k = the k-th lesson on the roadmap (0-based). The draft is always slot "done";
   // lessons planned ahead live in g.plans with forSlot = k and become the draft when their turn comes.
-  slotDate(g, k) {
-    const c = this.calc(g); let d = c.next;
-    for (let i = c.done; i < k; i++) { d = this.add(d, 1); while (!this.isType(d, g.dayType) || g.noClass.includes(this.iso(d))) d = this.add(d, 1); }
+  dayN(g, n) {
+    let d = this.calc(g).next;
+    for (let i = 0; i < n; i++) { d = this.add(d, 1); while (!this.isType(d, g.dayType) || g.noClass.includes(this.iso(d))) d = this.add(d, 1); }
     return d;
   }
-  aheadFor(g, k) { return (g.plans || []).find(p => p.forSlot === k); }
+  extrasBefore(g, k, incl) { const c = this.calc(g); return (g.draft.extra ? 1 : 0) + (g.plans || []).filter(p => p.extra && p.forSlot >= c.done && (incl ? p.forSlot <= k : p.forSlot < k)).length; }
+  slotDate(g, k) { return this.dayN(g, k - this.calc(g).done + this.extrasBefore(g, k, true)); }
+  extraDate(g, P) { return this.dayN(g, P.forSlot - this.calc(g).done + this.extrasBefore(g, P.forSlot, false)); }
+  extraFor(g, k) { return (g.plans || []).find(p => p.extra && p.forSlot === k); }
+  extraLabel(L) { return `${this.uLabel(L.unit)}${L.part ? ', Part ' + L.part : ''} (extra)`; }
+  aheadFor(g, k) { return (g.plans || []).find(p => p.forSlot === k && !p.extra); }
   hasOwnPlan(L) { return !!L && L.exercises.some(e => !e.fromCarry); }
-  planFor(g, k) { return k === this.calc(g).done ? g.draft : this.aheadFor(g, k); }
+  planFor(g, k) { return k === this.calc(g).done && !g.draft.extra ? g.draft : this.aheadFor(g, k); }
   nextToPrepare(g) {
     const c = this.calc(g);
     for (let k = c.done; k < c.slots.length; k++) if (!this.hasOwnPlan(this.planFor(g, k))) return k;
@@ -211,7 +216,7 @@ class App {
   }
   // "Unit 3, Part 1 (2.1)" · "Unit 2 (1.3)" · "Final exam 1"
   secLabel(sl) { return !sl ? '—' : sl.u === 'FE' ? `Final exam ${sl.i + 1}` : `${this.uLabel(sl.u)}${sl.n > 1 ? `, Part ${sl.i + 1}` : ''}`; }
-  slotOf(g, L) { const c = this.calc(g); return L === g.draft ? c.done : L.forSlot != null ? L.forSlot : null; }
+  slotOf(g, L) { if (L.extra) return null; const c = this.calc(g); return L === g.draft ? c.done : L.forSlot != null ? L.forSlot : null; }
   planAhead(gid, k) {
     const g = this.state.db.groups[gid], c = this.calc(g);
     const go = editId => { this.setState({ gid, screen: 'plan', editId, sel: null, delEx: null, delLesson: null, copy: null }); window.scrollTo(0, 0); };
@@ -355,7 +360,7 @@ class App {
       L.date = day || this.iso(c.next);
       g.taught.push({ unit: L.unit, name: L.name, date: L.date, slot: !!(un && !un.skip), lessonId: L.id });
       g.history.push(L);
-      const nk = g.taught.filter(t => t.slot).length, ah = (g.plans || []).find(p => p.forSlot === nk);
+      const nk = g.taught.filter(t => t.slot).length, ah = (g.plans || []).find(p => p.forSlot === nk && p.extra) || (g.plans || []).find(p => p.forSlot === nk && !p.extra);
       if (ah) { g.plans = g.plans.filter(p => p !== ah); delete ah.forSlot; g.draft = ah; } else g.draft = this.newLesson(g);
       return { screen: 'week', sel: null, noteEdit: null, dbDayType: null };
     });
@@ -633,8 +638,8 @@ class App {
     {
       const gg = g, live = scr === 'start' || scr === 'mid', cur = live ? '' : (s.editId && L !== gg.draft ? L.id : '');
       const opts = [{ id: '', label: `Next lesson · ${this.fmtS(gc.next)} · ${this.lTitle(gg.draft)}` }];
-      (gg.plans || []).filter(p => p.forSlot != null && p.forSlot > gc.done).sort((a, b) => a.forSlot - b.forSlot)
-        .forEach(p => opts.push({ id: p.id, label: `Planned · ${this.fmtS(this.slotDate(gg, p.forSlot))} · ${this.lTitle(p)}` }));
+      (gg.plans || []).filter(p => p.forSlot != null && (p.forSlot > gc.done || p.extra)).sort((a, b) => a.forSlot - b.forSlot - (a.extra ? 0.5 : 0) + (b.extra ? 0.5 : 0))
+        .forEach(p => opts.push({ id: p.id, label: `Planned · ${this.fmtS(p.extra ? this.extraDate(gg, p) : this.slotDate(gg, p.forSlot))} · ${this.lTitle(p)}${p.extra ? ' (extra)' : ''}` }));
       gg.history.filter(h => h.date).slice().sort((a, b) => b.date.localeCompare(a.date))
         .forEach(h => opts.push({ id: h.id, label: `Taught · ${this.fmtS(this.D(h.date))} · ${this.lTitle(h)}` }));
       v.lessonOpts = opts.map(o => Object.assign(o, { sel: o.id === cur }));
@@ -669,11 +674,11 @@ class App {
     }
     const nu = slot ? this.findUnit(x.level, slot.u) : null;
     const todayIso = this.iso(c.today), tIdx = x.taught.filter(t => t.slot).findIndex(t => t.date === todayIso);
-    const ready = this.hasOwnPlan(x.draft);
+    const ready = this.hasOwnPlan(x.draft), nowLabel = x.draft.extra ? this.extraLabel(x.draft) : this.secLabel(slot);
     let todayHead, todayVal, todayTag = '', todayTagBg = '', todayTagFg = '';
     if (tIdx >= 0) { todayHead = 'Taught today:'; todayVal = this.secLabel(c.slots[tIdx]); }
-    else if (c.isToday && slot) { todayHead = 'To be taught today:'; todayVal = this.secLabel(slot); todayTag = ready ? 'Plan ready' : 'No plan yet'; }
-    else { todayHead = 'No class today. Next:'; todayVal = slot ? `${this.secLabel(slot)} on ${this.fmtS(c.next)}` : 'Course finished'; todayTag = slot ? (ready ? 'Plan ready' : 'No plan yet') : ''; }
+    else if (c.isToday && slot) { todayHead = 'To be taught today:'; todayVal = nowLabel; todayTag = ready ? 'Plan ready' : 'No plan yet'; }
+    else { todayHead = 'No class today. Next:'; todayVal = slot ? `${nowLabel} on ${this.fmtS(c.next)}` : 'Course finished'; todayTag = slot ? (ready ? 'Plan ready' : 'No plan yet') : ''; }
     if (todayTag) { todayTagBg = ready ? '#DDF3EC' : '#FFF1C7'; todayTagFg = ready ? '#0F6B55' : '#8A4B00'; }
     const pk = this.nextToPrepare(x), ps = pk != null ? c.slots[pk] : null;
     const prep = {
@@ -684,7 +689,7 @@ class App {
     const draftDiff = x.draft.unit && slot && x.draft.unit !== slot.u;
     return {
       time: `${x.start} - ${x.end}`, level: lv.name, is30: x.is30, tint: lv.tint, dark: lv.dark, color: lv.c,
-      date: this.nextText(x, c), unit: slot ? this.uLabel(slot.u) : 'Done', desc: this.slotDesc(x.level, slot),
+      date: this.nextText(x, c), unit: x.draft.extra ? this.uLabel(x.draft.unit) : slot ? this.uLabel(slot.u) : 'Done', desc: x.draft.extra ? 'Extra lesson · skippable unit' : this.slotDesc(x.level, slot),
       secs: nu ? this.secsText(nu) : '',
       progress: `${c.done} of 38 lessons`, progressShort: `${c.done} of 38`, pct: Math.max(2, c.done / 38 * 100) + '%',
       pill: p.t, pillBg: p.bg, pillFg: p.fg,
@@ -804,7 +809,7 @@ class App {
       this.upd(d => { const gg = d.groups[g.id], T = this.T(gg, s); const te = gg.taught.find(t => t.lessonId === T.id); T.date = val; if (te) te.date = val; });
       this.toast(`Moved to ${this.fmtS(this.D(val))}.`);
     };
-    v.editBanner = isAhead ? `Planning ahead: the lesson for ${this.fmtS(this.slotDate(g, L.forSlot))} (${this.secLabel(gc.slots[L.forSlot])}). It becomes the next lesson by itself when its turn comes. Changes save as you type.`
+    v.editBanner = isAhead ? `Planning ahead: the lesson for ${this.fmtS(L.extra ? this.extraDate(g, L) : this.slotDate(g, L.forSlot))} (${L.extra ? this.extraLabel(L) : this.secLabel(gc.slots[L.forSlot])}). It becomes the next lesson by itself when its turn comes. Changes save as you type.`
       : editingTaught ? `You are editing a taught lesson from ${L.date ? this.fmtS(this.D(L.date)) : 'earlier'}. Changes save as you type.` : '';
     v.backToNext = () => this.setState({ editId: null, sel: null, delEx: null });
     // saved lessons
@@ -826,20 +831,27 @@ class App {
     }));
     // upcoming roadmap lessons: what is planned and what still needs a plan
     v.upcoming = [];
+    if (g.draft.extra) { const Lk = g.draft, n = Lk.exercises.filter(e => !e.fromCarry).length, open = Lk === L;
+      v.upcoming.push({ when: this.fmtS(gc.next) + ' · next lesson', sec: this.extraLabel(Lk), status: `Ready · ${n} exercises${Lk.name ? ' · ' + Lk.name : ''}`, statusFg: '#0F6B55',
+        rowBg: open ? lv.tint : '#fff', rowBorder: open ? lv.c : '#E2E6F0', isOpen: open, notOpen: !open, btn: 'Open', onOpen: () => this.setState({ editId: null, sel: null }) }); }
     for (let k = gc.done; k < Math.min(gc.slots.length, gc.done + 4); k++) {
+      const X = this.extraFor(g, k);
+      if (X) { const n = X.exercises.filter(e => !e.fromCarry).length, open = X === L;
+        v.upcoming.push({ when: this.fmtS(this.extraDate(g, X)), sec: this.extraLabel(X), status: `Ready · ${n} exercises${X.name ? ' · ' + X.name : ''}`, statusFg: '#0F6B55',
+          rowBg: open ? lv.tint : '#fff', rowBorder: open ? lv.c : '#E2E6F0', isOpen: open, notOpen: !open, btn: 'Open', onOpen: () => this.setState({ editId: X.id, sel: null, delEx: null }) }); }
       const sl = gc.slots[k], Lk = this.planFor(g, k), ready = this.hasOwnPlan(Lk), open = !!Lk && Lk === L;
       const n = Lk ? Lk.exercises.filter(e => !e.fromCarry).length : 0;
       v.upcoming.push({ when: this.fmtS(this.slotDate(g, k)) + (k === gc.done ? ' · next lesson' : ''), sec: this.secLabel(sl),
         status: ready ? `Ready · ${n} exercise${n === 1 ? '' : 's'}${Lk.name ? ' · ' + Lk.name : ''}` : 'Not planned yet', statusFg: ready ? '#0F6B55' : '#8A4B00',
         rowBg: open ? lv.tint : '#fff', rowBorder: open ? lv.c : '#E2E6F0', isOpen: open, notOpen: !open, btn: ready ? 'Open' : 'Plan it', onOpen: () => this.planAhead(g.id, k) });
     }
-    (g.plans || []).filter(p => p.forSlot != null && p.forSlot > gc.done && this.hasOwnPlan(p)).sort((a, b) => a.forSlot - b.forSlot).forEach(p => {
-      saved.push(rowFor('p:' + p.id, 'plan', `Planned ahead · for ${this.fmtS(this.slotDate(g, p.forSlot))} · ${this.secLabel(gc.slots[p.forSlot])}`, p, 'Planned ahead', {
-        onOpen: () => this.planAhead(g.id, p.forSlot),
+    (g.plans || []).filter(p => p.forSlot != null && (p.forSlot > gc.done || p.extra) && this.hasOwnPlan(p)).sort((a, b) => a.forSlot - b.forSlot).forEach(p => {
+      saved.push(rowFor('p:' + p.id, 'plan', `Planned ahead · for ${this.fmtS(p.extra ? this.extraDate(g, p) : this.slotDate(g, p.forSlot))} · ${p.extra ? this.extraLabel(p) : this.secLabel(gc.slots[p.forSlot])}`, p, 'Planned ahead', {
+        onOpen: () => p.extra ? this.setState({ editId: p.id, sel: null }) : this.planAhead(g.id, p.forSlot),
         onYes: () => { this.upd(d => { const gg = d.groups[g.id]; gg.plans = (gg.plans || []).filter(x => x.id !== p.id); }, { delLesson: null, editId: s.editId === p.id ? null : s.editId, sel: null }); this.toast('Lesson plan deleted.'); }
       }));
     });
-    (g.plans || []).filter(p => p.forSlot == null || p.forSlot <= gc.done).slice().sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0)).forEach(p => {
+    (g.plans || []).filter(p => (p.forSlot == null || p.forSlot <= gc.done) && !p.extra).slice().sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0)).forEach(p => {
       saved.push(rowFor('p:' + p.id, 'plan', `Not taught yet · saved ${this.fmtS(new Date(p.savedAt || Date.now()))}`, p, 'Saved plan', {
         onOpen: () => { this.upd(d => { const gg = d.groups[g.id]; gg.plans = (gg.plans || []).filter(x => x.id !== p.id); const cur = gg.draft; if (cur.exercises.length || cur.name) { cur.savedAt = Date.now(); gg.plans.push(cur); } const np = JSON.parse(JSON.stringify(p)); delete np.forSlot; gg.draft = np; }, { editId: null, sel: null, delLesson: null }); this.toast('Plan loaded into the planner.'); },
         onYes: () => { this.upd(d => { const gg = d.groups[g.id]; gg.plans = (gg.plans || []).filter(x => x.id !== p.id); }, { delLesson: null }); this.toast('Lesson plan deleted. Carry-over from it stays.'); }
@@ -1266,7 +1278,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 15 Oct d</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 15 Oct e</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
