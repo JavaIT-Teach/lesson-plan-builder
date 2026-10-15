@@ -287,7 +287,9 @@ class App {
     if (screen === 'start' || screen === 'mid') {
       this.upd(db => { const L = db.groups[id].draft; if (!L.run.lessonStart) L.run.lessonStart = Date.now(); }, { screen, gid: id, del: null });
     } else this.setState({ screen, gid: id, del: null, noteEdit: null });
-    if (id !== this.state.gid || (screen !== 'plan' && screen !== 'camb')) this.setState({ editId: null, delEx: null, delLesson: null });
+    const keep = ['plan', 'after', 'camb'].includes(screen);
+    if ((screen === 'start' || screen === 'mid') && this.state.editId && id === this.state.gid) this.toast('Lesson starts and Mid-lesson always run the next lesson.');
+    if (id !== this.state.gid || !keep) this.setState({ editId: null, delEx: null, delLesson: null });
     window.scrollTo(0, 0);
   }
   T(gg, s) {
@@ -628,6 +630,18 @@ class App {
     v.navItems = navDefs.map(([label, key]) => ({ label, bg: scr === key ? '#24345C' : 'transparent', weight: scr === key ? 700 : 500,
       onClick: () => { if (key === 'roadmap') this.setState({ rmGid: s.gid }); this.go(key); } }));
     const steps = [['Plan', 'plan'], ['Lesson starts', 'start'], ['Mid-lesson', 'mid'], ['After class', 'after'], ['Cambridge copy', 'camb']];
+    {
+      const gg = g, live = scr === 'start' || scr === 'mid', cur = live ? '' : (s.editId && L !== gg.draft ? L.id : '');
+      const opts = [{ id: '', label: `Next lesson · ${this.fmtS(gc.next)} · ${this.lTitle(gg.draft)}` }];
+      (gg.plans || []).filter(p => p.forSlot != null && p.forSlot > gc.done).sort((a, b) => a.forSlot - b.forSlot)
+        .forEach(p => opts.push({ id: p.id, label: `Planned · ${this.fmtS(this.slotDate(gg, p.forSlot))} · ${this.lTitle(p)}` }));
+      gg.history.filter(h => h.date).slice().sort((a, b) => b.date.localeCompare(a.date))
+        .forEach(h => opts.push({ id: h.id, label: `Taught · ${this.fmtS(this.D(h.date))} · ${this.lTitle(h)}` }));
+      v.lessonOpts = opts.map(o => Object.assign(o, { sel: o.id === cur }));
+      v.lessonSelLocked = live;
+      v.lessonSelBg = cur ? '#E6EDFF' : '#fff';
+      v.onLessonSel = e => { this.setState({ editId: e.target.value || null, sel: null, delEx: null, delLesson: null, noteEdit: null }); window.scrollTo(0, 0); };
+    }
     v.jumpSteps = steps.map(([label, key], i) => ({ label, num: i + 1, bg: scr === key ? '#14213D' : 'transparent', fg: scr === key ? '#fff' : '#3A4566', onClick: () => this.go(key) }));
 
     this.syncVals(v, s);
@@ -1091,8 +1105,8 @@ class App {
     L.exercises.forEach((e, i) => {
       if (e.skipped) return;
       const r = this.res(L, e), dropped = !!L.drop[e.id];
-      const set = o => this.upd(d => { const gg = d.groups[g.id]; gg.draft.results[e.id] = o; this.syncCarry(d, gg, gg.draft, false); });
-      const setDrop = val => this.upd(d => { const gg = d.groups[g.id]; gg.draft.drop[e.id] = val; this.syncCarry(d, gg, gg.draft, false); });
+      const set = o => this.upd(d => { const gg = d.groups[g.id], T = this.T(gg, s); T.results[e.id] = o; this.syncCarry(d, gg, T, false); });
+      const setDrop = val => this.upd(d => { const gg = d.groups[g.id], T = this.T(gg, s); T.drop[e.id] = val; this.syncCarry(d, gg, T, false); });
       rows.push({
         label: e.note || this.exTitle(e), sub: [`${i + 1} · ${e.kind || 'Exercise'}`, e.page && `Page ${e.page}`].filter(Boolean).join(' · '),
         opts: opt(r, set), missed: r === 'Part' || r === 'None',
@@ -1154,6 +1168,11 @@ class App {
     v.onCloseDay = e => this.setState({ closeDay: { gid: g.id, date: e.target.value } });
     this.tgVals(v, g, L, s);
     v.closeLesson = () => { this.closeLesson(cd); this.setState({ closeDay: null }); };
+    const isTaught = L !== g.draft && !!L.date, isAhead = L !== g.draft && !L.date;
+    v.canClose = L === g.draft; v.afterDateLabel = L.date ? this.fmtS(this.D(L.date)) : ''; v.afterTaught = isTaught; v.afterAhead = isAhead;
+    v.afterDays = isTaught ? this.dayOptions(g, L.date).map(id => ({ id, label: this.dayLabel(id), sel: id === L.date })) : [];
+    v.onAfterDay = e => { const val = e.target.value; this.upd(d => { const gg = d.groups[g.id], T = this.T(gg, s); const te = gg.taught.find(t => t.lessonId === T.id); T.date = val; if (te) te.date = val; }); this.toast(`Moved to ${this.fmtS(this.D(val))}.`); };
+    if (isTaught) v.nextLessonLabel = `${this.gLabel(g)} · ${g.dayType} days · ${g.start} · the lesson after ${this.fmtS(this.D(L.date))}`;
   }
 
   cambVals(v, db, s, g, L, gc) {
@@ -1247,7 +1266,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 15 Oct b</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 15 Oct c</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
@@ -1258,6 +1277,8 @@ function tJump(v) {
   <button${click(v.goWeek)} style="border:none;background:#F2F4FA;color:#14213D;font-weight:700;font-size:14px;padding:8px 14px;border-radius:8px;cursor:pointer">← Week</button>
   <span style="font-family:'DM Mono';font-size:14px;color:#3A4566;padding:0 6px">${esc(v.sideClock)}</span>
   <button${click(v.goSync)} style="border:none;background:transparent;color:#5A6482;font-size:13px;padding:4px 6px;cursor:pointer;display:flex;align-items:center;gap:6px"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:${esc(v.syncDot)}"></span>${esc(v.syncLine)}</button>
+  <span style="width:1px;height:22px;background:#E2E6F0;margin:0 6px"></span>
+  <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#3A4566">Lesson<select${input(v.onLessonSel)}${v.lessonSelLocked ? ' disabled title="Lesson starts and Mid-lesson always run the next lesson"' : ''} style="max-width:340px;height:36px;border:1.5px solid #14213D;border-radius:8px;padding:0 8px;font-size:13.5px;font-weight:700;background:${esc(v.lessonSelBg)};color:#14213D;cursor:pointer">${FOR(v.lessonOpts, o => `<option value="${esc(o.id)}"${o.sel ? ' selected' : ''}>${esc(o.label)}</option>`)}</select></label>
   <span style="width:1px;height:22px;background:#E2E6F0;margin:0 6px"></span>
   ${FOR(v.jumpSteps, j => `<button${click(j.onClick)} style="border:none;background:${esc(j.bg)};color:${esc(j.fg)};font-weight:600;font-size:14px;padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;gap:6px;align-items:center"><span style="font-family:'DM Mono';opacity:0.6">${j.num}</span>${esc(j.label)}</button>`)}
 </div>`;
@@ -1719,9 +1740,12 @@ function tAfter(v) {
   return `<main data-screen-label="05 After class" style="padding:22px 32px 40px;display:flex;flex-direction:column;gap:18px">
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
     <span style="background:${esc(v.lvTint)};font-weight:700;font-size:14px;padding:5px 12px;border-radius:999px">${esc(v.lvName)}</span>
-    <span style="font-family:'Bricolage Grotesque';font-size:32px;font-weight:700;letter-spacing:-0.01em">Wrap-up · ${esc(v.lessonTitle)}</span>
-    <label style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:#3A4566">Lesson day<select${input(v.onCloseDay)} style="height:38px;border:1.5px solid #14213D;border-radius:8px;padding:0 10px;font-size:15px;font-weight:700;background:#fff;color:#14213D;cursor:pointer">${FOR(v.closeDays, o => `<option value="${o.id}"${o.sel ? ' selected' : ''}>${esc(o.label)}</option>`)}</select></label>
-    <button${click(v.closeLesson)} style="border:none;background:#14213D;color:#fff;font-weight:700;font-size:16px;padding:14px 24px;border-radius:10px;cursor:pointer">Save and close lesson</button>
+    <span style="font-family:'Bricolage Grotesque';font-size:32px;font-weight:700;letter-spacing:-0.01em">Wrap-up · ${esc(v.lessonTitle)}${v.afterTaught ? ' · ' + esc(v.afterDateLabel) : ''}</span>
+    ${IF(v.afterTaught, () => `<span style="margin-left:auto;background:#DDF3EC;color:#0F6B55;font-weight:700;font-size:14px;padding:8px 12px;border-radius:9px">Taught lesson · changes save as you type</span>
+    <label style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:#3A4566">Taught on<select${input(v.onAfterDay)} style="height:38px;border:1.5px solid #14213D;border-radius:8px;padding:0 10px;font-size:15px;font-weight:700;background:#fff;color:#14213D;cursor:pointer">${FOR(v.afterDays, o => `<option value="${o.id}"${o.sel ? ' selected' : ''}>${esc(o.label)}</option>`)}</select></label>`)}
+    ${IF(v.afterAhead, () => `<span style="margin-left:auto;background:#FFF1C7;color:#6B4E00;font-weight:700;font-size:14px;padding:8px 12px;border-radius:9px">Planned ahead · not taught yet</span>`)}
+    ${IF(v.canClose, () => `<label style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:#3A4566">Lesson day<select${input(v.onCloseDay)} style="height:38px;border:1.5px solid #14213D;border-radius:8px;padding:0 10px;font-size:15px;font-weight:700;background:#fff;color:#14213D;cursor:pointer">${FOR(v.closeDays, o => `<option value="${o.id}"${o.sel ? ' selected' : ''}>${esc(o.label)}</option>`)}</select></label>
+    <button${click(v.closeLesson)} style="border:none;background:#14213D;color:#fff;font-weight:700;font-size:16px;padding:14px 24px;border-radius:10px;cursor:pointer">Save and close lesson</button>`)}
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:stretch">
     <div style="background:#fff;border:1px solid #E2E6F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px">
