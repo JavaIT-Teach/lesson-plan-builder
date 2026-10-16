@@ -76,6 +76,17 @@ That file is Java's own plan, built from CB + TB. It is the model for voice, den
 - "Prepare for the exam page 130" references and Grammar Reference pointers are not rows. Put them in
   `self` if useful.
 
+**Four-page lessons.** Some roadmap units are one lesson covering **all 4 pages** (e.g. Beginner and
+Elementary Units 0–2; `status` and the app show "One lesson · all 4 pages at once"). Java is sometimes asked
+to teach all 4 pages in one lesson. Then:
+- Include **every section** on all 4 pages (vocabulary, grammar, reading, listening, speaking, writing).
+  Never leave a whole section out.
+- Compress: 2–4 min per exercise, merge small follow-up exercises into one row (e.g. `num` "1-2"), make
+  speaking tasks short pair work.
+- Drop or shorten extras first: the TB Warmer, Cooler, Talking Points, fast-finisher ideas.
+- The total must still be about 73–75 min. In the report, say what was squeezed or dropped.
+- If unsure whether Java wants all 4 pages or only 2, ask once before building.
+
 **Fields** (these are exactly the app's fields)
 - `page`: CB page. `num`: CB exercise number.
 - `kind`: the CB section heading: Grammar, Listening, Vocabulary, Speaking, Reading, Writing or Other.
