@@ -55,13 +55,14 @@ class App {
   })();
 
   SYNC_KEY = 'lesson-plan-builder-sync';
+  TG_KEY = 'lesson-plan-builder-tgbot';
   state = this.init();
 
   init() {
     let db = null;
     try { db = JSON.parse(localStorage.getItem(this.K.KEY)); } catch (e) {}
     if (!this.validDb(db)) { db = this.seed(); this.save(db); }
-    let mini = false; try { mini = localStorage.getItem('lpb-side-mini') === '1'; } catch (e) {}
+    let mini = false; try { const m = localStorage.getItem('lpb-side-mini'); mini = m === '1' || (m == null && window.innerWidth < 760); } catch (e) {}
     return { sideMini: mini, db, screen: 'week', gid: 'b-odd', rmGid: null, sel: null, del: null, noteEdit: null, toast: '', aimsOpen: false, confirmReset: false, restore: null, now: Date.now(),
       sync: { status: this.cfg() ? 'pending' : 'off', msg: '' }, syncConflict: null, syncBusy: false, confirmDisconnect: false,
       syncForm: { owner: 'JavaIT-Teach', repo: 'lesson-plan-data', token: '' } };
@@ -254,6 +255,15 @@ class App {
     v.tgWarn = missed.length ? `Not fully covered: ${missed.map(e => `${e.kind || 'Exercise'} ex ${e.num}`).join(', ')}. Remove those parts from the message if needed.` : '';
     v.hasTgWarn = !!missed.length;
     v.onTg = e => this.upd(d => { this.T(d.groups[g.id], s).tg = e.target.value; });
+    const link = (this.state.db.tgChats || {})[g.id], bot = this.tgCfg(), sure = s.tgSure === L.id;
+    v.tgCanSend = !!(link && bot); v.tgNeedSetup = !v.tgCanSend;
+    v.tgSetupText = !bot ? 'Want a Send button? Set up the Telegram bot.' : 'Link this class to its Telegram group to send from here.';
+    v.goTgSetup = () => this.go('tg');
+    v.tgSendLabel = s.tgSending ? 'Sending…' : sure ? `Tap again to send to ${link && link.title}` : `Send to ${link ? link.title : 'group'}`;
+    v.tgSendBg = sure ? '#D97706' : '#138A6E';
+    v.tgSentNote = L.tgSent ? `Sent ${this.fmtS(new Date(L.tgSent))} at ${this.clock(L.tgSent)}. Sending again posts it twice.` : '';
+    v.hasTgSent = !!L.tgSent;
+    v.sendTg = () => { if (s.tgSending) return; if (!sure) { this.setState({ tgSure: L.id }); return; } this.tgSend(g.id, v.tgText, L.id); };
     v.copyTg = () => {
       const done = () => this.toast('Copied. Paste it into the Telegram group.');
       if (navigator.clipboard) navigator.clipboard.writeText(v.tgText).then(done, () => this.toast('Could not copy. Select the text and copy by hand.'));
@@ -460,6 +470,100 @@ class App {
   // ---------- GitHub sync ----------
   // Lessons are mirrored to one file (lessons.json) in a private repo, using the GitHub contents API.
   // Settings (incl. the key) live in their own localStorage entry, never in backups or on GitHub.
+  // ---------- Telegram bot (token stays in this browser; which chat belongs to which group syncs in db.tgChats) ----------
+  tgCfg() { try { return JSON.parse(localStorage.getItem(this.TG_KEY)) || null; } catch (e) { return null; } }
+  setTgCfg(c) { try { if (c) localStorage.setItem(this.TG_KEY, JSON.stringify(c)); else localStorage.removeItem(this.TG_KEY); } catch (e) {} }
+  async tgApi(method, params, token) {
+    const t = token || (this.tgCfg() || {}).token;
+    if (!t) throw new Error('no-bot');
+    const body = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, val]) => body.append(k, typeof val === 'object' ? JSON.stringify(val) : String(val)));
+    let r;
+    try { r = await fetch(`https://api.telegram.org/bot${t}/${method}`, { method: 'POST', body }); }
+    catch (e) { throw new Error('net'); }
+    let j = null; try { j = await r.json(); } catch (e) {}
+    if (!j) throw new Error('net');
+    return j;
+  }
+  tgErr(e, j) {
+    if (e && e.message === 'net') return 'Could not reach Telegram. Check the internet. If Telegram works in the app but not here, check the group: the message may have gone through.';
+    if (e && e.message === 'no-bot') return 'Set up the Telegram bot first (left bar → Telegram bot).';
+    const d = (j && j.description) || 'unknown error';
+    if (/unauthorized/i.test(d)) return 'Telegram did not accept the bot token. Paste it again from BotFather.';
+    if (/not a member|kicked|chat not found/i.test(d)) return 'The bot is not in that group. Add the bot to the group, then try again.';
+    if (/not enough rights|administrator/i.test(d)) return 'The bot is not allowed to post there. Make it an admin of the group.';
+    return 'Telegram said: ' + d;
+  }
+  async tgConnect() {
+    const token = (this.state.tgForm || '').trim();
+    if (!/^\d+:[\w-]{20,}$/.test(token)) { this.toast('That does not look like a bot token. Copy it again from BotFather.'); return; }
+    this.setState({ tgBusy: true });
+    let j = null;
+    try { j = await this.tgApi('getMe', {}, token); } catch (e) { this.setState({ tgBusy: false }); this.toast(this.tgErr(e)); return; }
+    this.setState({ tgBusy: false });
+    if (!j.ok) { this.toast(this.tgErr(null, j)); return; }
+    this.setTgCfg({ token, bot: j.result.username, name: j.result.first_name });
+    this.setState({ tgForm: '' });
+    this.toast(`Connected to @${j.result.username}.`);
+  }
+  async tgFind() {
+    this.setState({ tgBusy: true });
+    let j = null;
+    try { j = await this.tgApi('getUpdates', { allowed_updates: ['message', 'my_chat_member', 'channel_post'] }); } catch (e) { this.setState({ tgBusy: false }); this.toast(this.tgErr(e)); return; }
+    this.setState({ tgBusy: false });
+    if (!j.ok) { this.toast(this.tgErr(null, j)); return; }
+    const found = Object.assign({}, this.state.tgFound || {});
+    (j.result || []).forEach(u => {
+      const c = (u.message || u.my_chat_member || u.channel_post || {}).chat;
+      if (c && c.type !== 'private') found[c.id] = { id: c.id, title: c.title || String(c.id) };
+      const m = u.message && u.message.migrate_to_chat_id; if (m) { delete found[c.id]; found[m] = { id: m, title: c.title }; }
+    });
+    this.setState({ tgFound: found });
+    const n = Object.keys(found).length;
+    this.toast(n ? `Found ${n} group${n > 1 ? 's' : ''}. Pick one for each class.` : 'No groups found yet. Write "hi" in the Telegram group, then tap Find again.');
+  }
+  async tgSend(gid, text, lessonId) {
+    const db = this.state.db, link = (db.tgChats || {})[gid];
+    if (!link) { this.toast('Pick the Telegram group for this class first (left bar → Telegram bot).'); return false; }
+    this.setState({ tgSending: true });
+    let j = null;
+    try {
+      j = await this.tgApi('sendMessage', { chat_id: link.id, text, disable_web_page_preview: true });
+      const m = !j.ok && j.parameters && j.parameters.migrate_to_chat_id;
+      if (m) { this.upd(d => { d.tgChats[gid].id = m; }); j = await this.tgApi('sendMessage', { chat_id: m, text, disable_web_page_preview: true }); }
+    } catch (e) { this.setState({ tgSending: false }); this.toast(this.tgErr(e)); return false; }
+    this.setState({ tgSending: false, tgSure: null });
+    if (!j.ok) { this.toast(this.tgErr(null, j)); return false; }
+    if (lessonId) this.upd(d => { const gg = d.groups[gid], L = [gg.draft, ...gg.history, ...(gg.plans || [])].find(x => x.id === lessonId); if (L) L.tgSent = Date.now(); });
+    this.toast(`Sent to ${link.title}.`);
+    return true;
+  }
+  tgVals2(v, db, s) {
+    const c = this.tgCfg();
+    v.tgOn = !!c; v.tgOff = !c;
+    v.tgBot = c ? `@${c.bot}` : '';
+    v.tgForm = s.tgForm || ''; v.onTgForm = e => this.setState({ tgForm: e.target.value });
+    v.tgConnect = () => { if (!s.tgBusy) this.tgConnect(); };
+    v.tgConnectLabel = s.tgBusy ? 'Checking…' : 'Connect';
+    v.tgFind = () => { if (!s.tgBusy) this.tgFind(); };
+    v.tgFindLabel = s.tgBusy ? 'Looking…' : 'Find my groups';
+    v.tgForget = () => { if (s.tgSureForget) { this.setTgCfg(null); this.setState({ tgSureForget: false, tgFound: null }); this.toast('Bot removed from this browser.'); } else this.setState({ tgSureForget: true }); };
+    v.tgForgetLabel = s.tgSureForget ? 'Tap again to remove' : 'Remove bot from this browser';
+    const chats = db.tgChats || {}, found = Object.assign({}, s.tgFound || {});
+    Object.values(chats).forEach(x => { if (x) found[x.id] = found[x.id] || x; });
+    const opts = Object.values(found);
+    const all = Object.values(db.groups).sort((a, b) => b.dayType.localeCompare(a.dayType) || a.start.localeCompare(b.start));
+    v.tgLinks = all.map(g => {
+      const cur = chats[g.id];
+      return {
+        label: `${this.gLabel(g)} · ${g.dayType} days · ${g.start}`,
+        opts: [{ id: '', label: opts.length ? '— not linked —' : 'Tap "Find my groups" first', sel: !cur }].concat(opts.map(o => ({ id: String(o.id), label: o.title, sel: !!cur && String(cur.id) === String(o.id) }))),
+        linked: !!cur,
+        onPick: e => { const id = e.target.value, o = found[id]; this.upd(d => { d.tgChats = d.tgChats || {}; if (o) d.tgChats[g.id] = { id: o.id, title: o.title }; else delete d.tgChats[g.id]; }); },
+        onTest: () => this.tgSend(g.id, `✅ Test from Lesson Plan Builder: lesson summaries for ${this.gLabel(g)} ${g.start} will come here.`)
+      };
+    });
+  }
   cfg() { try { return JSON.parse(localStorage.getItem(this.SYNC_KEY)) || null; } catch (e) { return null; } }
   setCfg(c) { try { if (c) localStorage.setItem(this.SYNC_KEY, JSON.stringify(c)); else localStorage.removeItem(this.SYNC_KEY); } catch (e) {} }
   patchCfg(p) { const c = this.cfg(); if (c) this.setCfg(Object.assign(c, p)); }
@@ -646,11 +750,11 @@ class App {
     const g = db.groups[s.gid], L = this.T(g, s), lv = K.LV[g.level], gc = this.calc(g);
     const scr = s.screen;
     const v = {};
-    const sideScreens = ['week', 'roadmap', 'carry', 'notes', 'sync', 'cambAll'];
+    const sideScreens = ['week', 'roadmap', 'carry', 'notes', 'sync', 'cambAll', 'tg'];
     Object.assign(v, {
       showSide: sideScreens.includes(scr), showJump: !sideScreens.includes(scr),
       isWeek: scr === 'week', isRoadmap: scr === 'roadmap', isCarry: scr === 'carry', isNotes: scr === 'notes', isSync: scr === 'sync',
-      isPlan: scr === 'plan', isStart: scr === 'start', isMid: scr === 'mid', isAfter: scr === 'after', isCamb: scr === 'camb', isCambAll: scr === 'cambAll',
+      isPlan: scr === 'plan', isStart: scr === 'start', isMid: scr === 'mid', isAfter: scr === 'after', isCamb: scr === 'camb', isCambAll: scr === 'cambAll', isTg: scr === 'tg',
       isLive: scr === 'start' || scr === 'mid', scrKey: scr + ':' + s.gid + ':' + (s.editId || ''),
       hasToast: !!s.toast, toast: s.toast,
       sideClock: `${this.fmtS(this.today())} · ${this.clock()}`,
@@ -685,8 +789,8 @@ class App {
       restoreYes: () => this.applyRestore(),
       restoreNo: () => this.setState({ restore: null })
     });
-    const navDefs = [['Week', 'week'], ['Plan a lesson', 'plan'], ['Roadmap', 'roadmap'], ['Carry-over', 'carry'], ['Notes', 'notes'], ['Cambridge copy', 'camb'], ['GitHub sync', 'sync']];
-    const ICON = { week: '📅', plan: '✏️', roadmap: '🗺️', carry: '↩️', notes: '📝', camb: '📄', sync: '☁️' };
+    const navDefs = [['Week', 'week'], ['Plan a lesson', 'plan'], ['Roadmap', 'roadmap'], ['Carry-over', 'carry'], ['Notes', 'notes'], ['Cambridge copy', 'camb'], ['Telegram bot', 'tg'], ['GitHub sync', 'sync']];
+    const ICON = { week: '📅', plan: '✏️', roadmap: '🗺️', carry: '↩️', notes: '📝', camb: '📄', tg: '✈️', sync: '☁️' };
     const navScr = scr === 'cambAll' ? 'camb' : scr;
     v.navItems = navDefs.map(([label, key]) => ({ label, icon: ICON[key] || '•', bg: navScr === key ? '#24345C' : 'transparent', weight: navScr === key ? 700 : 500,
       onClick: () => { if (key === 'roadmap') this.setState({ rmGid: s.gid }); this.go(key); } }));
@@ -715,6 +819,7 @@ class App {
     if (scr === 'after') this.afterVals(v, db, s, g, L, gc);
     if (scr === 'camb') this.cambVals(v, db, s, g, L, gc);
     if (scr === 'cambAll') this.bulkVals(v, db, s);
+    if (scr === 'tg') this.tgVals2(v, db, s);
     return v;
   }
 
@@ -1448,14 +1553,14 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 17 Oct a</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 17 Oct b</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
 }
 
 function tJump(v) {
-  return `<div data-noprint="1" style="background:#fff;border-bottom:1px solid #E2E6F0;padding:8px 32px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+  return `<div data-noprint="1" class="m-jump" style="background:#fff;border-bottom:1px solid #E2E6F0;padding:8px 32px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
   <button${click(v.goWeek)} style="border:none;background:#F2F4FA;color:#14213D;font-weight:700;font-size:14px;padding:8px 14px;border-radius:8px;cursor:pointer">← Week</button>
   <span style="font-family:'DM Mono';font-size:14px;color:#3A4566;padding:0 6px">${esc(v.sideClock)}</span>
   <button${click(v.goSync)} style="border:none;background:transparent;color:#5A6482;font-size:13px;padding:4px 6px;cursor:pointer;display:flex;align-items:center;gap:6px"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:${esc(v.syncDot)}"></span>${esc(v.syncLine)}</button>
@@ -1477,7 +1582,7 @@ const tUnclosed = (c, small) => IF(c.hasUnclosed, () => `<div class="fx-in" styl
 
 function tWeek(v) {
   const tag30 = (c, fs, pad) => IF(c.is30, () => `<span style="background:${esc(c.dark)};color:#fff;font-family:'DM Mono';font-size:${fs};font-weight:500;padding:${pad};border-radius:999px">30+</span>`);
-  return `<main data-screen-label="01 Week home" style="padding:36px 40px 56px;display:flex;flex-direction:column;gap:24px;max-width:1240px">
+  return `<main data-screen-label="01 Week home" class="m-main" style="padding:36px 40px 56px;display:flex;flex-direction:column;gap:24px;max-width:1240px">
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap">
     <div style="display:flex;flex-direction:column;gap:6px">
       <span style="font-family:'DM Mono';font-size:13px;letter-spacing:0.12em;color:#5A6482">${esc(v.weekKicker)}</span>
@@ -1827,7 +1932,7 @@ function tPlan(v) {
 }
 
 function tLiveHead(v) {
-  return `<div style="padding:22px 32px 4px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+  return `<div class="m-pad" style="padding:22px 32px 4px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
   <span style="background:${esc(v.lvTint)};font-weight:700;font-size:14px;padding:5px 12px;border-radius:999px">${esc(v.lvName)}</span>
   <span style="font-size:15px;color:#5A6482">${esc(v.dateText)} · ${esc(v.startTime)} · <b style="color:#14213D">${esc(v.lessonTitle)}</b></span>
   <span style="margin-left:auto;font-size:15px;color:#5A6482">Lesson ends ${esc(v.endTime)} · <b style="font-family:'DM Mono';color:#14213D">${esc(v.minLeft)} min left</b></span>
@@ -1863,11 +1968,11 @@ function tToday(v, withAfter) {
 }
 
 function tStart(v) {
-  return `<main data-screen-label="03 Lesson starts" style="padding:14px 32px 40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,330px);gap:22px;align-items:start">
+  return `<main data-screen-label="03 Lesson starts" class="m-grid" style="padding:14px 32px 40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,330px);gap:22px;align-items:start">
   <div style="display:flex;flex-direction:column;gap:16px">
-    <div style="background:#fff;border:3px solid #FFB020;border-radius:20px;padding:28px 32px;display:flex;flex-direction:column;gap:14px;align-items:flex-start">
+    <div class="m-card" style="background:#fff;border:3px solid #FFB020;border-radius:20px;padding:28px 32px;display:flex;flex-direction:column;gap:14px;align-items:flex-start">
       <div style="display:flex;align-items:center;gap:12px"><span style="background:#FFB020;font-weight:700;font-size:16px;padding:6px 14px;border-radius:8px">Warm-up</span><span style="font-size:15px;color:#5A6482">5 to 7 minutes</span></div>
-      <span style="font-family:'Bricolage Grotesque';font-size:40px;font-weight:700;letter-spacing:-0.015em;line-height:1.1">Open your warm-up app</span>
+      <span class="m-big" style="font-family:'Bricolage Grotesque';font-size:40px;font-weight:700;letter-spacing:-0.015em;line-height:1.1">Open your warm-up app</span>
       <span style="font-size:17px;color:#3A4566">Pick the game yourself. When it's done, tap the green button.</span>
       <button${click(v.warmDone)} style="border:none;background:#138A6E;color:#fff;font-weight:700;font-size:19px;padding:16px 38px;border-radius:12px;cursor:pointer;white-space:pre">${esc(v.warmBtn)}</button>
     </div>
@@ -1895,13 +2000,13 @@ function tStart(v) {
 
 function tMid(v) {
   const cur = v.cur;
-  return `<main data-screen-label="04 Mid-lesson" style="padding:14px 32px 40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,330px);gap:22px;align-items:start">
+  return `<main data-screen-label="04 Mid-lesson" class="m-grid" style="padding:14px 32px 40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,330px);gap:22px;align-items:start">
   <div style="display:flex;flex-direction:column;gap:16px">
-    ${IF(v.hasCur, () => `<div data-k="${esc(cur.key)}" class="fx-in" style="background:#fff;border:3px solid ${esc(cur.kc)};border-radius:20px;padding:28px 32px;display:flex;flex-direction:column;gap:18px;min-height:540px">
+    ${IF(v.hasCur, () => `<div data-k="${esc(cur.key)}" class="fx-in m-card" style="background:#fff;border:3px solid ${esc(cur.kc)};border-radius:20px;padding:28px 32px;display:flex;flex-direction:column;gap:18px;min-height:540px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:12px;padding-top:12px"><span style="background:${esc(cur.kc)};color:#fff;font-weight:700;font-size:17px;padding:6px 14px;border-radius:8px">${esc(cur.kind)}</span><span style="font-size:16px;color:#5A6482">${esc(cur.where)}</span></div>
           <div style="display:flex;flex-direction:column;align-items:flex-end">
-            <span class="${v.timerCls}" style="font-family:'DM Mono';font-size:58px;font-weight:500;line-height:1;letter-spacing:-0.02em;color:${esc(v.timerColor)};transition:color .3s">${esc(v.timerText)}</span>
+            <span class="${v.timerCls} m-timer" style="font-family:'DM Mono';font-size:58px;font-weight:500;line-height:1;letter-spacing:-0.02em;color:${esc(v.timerColor)};transition:color .3s">${esc(v.timerText)}</span>
             <span style="font-size:13px;color:#5A6482">${esc(v.timerSub)}</span>
             <div style="display:flex;gap:6px;margin-top:8px">
               <button${click(v.togglePause)} style="border:1.5px solid #14213D;background:${v.paused ? '#14213D' : '#fff'};color:${v.paused ? '#fff' : '#14213D'};font-weight:700;font-size:13px;padding:6px 10px;border-radius:8px;cursor:pointer">${esc(v.pauseLabel)}</button>
@@ -1910,7 +2015,7 @@ function tMid(v) {
             </div>
           </div>
         </div>
-        <span style="font-family:'Bricolage Grotesque';font-size:40px;font-weight:700;letter-spacing:-0.015em;line-height:1.12;text-wrap:pretty">${esc(cur.note)}</span>
+        <span class="m-big" style="font-family:'Bricolage Grotesque';font-size:40px;font-weight:700;letter-spacing:-0.015em;line-height:1.12;text-wrap:pretty">${esc(cur.note)}</span>
         <div style="display:flex;gap:12px;flex-wrap:wrap">
           ${IF(cur.hasExtra, () => `<div style="background:${esc(cur.kt)};border-radius:12px;padding:12px 18px;display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;font-weight:700;letter-spacing:0.04em;color:${esc(cur.kc)}">${esc(cur.extraLabel)}</span><span style="font-size:24px;font-weight:700">${esc(cur.extra)}</span></div>`)}
           <div style="background:#ECEEF3;border-radius:12px;padding:12px 18px;display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;font-weight:700;letter-spacing:0.04em;color:#5A6482">WHO DOES IT</span><span style="font-size:24px;font-weight:700">${esc(cur.who)}</span></div>
@@ -1937,19 +2042,22 @@ function tMid(v) {
 </main>`;
 }
 
+const tgSendBtn = v => v.tgCanSend ? `<button${click(v.sendTg)} style="border:none;background:${esc(v.tgSendBg)};color:#fff;font-weight:700;font-size:14px;padding:9px 16px;border-radius:9px;cursor:pointer">✈ ${esc(v.tgSendLabel)}</button>` : '';
 const tgPanel = (v, open) => `<div style="background:#fff;border:1px solid #E2E6F0;border-radius:${open ? 16 : 12}px;padding:${open ? '18px 20px' : '0'};display:flex;flex-direction:column;gap:10px;margin-top:${open ? 0 : 8}px;overflow:hidden">
-  ${open ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-weight:700;font-size:16px">4 · Telegram message for students</span><button${click(v.copyTg)} style="margin-left:auto;border:none;background:#2AABEE;color:#fff;font-weight:700;font-size:14px;padding:9px 16px;border-radius:9px;cursor:pointer">Copy message</button></div>`
+  ${open ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-weight:700;font-size:16px">4 · Telegram message for students</span><span style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">${tgSendBtn(v)}<button${click(v.copyTg)} style="border:none;background:#2AABEE;color:#fff;font-weight:700;font-size:14px;padding:9px 16px;border-radius:9px;cursor:pointer">Copy message</button></span></div>`
   : `<button${click(v.toggleTg)} style="width:100%;border:none;background:transparent;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-weight:700;font-size:14px"><span>Telegram message for students</span><span style="font-family:'DM Mono';color:#5A6482">${v.tgOpen ? '▲' : '▼'}</span></button>`}
   ${IF(open || v.tgOpen, () => `<div style="padding:${open ? 0 : '0 14px 14px'};display:flex;flex-direction:column;gap:8px">
     <span style="font-size:12.5px;color:#5A6482">${esc(v.tgHint)}</span>
+    ${IF(v.hasTgSent, () => `<span style="background:#DDF3EC;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#0F6B55">✓ ${esc(v.tgSentNote)}</span>`)}
+    ${IF(v.tgNeedSetup, () => `<button${click(v.goTgSetup)} style="align-self:flex-start;border:none;background:transparent;color:#2F5BEA;font-size:13px;font-weight:600;padding:0;cursor:pointer;text-decoration:underline">${esc(v.tgSetupText)}</button>`)}
     ${IF(v.hasTgWarn, () => `<span style="background:#FFF1C7;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;color:#6B4E00">${esc(v.tgWarn)}</span>`)}
     <textarea data-autogrow="1"${input(v.onTg)} rows="8" style="border:1.5px solid #C9CFDE;border-radius:10px;padding:12px 14px;font-size:14.5px;line-height:1.5;resize:none;overflow:hidden;background:#F7FAFD;font-family:'DM Sans',system-ui,sans-serif">${esc(v.tgText)}</textarea>
-    ${open ? '' : `<button${click(v.copyTg)} style="align-self:flex-start;border:none;background:#2AABEE;color:#fff;font-weight:700;font-size:13.5px;padding:8px 14px;border-radius:8px;cursor:pointer">Copy message</button>`}
+    ${open ? '' : `<div style="display:flex;gap:8px;flex-wrap:wrap">${tgSendBtn(v)}<button${click(v.copyTg)} style="border:none;background:#2AABEE;color:#fff;font-weight:700;font-size:13.5px;padding:8px 14px;border-radius:8px;cursor:pointer">Copy message</button></div>`}
   </div>`)}
 </div>`;
 
 function tAfter(v) {
-  return `<main data-screen-label="05 After class" style="padding:22px 32px 40px;display:flex;flex-direction:column;gap:18px">
+  return `<main data-screen-label="05 After class" class="m-main" style="padding:22px 32px 40px;display:flex;flex-direction:column;gap:18px">
   <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
     <span style="background:${esc(v.lvTint)};font-weight:700;font-size:14px;padding:5px 12px;border-radius:999px">${esc(v.lvName)}</span>
     <span style="font-family:'Bricolage Grotesque';font-size:32px;font-weight:700;letter-spacing:-0.01em">Wrap-up · ${esc(v.lessonTitle)}${v.afterTaught ? ' · ' + esc(v.afterDateLabel) : ''}</span>
@@ -2122,6 +2230,39 @@ function tConflict(v) {
 </div>`;
 }
 
+function tTg(v) {
+  const box = 'height:44px;border:1.5px solid #C9CFDE;border-radius:10px;padding:0 14px;font-size:16px;color:#14213D;background:#fff';
+  const step = (n, title, body) => `<div style="display:flex;gap:14px;align-items:flex-start">
+      <span style="flex:none;width:30px;height:30px;border-radius:8px;background:#2AABEE;color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px">${n}</span>
+      <div style="display:flex;flex-direction:column;gap:4px;font-size:15px;line-height:1.5;min-width:0;flex:1"><span style="font-weight:700;font-size:16px">${title}</span>${body}</div>
+    </div>`;
+  return `<main data-screen-label="Telegram bot" style="padding:36px 40px 56px;display:flex;flex-direction:column;gap:20px;max-width:900px">
+  <div style="display:flex;flex-direction:column;gap:6px">
+    <span style="font-family:'DM Mono';font-size:13px;letter-spacing:0.12em;color:#5A6482">TELEGRAM BOT</span>
+    <h1 style="margin:0;font-family:'Bricolage Grotesque';font-size:40px;font-weight:700;letter-spacing:-0.02em">Send summaries in one tap</h1>
+    <span style="font-size:15px;color:#5A6482">Your own bot posts the lesson message to each class group. Students see it from the bot, not from you.</span>
+  </div>
+  <div style="background:#fff;border:1px solid #E2E6F0;border-radius:18px;padding:22px 24px;display:flex;flex-direction:column;gap:22px">
+    ${step(1, 'Make the bot', `<span>In Telegram, open <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a>, send <b>/newbot</b>, give it a name (for example <b>Java's English Class</b>) and a username ending in <b>bot</b>. BotFather replies with a token like <span style="font-family:'DM Mono'">123456:ABC…</span>. Copy it.</span>
+      ${v.tgOn ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#DDF3EC;border-radius:10px;padding:10px 14px"><b style="color:#0F6B55">✓ Connected to ${esc(v.tgBot)}</b><button${click(v.tgForget)} style="margin-left:auto;${BTN_DEL};font-size:13px;padding:6px 10px;border-radius:8px">${esc(v.tgForgetLabel)}</button></div>`
+      : `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px"><input type="password" value="${esc(v.tgForm)}"${input(v.onTgForm)} autocomplete="off" placeholder="Paste the bot token" style="${box};flex:1;min-width:220px"><button${click(v.tgConnect)} style="border:none;background:#138A6E;color:#fff;font-weight:700;font-size:16px;padding:0 22px;border-radius:10px;cursor:pointer">${esc(v.tgConnectLabel)}</button></div>
+      <span style="font-size:13px;color:#5A6482">The token is kept in this browser only. It is not in backups or on GitHub. On another device, paste it again.</span>`}`)}
+    ${step(2, 'Add the bot to each class group', `<span>Open the class group → group name → <b>Add members</b> → search your bot's username. Then make it an <b>admin</b> (only "Post messages" is needed). Then write <b>hi</b> in the group, so the bot can see it.</span>`)}
+    ${step(3, 'Link each class to its group', `${v.tgOn ? `<button${click(v.tgFind)} style="align-self:flex-start;border:none;background:#14213D;color:#fff;font-weight:700;font-size:15px;padding:10px 18px;border-radius:10px;cursor:pointer">${esc(v.tgFindLabel)}</button>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+          ${FOR(v.tgLinks, tl => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px solid #E2E6F0;border-radius:10px;padding:8px 12px">
+              <span style="flex:1;min-width:200px;font-weight:600">${esc(tl.label)}</span>
+              <select${input(tl.onPick)} style="height:38px;border:1.5px solid ${tl.linked ? '#138A6E' : '#C9CFDE'};border-radius:8px;padding:0 8px;font-size:14px;background:#fff;max-width:260px">${FOR(tl.opts, o => `<option value="${esc(o.id)}"${o.sel ? ' selected' : ''}>${esc(o.label)}</option>`)}</select>
+              ${tl.linked ? `<button${click(tl.onTest)} style="border:1.5px solid #C9CFDE;background:#fff;font-weight:700;font-size:13px;padding:7px 10px;border-radius:8px;cursor:pointer">Send test</button>` : ''}
+            </div>`)}
+        </div>
+        <span style="font-size:13px;color:#5A6482">Group not in the list? Write something in it, wait a few seconds, tap Find again. Links are saved with your lessons, so other devices get them too.</span>`
+      : `<span style="color:#5A6482">Connect the bot in step 1 first.</span>`}`)}
+    ${step(4, 'Send', `<span>On After class or Plan, open the Telegram message, check it, and tap <b>✈ Send to …</b> twice. The app remembers when each lesson was sent.</span>`)}
+  </div>
+</main>`;
+}
+
 function tSync(v) {
   const box = 'height:44px;border:1.5px solid #C9CFDE;border-radius:10px;padding:0 14px;font-size:16px;color:#14213D;background:#fff';
   const step = (n, title, body) => `<div style="display:flex;gap:14px;align-items:flex-start">
@@ -2187,6 +2328,7 @@ ${IF(v.isMid, () => tMid(v))}
 ${IF(v.isAfter, () => tAfter(v))}
 ${IF(v.isCamb, () => tCamb(v))}
 ${IF(v.isCambAll, () => tCambAll(v))}
+${IF(v.isTg, () => tTg(v))}
 ${IF(v.isSync, () => tSync(v))}
 </div>
 </div>

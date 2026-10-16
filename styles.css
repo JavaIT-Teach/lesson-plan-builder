@@ -44,3 +44,17 @@ button:active{transform:scale(.96)}
 input,textarea,select{transition:border-color .15s ease,box-shadow .15s ease}
 input:focus,textarea:focus{box-shadow:0 0 0 3px rgba(47,91,234,.15)}
 @media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none !important;transition:none !important}}
+
+/* ---------- phone ---------- */
+@media (max-width: 760px){
+  .m-jump{padding:6px 10px !important;gap:6px !important}
+  .m-jump select{max-width:calc(100vw - 90px) !important}
+  .m-pad{padding:12px 12px 4px !important;gap:8px !important}
+  .m-grid{grid-template-columns:1fr !important;padding:10px 12px 28px !important;gap:14px !important}
+  .m-grid aside{min-height:0 !important}
+  .m-card{padding:18px 16px !important;min-height:0 !important;border-radius:16px !important}
+  .m-big{font-size:26px !important}
+  .m-timer{font-size:44px !important}
+  .m-main{padding:16px 12px 32px !important}
+  .m-main h1{font-size:30px !important}
+}

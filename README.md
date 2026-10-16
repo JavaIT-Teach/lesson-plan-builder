@@ -27,6 +27,10 @@ Open the live page on a laptop. Then work through these steps:
 
 **Same lesson for several groups:** on the Plan screen, open **Copy plan to other groups**, tick the groups and tap Copy. You get the unit, lesson name, exercises and aims, and then you adjust each group's copy. Carry-over is never copied: each group keeps its own. If a group already had a plan, it moves to that group's Saved lessons.
 
+**Telegram bot:** open **Telegram bot** in the left bar. Make a bot with @BotFather, paste its token, add the bot to each class group as admin, write "hi" there, tap **Find my groups** and pick the group for each class. Then the Telegram message box has **✈ Send to …** (tap twice). The token stays in this browser only; the class-to-group links sync with your lessons.
+
+**Phone:** Lesson starts, Mid-lesson and After class fit a phone screen. The left bar starts folded on small screens.
+
 ## Your data
 
 - Everything is saved in this browser only, in `localStorage`. Another browser or computer will not see it.
