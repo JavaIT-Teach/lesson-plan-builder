@@ -61,7 +61,8 @@ class App {
     let db = null;
     try { db = JSON.parse(localStorage.getItem(this.K.KEY)); } catch (e) {}
     if (!this.validDb(db)) { db = this.seed(); this.save(db); }
-    return { db, screen: 'week', gid: 'b-odd', rmGid: null, sel: null, del: null, noteEdit: null, toast: '', aimsOpen: false, confirmReset: false, restore: null, now: Date.now(),
+    let mini = false; try { mini = localStorage.getItem('lpb-side-mini') === '1'; } catch (e) {}
+    return { sideMini: mini, db, screen: 'week', gid: 'b-odd', rmGid: null, sel: null, del: null, noteEdit: null, toast: '', aimsOpen: false, confirmReset: false, restore: null, now: Date.now(),
       sync: { status: this.cfg() ? 'pending' : 'off', msg: '' }, syncConflict: null, syncBusy: false, confirmDisconnect: false,
       syncForm: { owner: 'JavaIT-Teach', repo: 'lesson-plan-data', token: '' } };
   }
@@ -88,6 +89,14 @@ class App {
       if (live || Math.floor(n / 60000) !== Math.floor(this.state.now / 60000)) this.setState({ now: n });
     }, 1000);
     try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+    document.addEventListener('keydown', e => {
+      if (this.state.screen !== 'mid' || /INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '')) return;
+      const g = this.state.db.groups[this.state.gid], R = g.draft.run;
+      if (!R.warmDone || R.idx == null || R.idx < 0) return;
+      if (e.code === 'Space') { e.preventDefault(); this.togglePause(g.id); }
+      else if (e.key === 'ArrowRight') { const k = this.stepIdx(g.draft, R.idx, 1); if (k >= 0) this.jumpTo(g.id, k); }
+      else if (e.key === 'ArrowLeft') { const k = this.stepIdx(g.draft, R.idx, -1); if (k >= 0) this.jumpTo(g.id, k); else this.go('start'); }
+    });
     // GitHub sync: check on open, on return to the tab, when back online, and every few minutes
     this.lastPull = 0;
     if (this.cfg()) this.syncNow();
@@ -268,6 +277,13 @@ class App {
     if (e.kind === 'Listening' && e.track) t += ' · Track ' + e.track;
     return t;
   }
+  // "Grammar ex 3", "Warmer", "Talking Points" — matches the book instead of counting rows
+  exLabel(e, i) {
+    const n = String(e.num || '').trim();
+    if (!n) return `${e.kind || 'Exercise'} (row ${i + 1})`;
+    return /^\d/.test(n) ? `${e.kind || 'Exercise'} ex ${n}` : n;
+  }
+  exBadge(e, i) { const n = String(e.num || '').trim(); return /^\d/.test(n) && n.length <= 3 ? n : n ? n[0].toUpperCase() : String(i + 1); }
   exWhere(e) { return [e.num && `Exercise ${e.num}`, e.page && `Page ${e.page}`].filter(Boolean).join(' · '); }
   exShort(e) { return [e.num && `Exercise ${e.num}`, e.page && `Page ${e.page}`, e.note].filter(Boolean).join(' · ') || this.exTitle(e); }
 
@@ -323,6 +339,16 @@ class App {
         db.carry.push({ id: cid, groupId: g.id, lessonId: L.id, ex, fromUnit: L.unit, fromName: L.name, mark: r });
       }
     });
+  }
+  stepIdx(L, from, dir) {
+    for (let k = (from == null ? -1 : from) + dir; k >= 0 && k < L.exercises.length; k += dir) if (!L.exercises[k].skipped) return k;
+    return -1;
+  }
+  jumpTo(gid, i) {
+    this.upd(d => { const R = d.groups[gid].draft.run; if (!R.lessonStart) R.lessonStart = Date.now(); R.warmDone = true; R.idx = i; R.curStart = Date.now(); R.pausedAt = null; }, { screen: 'mid' });
+  }
+  togglePause(gid) {
+    this.upd(d => { const R = d.groups[gid].draft.run; if (R.pausedAt) { R.curStart = (R.curStart || Date.now()) + (Date.now() - R.pausedAt); R.pausedAt = null; } else R.pausedAt = Date.now(); });
   }
   advance(L) {
     const from = L.run.idx == null ? -1 : L.run.idx;
@@ -599,7 +625,7 @@ class App {
       showSide: sideScreens.includes(scr), showJump: !sideScreens.includes(scr),
       isWeek: scr === 'week', isRoadmap: scr === 'roadmap', isCarry: scr === 'carry', isNotes: scr === 'notes', isSync: scr === 'sync',
       isPlan: scr === 'plan', isStart: scr === 'start', isMid: scr === 'mid', isAfter: scr === 'after', isCamb: scr === 'camb',
-      isLive: scr === 'start' || scr === 'mid',
+      isLive: scr === 'start' || scr === 'mid', scrKey: scr + ':' + s.gid + ':' + (s.editId || ''),
       hasToast: !!s.toast, toast: s.toast,
       sideClock: `${this.fmtS(this.today())} · ${this.clock()}`,
       lvName: this.gLabel(g), lvTint: lv.tint, groupLong: this.gLong(g), groupShort: this.gLabel(g),
@@ -625,6 +651,8 @@ class App {
         this.setState({ db: fresh, confirmReset: false, screen: 'week', gid: 'b-odd', sel: null, editId: null });
         this.toast('Back to the starting state.');
       },
+      sideMini: !!s.sideMini, toggleSide: () => { const m = !this.state.sideMini; try { localStorage.setItem('lpb-side-mini', m ? '1' : '0'); } catch (e) {} this.setState({ sideMini: m }); },
+      syncDotCls: s.sync && s.sync.status === 'saving' ? 'fx-pulse' : '',
       downloadBackup: () => this.downloadBackup(),
       restoreBackup: () => this.pickBackup(),
       hasRestore: !!s.restore, restoreName: s.restore ? s.restore.name : '',
@@ -632,7 +660,8 @@ class App {
       restoreNo: () => this.setState({ restore: null })
     });
     const navDefs = [['Week', 'week'], ['Plan a lesson', 'plan'], ['Roadmap', 'roadmap'], ['Carry-over', 'carry'], ['Notes', 'notes'], ['Cambridge copy', 'camb'], ['GitHub sync', 'sync']];
-    v.navItems = navDefs.map(([label, key]) => ({ label, bg: scr === key ? '#24345C' : 'transparent', weight: scr === key ? 700 : 500,
+    const ICON = { week: '📅', plan: '✏️', roadmap: '🗺️', carry: '↩️', notes: '📝', camb: '📄', sync: '☁️' };
+    v.navItems = navDefs.map(([label, key]) => ({ label, icon: ICON[key] || '•', bg: scr === key ? '#24345C' : 'transparent', weight: scr === key ? 700 : 500,
       onClick: () => { if (key === 'roadmap') this.setState({ rmGid: s.gid }); this.go(key); } }));
     const steps = [['Plan', 'plan'], ['Lesson starts', 'start'], ['Mid-lesson', 'mid'], ['After class', 'after'], ['Cambridge copy', 'camb']];
     {
@@ -681,6 +710,15 @@ class App {
     else { todayHead = 'No class today. Next:'; todayVal = slot ? `${nowLabel} on ${this.fmtS(c.next)}` : 'Course finished'; todayTag = slot ? (ready ? 'Plan ready' : 'No plan yet') : ''; }
     if (todayTag) { todayTagBg = ready ? '#DDF3EC' : '#FFF1C7'; todayTagFg = ready ? '#0F6B55' : '#8A4B00'; }
     const pk = this.nextToPrepare(x), ps = pk != null ? c.slots[pk] : null;
+    // the lesson after the one shown on the first line
+    let nl = null;
+    {
+      const k1 = tIdx >= 0 ? c.done : (x.draft.extra ? c.done : c.done + 1);
+      const X = tIdx >= 0 && x.draft.extra ? x.draft : this.extraFor(x, k1);
+      if (tIdx >= 0 && !x.draft.extra && c.slots[k1]) nl = { label: this.secLabel(c.slots[k1]), date: c.next, ready: this.hasOwnPlan(x.draft) };
+      else if (X) nl = { label: this.extraLabel(X), date: X === x.draft ? c.next : this.extraDate(x, X), ready: this.hasOwnPlan(X) };
+      else if (c.slots[k1]) { const Lk = this.planFor(x, k1); nl = { label: this.secLabel(c.slots[k1]), date: this.slotDate(x, k1), ready: this.hasOwnPlan(Lk) }; }
+    }
     const prep = {
       prepVal: ps ? this.secLabel(ps) : 'All planned', prepSub: ps ? `for ${this.fmtS(this.slotDate(x, pk))}` : '',
       hasPrep: !!ps, prepBtn: ps ? 'Prepare it →' : '',
@@ -701,6 +739,8 @@ class App {
       btn: planned ? `Open plan · ${this.uLabel(x.draft.unit || (slot && slot.u))}` : `Plan ${this.uLabel(x.draft.unit || (slot && slot.u))}`,
       hasSkipNote: !!skipNote, skipNote,
       todayHead, todayVal, todayTag, hasTodayTag: !!todayTag, todayTagBg, todayTagFg, ...prep,
+      hasNl: !!nl, nlLabel: nl ? nl.label : '', nlSub: nl ? this.fmtS(nl.date) : '', nlTag: nl ? (nl.ready ? 'Plan ready' : 'No plan yet') : '',
+      nlTagBg: nl && nl.ready ? '#DDF3EC' : '#FFF1C7', nlTagFg: nl && nl.ready ? '#0F6B55' : '#8A4B00',
       onOpen: () => { this.setState({ gid: x.id, screen: 'plan', sel: null, editId: null, delEx: null, delLesson: null }); window.scrollTo(0, 0); }
     };
   }
@@ -956,7 +996,7 @@ class App {
       const k = this.kc(e.kind), sel = s.sel === e.id;
       const move = (dir) => ev => { ev.stopPropagation(); this.upd(d => { const a = this.T(d.groups[g.id], s).exercises; const j = i + dir; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; }); };
       return {
-        n: i + 1, title: e.skipped ? `Skip exercise ${i + 1}` : this.exTitle(e),
+        key: e.id, n: this.exBadge(e, i), title: e.skipped ? `Skip: ${this.exLabel(e, i)}` : this.exTitle(e),
         sub: e.skipped ? [e.page && `Page ${e.page}`, 'Not teaching this one'].filter(Boolean).join(' · ') : [e.page && `Page ${e.page}`, e.note].filter(Boolean).join(' · ') || 'Tap to fill in',
         min: e.skipped ? '' : (this.em(e) ? `${this.em(e)} min` : '—'), who: e.skipped ? '' : (e.who === 'All together, I lead' ? 'All together' : e.who),
         hasFrom: !!e.fromCarry, from: e.fromCarry ? `Carried over from ${this.uLabel(e.fromCarry.unit || '?')}${e.fromCarry.name ? ' · ' + e.fromCarry.name : ''}` : '',
@@ -964,7 +1004,7 @@ class App {
         border: sel ? '#14213D' : e.skipped ? '#9AA1B6' : '#E2E6F0', borderW: sel ? '2px' : '1px', borderStyle: e.skipped ? 'dashed' : 'solid',
         fg: e.skipped ? '#4E5568' : '#14213D',
         onClick: () => this.setState({ sel: e.id }), onUp: move(-1), onDown: move(1),
-        confirming: s.delEx === e.id, confirmText: `Delete exercise ${i + 1}?`,
+        confirming: s.delEx === e.id, confirmText: `Delete ${this.exLabel(e, i)}?`,
         onAskDel: ev => { ev.stopPropagation(); this.setState({ delEx: e.id }); },
         onKeep: ev => { ev.stopPropagation(); this.setState({ delEx: null }); },
         onYes: ev => { ev.stopPropagation(); this.upd(d => { const a = this.T(d.groups[g.id], s).exercises; const j = a.findIndex(x => x.id === e.id); if (j >= 0) a.splice(j, 1); }, { delEx: null, sel: s.sel === e.id ? null : s.sel }); this.toast('Exercise deleted. Carry-over from it stays.'); }
@@ -990,7 +1030,7 @@ class App {
     v.kindChips = []; v.whoBtns = []; v.minBtns = []; v.se = {};
     if (!e) return;
     v.se = {
-      heading: `Exercise ${idx + 1}`, skipped: e.skipped, skipLabel: `Skip exercise ${idx + 1}`,
+      heading: this.exLabel(e, idx), skipped: e.skipped, skipLabel: `Skip: ${this.exLabel(e, idx)}`,
       savedText: e.saved ? 'Saved' : 'Not saved yet', savedBg: e.saved ? '#DDF3EC' : '#FFF1C7', savedFg: e.saved ? '#0F6B55' : '#6B4E00',
       page: e.page, num: e.num, grammar: e.grammar, track: e.track, note: e.note, self: e.self, otherMin: e.otherMin,
       isGrammar: e.kind === 'Grammar', isListening: e.kind === 'Listening', isOther: e.min === 'other',
@@ -999,8 +1039,8 @@ class App {
       onNote: ev => this.setEx(e.id, { note: ev.target.value }), onSelf: ev => this.setEx(e.id, { self: ev.target.value }),
       onOther: ev => this.setEx(e.id, { otherMin: ev.target.value.replace(/\D/g, '') }),
       skipBtn: e.skipped ? 'Teach it after all' : "I'm skipping this exercise",
-      skipHint: e.skipped ? 'Skipped exercises never carry over.' : `It will show as "Skip exercise ${idx + 1}" in the lesson.`,
-      onSkip: () => { this.setEx(e.id, { skipped: !e.skipped, saved: true }); this.toast(e.skipped ? 'Back in the lesson.' : `Shows as "Skip exercise ${idx + 1}".`); },
+      skipHint: e.skipped ? 'Skipped exercises never carry over.' : `It will show as "Skip: ${this.exLabel(e, idx)}" in the lesson.`,
+      onSkip: () => { this.setEx(e.id, { skipped: !e.skipped, saved: true }); this.toast(e.skipped ? 'Back in the lesson.' : `Shows as "Skip: ${this.exLabel(e, idx)}".`); },
       onDelete: () => this.setState({ delEx: e.id }),
       onSave: () => {
         let added = 0;
@@ -1013,7 +1053,7 @@ class App {
             x.min = m; x.otherMin = '';
           }
         }, { sel: null });
-        this.toast(added ? `Exercise ${idx + 1} saved. ${added} min is now a preset.` : `Exercise ${idx + 1} saved.`);
+        this.toast(added ? `${this.exLabel(e, idx)} saved. ${added} min is now a preset.` : `${this.exLabel(e, idx)} saved.`);
       }
     };
     v.kindChips = Object.keys(this.K.KINDS).map(kind => {
@@ -1044,13 +1084,14 @@ class App {
       skip: { bg: '#E8EBF3', border: '#E8EBF3', fg: '#5A6482', iconBg: 'transparent', iconFg: '#5A6482', iconBorder: '#9AA1B6', iconStyle: 'dashed', weight: 500 }
     })[state];
     const warmCur = !run.warmDone;
-    rows.push(Object.assign({ label: warmCur ? 'Warm-up · now' : 'Warm-up', time: this.hm(t), icon: warmCur ? 'Go' : '✓' }, sty(warmCur ? 'cur' : 'done', '#FFB020', true)));
+    rows.push(Object.assign({ key: 'warm', label: warmCur ? 'Warm-up · now' : 'Warm-up', time: this.hm(t), icon: warmCur ? 'Go' : '✓', pop: !warmCur, onJump: () => this.go('start') }, sty(warmCur ? 'cur' : 'done', '#FFB020', true)));
     t += 6;
     L.exercises.forEach((e, i) => {
-      if (e.skipped) { rows.push(Object.assign({ label: `Skip exercise ${i + 1}`, time: '', icon: '' }, sty('skip'))); return; }
+      if (e.skipped) { rows.push(Object.assign({ key: e.id, label: `Skip: ${this.exLabel(e, i)}`, time: '', icon: '' }, sty('skip'))); return; }
       const st = run.status[e.id], cur = run.warmDone && run.idx === i;
       const state = st === 'done' ? 'done' : st === 'unfinished' ? 'unf' : cur ? 'cur' : 'up';
-      rows.push(Object.assign({ label: `${i + 1} · ${e.kind || 'Exercise'}${e.kind === 'Listening' && e.track ? ' · Track ' + e.track : ''}${cur ? ' · now' : ''}${st === 'unfinished' ? ' · next lesson' : ''}`, time: this.hm(t), icon: state === 'done' ? '✓' : state === 'unf' ? '→' : state === 'cur' ? String(i + 1) : '' }, sty(state, this.kc(e.kind).c)));
+      rows.push(Object.assign({ key: e.id + state, label: `${this.exLabel(e, i)}${e.kind === 'Listening' && e.track ? ' · Track ' + e.track : ''}${cur ? ' · now' : ''}${st === 'unfinished' ? ' · next lesson' : ''}`, time: this.hm(t), icon: state === 'done' ? '✓' : state === 'unf' ? '→' : state === 'cur' ? this.exBadge(e, i) : '', pop: state === 'done',
+        onJump: () => this.jumpTo(g.id, i) }, sty(state, this.kc(e.kind).c)));
       t += this.em(e);
     });
     v.today = rows;
@@ -1072,22 +1113,36 @@ class App {
     const between = [];
     if (ne) for (let k = nIdx + 1; k < L.exercises.length && L.exercises[k].skipped; k++) between.push(k + 1);
     for (let k = fromIdx + 1; k < nIdx; k++) if (L.exercises[k].skipped) between.unshift(k + 1);
+    const lab = between.map(k => this.exLabel(L.exercises[k - 1], k - 1));
     v.nx = {
       has: !!ne, none: !ne, noneText: L.exercises.length ? 'Nothing after this. Then: After class.' : 'No exercises planned yet.',
       kind: ne ? (ne.kind || 'Exercise') : '', kc: ne ? this.kc(ne.kind).c : '#8E97B5',
-      text: ne ? [ne.num && `Exercise ${ne.num}`, ne.who, this.em(ne) && `${this.em(ne)} min`].filter(Boolean).join(' · ') || this.exTitle(ne) : '',
-      hasThen: between.length > 0, then: `Then: skip exercise ${between.join(', ')}`
+      text: ne ? [this.exLabel(ne, nIdx), ne.page && `p. ${ne.page}`, ne.who, this.em(ne) && `${this.em(ne)} min`].filter(Boolean).join(' · ') : '',
+      hasThen: between.length > 0, then: `Then skip: ${lab.join(', ')}`
     };
     v.hasCur = !!cur; v.noCur = !cur;
     if (cur) {
-      const k = this.kc(cur.kind), planned = this.em(cur) * 60;
-      const left = planned - Math.max(0, Math.floor((s.now - (run.curStart || s.now)) / 1000));
+      const k = this.kc(cur.kind), extra = (run.extra || {})[cur.id] || 0, planned = this.em(cur) * 60 + extra;
+      const nowT = run.pausedAt || s.now;
+      const left = planned - Math.max(0, Math.floor((nowT - (run.curStart || nowT)) / 1000));
       const a = Math.abs(left);
       v.timerText = `${left < 0 ? '+' : ''}${String(Math.floor(a / 60)).padStart(2, '0')}:${String(a % 60).padStart(2, '0')}`;
-      v.timerColor = left < 0 ? '#D63A3A' : '#14213D';
-      v.timerSub = left < 0 ? `over the planned ${this.em(cur)} min` : `left of ${this.em(cur)} min`;
+      v.timerColor = run.pausedAt ? '#8E97B5' : left < 0 ? '#D63A3A' : left < 60 ? '#C98A0B' : '#14213D';
+      v.timerCls = run.pausedAt ? '' : left < 0 ? 'fx-pulse' : '';
+      v.timerSub = run.pausedAt ? 'Paused' : left < 0 ? `over the planned ${Math.round(planned / 60)} min` : `left of ${Math.round(planned / 60)} min`;
+      v.paused = !!run.pausedAt; v.pauseLabel = run.pausedAt ? '▶ Start' : '❚❚ Pause';
+      v.togglePause = () => this.togglePause(g.id);
+      v.addMin = () => this.upd(d => { const R = d.groups[g.id].draft.run; R.extra = R.extra || {}; R.extra[cur.id] = (R.extra[cur.id] || 0) + 60; });
+      v.resetTimer = () => this.upd(d => { const R = d.groups[g.id].draft.run; R.curStart = Date.now(); if (R.pausedAt) R.pausedAt = R.curStart; if (R.extra) delete R.extra[cur.id]; });
+      const pi = this.stepIdx(L, run.idx, -1), ni = this.stepIdx(L, run.idx, 1);
+      v.canPrev = true; v.prevLabel = pi >= 0 ? `← ${this.exLabel(L.exercises[pi], pi)}` : '← Warm-up';
+      v.goPrev = () => pi >= 0 ? this.jumpTo(g.id, pi) : this.go('start');
+      v.canNext = ni >= 0; v.nextLabel = ni >= 0 ? `${this.exLabel(L.exercises[ni], ni)} →` : '';
+      v.goNext = () => { if (ni >= 0) this.jumpTo(g.id, ni); };
+      v.curDone = run.status[cur.id] === 'done';
+      v.undoDone = () => this.upd(d => { delete d.groups[g.id].draft.run.status[cur.id]; });
       v.cur = {
-        kind: cur.kind || 'Exercise', kc: k.c, kt: k.t, where: this.exWhere(cur), note: cur.note || this.exTitle(cur),
+        key: cur.id, kind: cur.kind || 'Exercise', kc: k.c, kt: k.t, where: [this.exLabel(cur, run.idx), cur.page && `Page ${cur.page}`].filter(Boolean).join(' · '), note: cur.note || this.exTitle(cur),
         hasExtra: (cur.kind === 'Grammar' && !!cur.grammar) || (cur.kind === 'Listening' && !!cur.track),
         extraLabel: cur.kind === 'Grammar' ? 'EXPLAIN THIS GRAMMAR' : 'PLAY THIS TRACK',
         extra: cur.kind === 'Grammar' ? cur.grammar : 'Track ' + cur.track,
@@ -1100,7 +1155,11 @@ class App {
     v.midEmptyText = finished ? 'Well done. Now mark what you covered.' : 'Open your warm-up app first. The first exercise comes after.';
     v.midEmptyBtn = finished ? 'Go to After class' : 'Go to Lesson starts';
     v.midEmptyGo = () => this.go(finished ? 'after' : 'start');
-    v.exDone = () => this.upd(d => { const LL = this.T(d.groups[g.id], s); LL.run.status[cur.id] = 'done'; this.advance(LL); });
+    v.exDone = () => this.upd(d => { const LL = d.groups[g.id].draft; LL.run.status[cur.id] = 'done'; this.advance(LL); LL.run.pausedAt = null; });
+    // undo an accidental start
+    v.isStarted = !!run.lessonStart;
+    v.confirmResetStart = !!s.askResetStart; v.askResetStart = () => this.setState({ askResetStart: true }); v.keepStart = () => this.setState({ askResetStart: false });
+    v.resetStart = () => { this.upd(d => { d.groups[g.id].draft.run = { lessonStart: null, warmDone: false, idx: null, status: {}, curStart: null }; }, { screen: 'plan', askResetStart: false }); this.toast('Lesson set back to "not started".'); };
     v.exUnfinished = () => {
       this.upd(d => { const gg = d.groups[g.id], LL = gg.draft; LL.run.status[cur.id] = 'unfinished'; LL.results[cur.id] = 'Part'; this.syncCarry(d, gg, LL, false); this.advance(LL); });
       this.toast(`Moved to the next ${this.gLabel(g)} lesson.`);
@@ -1244,13 +1303,25 @@ class App {
 // ---------- templates (one per screen, matching the design) ----------
 const BTN_DEL = 'border:1.5px solid #D63A3A;background:#fff;color:#B02A33;font-weight:700;cursor:pointer';
 
+function tSidebarMini(v) {
+  return `<aside data-noprint="1" class="fx-side" style="flex:none;width:64px;background:#14213D;color:#fff;position:sticky;top:0;height:100vh;padding:16px 8px;display:flex;flex-direction:column;align-items:center;gap:10px">
+  <button${click(v.toggleSide)} title="Open the menu" class="hov-side" style="border:none;background:transparent;color:#fff;font-size:22px;width:44px;height:44px;border-radius:10px;cursor:pointer">☰</button>
+  <button${click(v.setOdd)} title="Odd days" style="border:1px solid ${esc(v.oddBorder)};background:${esc(v.oddBg)};color:${esc(v.oddFg)};width:44px;height:36px;border-radius:9px;cursor:pointer;font-weight:700;font-size:13px">Odd</button>
+  <button${click(v.setEven)} title="Even days" style="border:1px solid ${esc(v.evenBorder)};background:${esc(v.evenBg)};color:${esc(v.evenFg)};width:44px;height:36px;border-radius:9px;cursor:pointer;font-weight:700;font-size:13px">Even</button>
+  <span style="height:6px"></span>
+  ${FOR(v.navItems, n => `<button${click(n.onClick)} title="${esc(n.label)}" class="hov-nav" style="border:none;background:${esc(n.bg)};width:44px;height:44px;border-radius:10px;cursor:pointer;font-size:19px">${n.icon}</button>`)}
+  <button${click(v.goSync)} title="${esc(v.syncLine)}" style="margin-top:auto;border:none;background:transparent;cursor:pointer;width:44px;height:30px;display:grid;place-items:center"><span class="${v.syncDotCls}" style="width:10px;height:10px;border-radius:50%;background:${esc(v.syncDot)}"></span></button>
+</aside>`;
+}
+
 function tSidebar(v) {
-  return `<aside data-noprint="1" style="flex:none;width:232px;background:#14213D;color:#fff;position:sticky;top:0;height:100vh;overflow-y:auto;padding:28px 20px 20px;display:flex;flex-direction:column;gap:28px">
+  if (v.sideMini) return tSidebarMini(v);
+  return `<aside data-noprint="1" class="fx-side" style="flex:none;width:232px;background:#14213D;color:#fff;position:sticky;top:0;height:100vh;overflow-y:auto;padding:28px 20px 20px;display:flex;flex-direction:column;gap:28px">
   <div style="display:flex;flex-direction:column;gap:6px">
-    <span style="font-family:'Bricolage Grotesque';font-size:24px;font-weight:700;line-height:1.1;letter-spacing:-0.01em">Lesson Plan Builder</span>
+    <div style="display:flex;align-items:flex-start;gap:8px"><span style="flex:1;font-family:'Bricolage Grotesque';font-size:24px;font-weight:700;line-height:1.1;letter-spacing:-0.01em">Lesson Plan Builder</span><button${click(v.toggleSide)} title="Fold the menu" class="hov-side" style="flex:none;border:none;background:transparent;color:#B8C0D8;font-size:18px;width:32px;height:32px;border-radius:8px;cursor:pointer">«</button></div>
     <span style="font-size:13px;color:#B8C0D8">Cambridge Learning Centre</span>
     <span style="font-family:'DM Mono';font-size:14px;color:#FFB020;margin-top:6px">${esc(v.sideClock)}</span>
-    <button${click(v.goSync)} style="align-self:flex-start;border:none;background:transparent;color:#D5DAEA;font-size:12.5px;padding:2px 0;cursor:pointer;display:flex;align-items:center;gap:7px;text-align:left"><span style="flex:none;width:8px;height:8px;border-radius:50%;background:${esc(v.syncDot)}"></span>${esc(v.syncLine)}</button>
+    <button${click(v.goSync)} style="align-self:flex-start;border:none;background:transparent;color:#D5DAEA;font-size:12.5px;padding:2px 0;cursor:pointer;display:flex;align-items:center;gap:7px;text-align:left"><span class="${v.syncDotCls}" style="flex:none;width:8px;height:8px;border-radius:50%;background:${esc(v.syncDot)}"></span>${esc(v.syncLine)}</button>
   </div>
   <div style="display:flex;flex-direction:column;gap:8px">
     <button${click(v.setOdd)} style="text-align:left;border:1px solid ${esc(v.oddBorder)};background:${esc(v.oddBg)};color:${esc(v.oddFg)};border-radius:10px;padding:10px 14px;cursor:pointer;display:flex;flex-direction:column;gap:2px">
@@ -1261,7 +1332,7 @@ function tSidebar(v) {
     </button>
   </div>
   <nav style="display:flex;flex-direction:column;gap:4px">
-    ${FOR(v.navItems, n => `<button${click(n.onClick)} class="hov-nav" style="text-align:left;border:none;background:${esc(n.bg)};color:#fff;font-weight:${n.weight};font-size:16px;padding:11px 12px;border-radius:8px;cursor:pointer">${esc(n.label)}</button>`)}
+    ${FOR(v.navItems, n => `<button${click(n.onClick)} class="hov-nav" style="text-align:left;border:none;background:${esc(n.bg)};color:#fff;font-weight:${n.weight};font-size:16px;padding:11px 12px;border-radius:8px;cursor:pointer;display:flex;gap:10px;align-items:center"><span style="width:22px;text-align:center">${n.icon}</span>${esc(n.label)}</button>`)}
   </nav>
   <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px;font-size:12.5px;color:#B8C0D8;line-height:1.45">
     <div style="display:flex;flex-direction:column;gap:6px">
@@ -1278,7 +1349,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 15 Oct e</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 16 Oct</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
@@ -1329,6 +1400,8 @@ function tWeek(v) {
           </div>
           <div style="background:#F4F6FB;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:7px">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:14px;color:#3A4566">${esc(c.todayHead)}</span><b style="font-size:16px">${esc(c.todayVal)}</b>${IF(c.hasTodayTag, () => `<span style="margin-left:auto;background:${esc(c.todayTagBg)};color:${esc(c.todayTagFg)};font-weight:700;font-size:12px;padding:3px 9px;border-radius:999px">${esc(c.todayTag)}</span>`)}</div>
+            ${IF(c.hasNl, () => `<div style="height:1px;background:#E2E6F0"></div>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:14px;color:#3A4566">Next lesson:</span><b style="font-size:16px">${esc(c.nlLabel)}</b><span style="font-size:13px;color:#5A6482">${esc(c.nlSub)}</span><span style="margin-left:auto;background:${esc(c.nlTagBg)};color:${esc(c.nlTagFg)};font-weight:700;font-size:12px;padding:3px 9px;border-radius:999px">${esc(c.nlTag)}</span></div>`)}
             <div style="height:1px;background:#E2E6F0"></div>
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:14px;color:#3A4566">Next LP to be prepared:</span><b style="font-size:16px">${esc(c.prepVal)}</b></div>
             ${IF(c.hasPrep, () => `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:13px;color:#5A6482">${esc(c.prepSub)}</span><button${click(c.onPrepare)} style="margin-left:auto;border:1.5px solid #14213D;background:#fff;font-weight:700;font-size:13px;padding:5px 10px;border-radius:8px;cursor:pointer">${esc(c.prepBtn)}</button></div>`)}
@@ -1353,6 +1426,7 @@ function tWeek(v) {
         <span style="font-family:'DM Mono';font-size:13px">${esc(c.time)}</span>
         <div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;font-size:17px">${esc(c.level)}</span>${IF(c.is30, () => `<span style="background:${esc(c.dark)};color:#fff;font-family:'DM Mono';font-size:12px;padding:2px 7px;border-radius:999px">30+</span>`)}</div>
         <span style="font-size:14px">${esc(c.todayHead)} <b>${esc(c.todayVal)}</b></span>
+        ${IF(c.hasNl, () => `<span style="font-size:14px">Next lesson: <b>${esc(c.nlLabel)}</b> · ${esc(c.nlSub)}</span>`)}
         <span style="font-size:14px">Next LP to be prepared: <b>${esc(c.prepVal)}</b></span>
         <span style="font-size:14px;font-weight:700;color:${esc(c.pillFg)}">${esc(c.pill)} · ${esc(c.progressShort)}</span>
         ${IF(c.hasSkipNote, () => `<span style="font-size:13px;color:#5A6482">${esc(c.skipNote)}</span>`)}
@@ -1466,7 +1540,7 @@ function tPlan(v) {
         <div style="flex:1;display:flex;flex-direction:column"><span style="font-weight:700;font-size:16px">Warm-up</span><span style="font-size:13.5px;color:#5A6482">Your warm-up app. Nothing to plan.</span></div>
         <span style="font-family:'DM Mono';font-size:14px">5-7 min</span>
       </div>
-      ${FOR(v.exRows, r => `<div style="display:flex;flex-direction:column;gap:6px">
+      ${FOR(v.exRows, r => `<div data-k="${esc(r.key)}" class="fx-in" style="display:flex;flex-direction:column;gap:6px">
         <div${click(r.onClick)} style="background:${esc(r.bg)};border:${esc(r.borderW)} ${esc(r.borderStyle)} ${esc(r.border)};border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:12px;cursor:pointer">
           <span style="flex:none;width:32px;height:32px;border-radius:8px;background:${esc(r.numBg)};color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px">${r.n}</span>
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
@@ -1645,7 +1719,9 @@ function tLiveHead(v) {
   <span style="background:${esc(v.lvTint)};font-weight:700;font-size:14px;padding:5px 12px;border-radius:999px">${esc(v.lvName)}</span>
   <span style="font-size:15px;color:#5A6482">${esc(v.dateText)} · ${esc(v.startTime)} · <b style="color:#14213D">${esc(v.lessonTitle)}</b></span>
   <span style="margin-left:auto;font-size:15px;color:#5A6482">Lesson ends ${esc(v.endTime)} · <b style="font-family:'DM Mono';color:#14213D">${esc(v.minLeft)} min left</b></span>
-</div>`;
+  ${IF(v.isStarted, () => `<button${click(v.askResetStart)} title="Started by mistake? Set this lesson back to not started" style="border:none;background:transparent;color:#5A6482;font-size:13px;text-decoration:underline;cursor:pointer">Not started yet?</button>`)}
+</div>
+${IF(v.confirmResetStart, () => `<div class="fx-in" style="margin:6px 32px 0;background:#FFF1C7;border-radius:12px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="flex:1;font-weight:600">Set this lesson back to "not started"? Done marks and the timer are cleared.</span><button${click(v.resetStart)} style="border:none;background:#14213D;color:#fff;font-weight:700;font-size:13px;padding:8px 12px;border-radius:8px;cursor:pointer">Yes, not started</button><button${click(v.keepStart)} style="border:1.5px solid #8E97B5;background:#fff;font-weight:700;font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer">Keep it</button></div>`)}`;
 }
 
 function tNext(v) {
@@ -1662,12 +1738,13 @@ function tNext(v) {
 function tToday(v, withAfter) {
   return `<aside style="background:#fff;border:1px solid #E2E6F0;border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:7px;min-height:420px">
     <span style="font-weight:700;font-size:15px;margin-bottom:4px">Today</span>
-    ${FOR(v.today, t => `<div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;background:${esc(t.bg)};border:1px solid ${esc(t.border)}">
-        <span style="flex:none;width:26px;height:26px;border-radius:50%;background:${esc(t.iconBg)};color:${esc(t.iconFg)};border:1.5px ${esc(t.iconStyle)} ${esc(t.iconBorder)};display:grid;place-items:center;font-size:12px;font-weight:700">${esc(t.icon)}</span>
+    ${FOR(v.today, t => `<div data-k="${esc(t.key)}"${click(t.onJump)} class="fx-in${t.onJump ? ' hov-row' : ''}" title="${t.onJump ? 'Go to this exercise' : ''}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;background:${esc(t.bg)};border:1px solid ${esc(t.border)};cursor:${t.onJump ? 'pointer' : 'default'}">
+        <span class="${t.pop ? 'fx-pop' : ''}" style="flex:none;width:26px;height:26px;border-radius:50%;background:${esc(t.iconBg)};color:${esc(t.iconFg)};border:1.5px ${esc(t.iconStyle)} ${esc(t.iconBorder)};display:grid;place-items:center;font-size:12px;font-weight:700">${esc(t.icon)}</span>
         <span style="flex:1;font-size:15px;color:${esc(t.fg)};font-weight:${t.weight}">${esc(t.label)}</span>
         <span style="font-family:'DM Mono';font-size:12.5px;color:${esc(t.fg)}">${esc(t.time)}</span>
       </div>`)}
     <span style="margin-top:auto;padding-top:10px;font-size:13px;color:#5A6482">${esc(v.todayFoot)}</span>
+    <span style="font-size:12px;color:#8E97B5">Tip: tap any exercise to jump to it. Keys: Space pause · ← → previous / next.</span>
     ${withAfter ? `<button${click(v.goAfter)} style="border:1.5px solid #14213D;background:#fff;font-weight:700;font-size:14px;padding:10px;border-radius:9px;cursor:pointer;margin-top:6px">Class over → After class</button>` : ''}
   </aside>`;
 }
@@ -1707,12 +1784,17 @@ function tMid(v) {
   const cur = v.cur;
   return `<main data-screen-label="04 Mid-lesson" style="padding:14px 32px 40px;display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,330px);gap:22px;align-items:start">
   <div style="display:flex;flex-direction:column;gap:16px">
-    ${IF(v.hasCur, () => `<div style="background:#fff;border:3px solid ${esc(cur.kc)};border-radius:20px;padding:28px 32px;display:flex;flex-direction:column;gap:18px;min-height:540px">
+    ${IF(v.hasCur, () => `<div data-k="${esc(cur.key)}" class="fx-in" style="background:#fff;border:3px solid ${esc(cur.kc)};border-radius:20px;padding:28px 32px;display:flex;flex-direction:column;gap:18px;min-height:540px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:12px;padding-top:12px"><span style="background:${esc(cur.kc)};color:#fff;font-weight:700;font-size:17px;padding:6px 14px;border-radius:8px">${esc(cur.kind)}</span><span style="font-size:16px;color:#5A6482">${esc(cur.where)}</span></div>
           <div style="display:flex;flex-direction:column;align-items:flex-end">
-            <span style="font-family:'DM Mono';font-size:58px;font-weight:500;line-height:1;letter-spacing:-0.02em;color:${esc(v.timerColor)}">${esc(v.timerText)}</span>
+            <span class="${v.timerCls}" style="font-family:'DM Mono';font-size:58px;font-weight:500;line-height:1;letter-spacing:-0.02em;color:${esc(v.timerColor)};transition:color .3s">${esc(v.timerText)}</span>
             <span style="font-size:13px;color:#5A6482">${esc(v.timerSub)}</span>
+            <div style="display:flex;gap:6px;margin-top:8px">
+              <button${click(v.togglePause)} style="border:1.5px solid #14213D;background:${v.paused ? '#14213D' : '#fff'};color:${v.paused ? '#fff' : '#14213D'};font-weight:700;font-size:13px;padding:6px 10px;border-radius:8px;cursor:pointer">${esc(v.pauseLabel)}</button>
+              <button${click(v.addMin)} style="border:1.5px solid #C9CFDE;background:#fff;font-weight:700;font-size:13px;padding:6px 10px;border-radius:8px;cursor:pointer">+1 min</button>
+              <button${click(v.resetTimer)} style="border:1.5px solid #C9CFDE;background:#fff;font-weight:700;font-size:13px;padding:6px 10px;border-radius:8px;cursor:pointer">Reset</button>
+            </div>
           </div>
         </div>
         <span style="font-family:'Bricolage Grotesque';font-size:40px;font-weight:700;letter-spacing:-0.015em;line-height:1.12;text-wrap:pretty">${esc(cur.note)}</span>
@@ -1721,9 +1803,14 @@ function tMid(v) {
           <div style="background:#ECEEF3;border-radius:12px;padding:12px 18px;display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;font-weight:700;letter-spacing:0.04em;color:#5A6482">WHO DOES IT</span><span style="font-size:24px;font-weight:700">${esc(cur.who)}</span></div>
         </div>
         ${IF(cur.hasSelf, () => `<div style="background:#FFF1C7;border-radius:12px;padding:14px 18px;display:flex;flex-direction:column;gap:4px"><span style="font-size:12px;font-weight:700;letter-spacing:0.04em;color:#6B4E00">NOTE TO SELF</span><span style="font-size:20px">${esc(cur.self)}</span></div>`)}
-        <div style="margin-top:auto;display:flex;gap:12px;flex-wrap:wrap">
-          <button${click(v.exDone)} style="border:none;background:#138A6E;color:#fff;font-weight:700;font-size:20px;padding:18px 40px;border-radius:12px;cursor:pointer">Done</button>
-          <button${click(v.exUnfinished)} style="border:1.5px solid #D63A3A;background:#fff;color:#B02A33;font-weight:700;font-size:17px;padding:16px 24px;border-radius:12px;cursor:pointer">Didn't finish, do it next lesson</button>
+        <div style="margin-top:auto;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+          ${v.curDone ? `<span class="fx-pop" style="background:#DDF3EC;color:#0F6B55;font-weight:700;font-size:17px;padding:16px 22px;border-radius:12px">✓ Done</span><button${click(v.undoDone)} style="border:1.5px solid #8E97B5;background:#fff;font-weight:700;font-size:15px;padding:14px 18px;border-radius:12px;cursor:pointer">Undo done</button>`
+          : `<button${click(v.exDone)} style="border:none;background:#138A6E;color:#fff;font-weight:700;font-size:20px;padding:18px 40px;border-radius:12px;cursor:pointer">Done</button>
+          <button${click(v.exUnfinished)} style="border:1.5px solid #D63A3A;background:#fff;color:#B02A33;font-weight:700;font-size:17px;padding:16px 24px;border-radius:12px;cursor:pointer">Didn't finish, do it next lesson</button>`}
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid #E2E6F0;padding-top:14px">
+          <button${click(v.goPrev)} style="border:1.5px solid #C9CFDE;background:#fff;font-weight:700;font-size:14px;padding:10px 14px;border-radius:10px;cursor:pointer">${esc(v.prevLabel)}</button>
+          ${v.canNext ? `<button${click(v.goNext)} style="margin-left:auto;border:1.5px solid #C9CFDE;background:#fff;font-weight:700;font-size:14px;padding:10px 14px;border-radius:10px;cursor:pointer">${esc(v.nextLabel)}</button>` : ''}
         </div>
       </div>`)}
     ${IF(v.noCur, () => `<div style="background:#fff;border:3px solid ${esc(v.midEmptyColor)};border-radius:20px;padding:36px;display:flex;flex-direction:column;gap:14px;align-items:flex-start;min-height:340px">
@@ -1925,6 +2012,7 @@ ${IF(v.showSide, () => tSidebar(v))}
 <div style="flex:1;min-width:0;display:flex;flex-direction:column">
 ${IF(v.showJump, () => tJump(v))}
 ${IF(v.hasConflict, () => tConflict(v))}
+<div data-k="scr-${esc(v.scrKey)}" class="fx-screen" style="display:flex;flex-direction:column">
 ${IF(v.isWeek, () => tWeek(v))}
 ${IF(v.isRoadmap, () => tRoadmap(v))}
 ${IF(v.isCarry, () => tCarry(v))}
@@ -1937,7 +2025,8 @@ ${IF(v.isAfter, () => tAfter(v))}
 ${IF(v.isCamb, () => tCamb(v))}
 ${IF(v.isSync, () => tSync(v))}
 </div>
-${IF(v.hasToast, () => `<div data-noprint="1" role="status" style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#14213D;color:#fff;font-weight:600;font-size:15px;padding:12px 20px;border-radius:12px;box-shadow:0 10px 30px rgba(20,33,61,.25);z-index:50">${esc(v.toast)}</div>`)}
+</div>
+${IF(v.hasToast, () => `<div data-noprint="1" role="status" class="fx-toast" data-k="${esc(v.toast)}" style="position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#14213D;color:#fff;font-weight:600;font-size:15px;padding:12px 20px;border-radius:12px;box-shadow:0 10px 30px rgba(20,33,61,.25);z-index:50">${esc(v.toast)}</div>`)}
 </div>`;
 }
 
@@ -1957,6 +2046,7 @@ function morphChildren(from, to) {
     if (!x) { from.appendChild(y); continue; }
     if (x.nodeType !== y.nodeType || (x.nodeType === 1 && x.tagName !== y.tagName)) { from.replaceChild(y, x); continue; }
     if (x.nodeType !== 1) { if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue; continue; }
+    if (x.getAttribute('data-k') !== y.getAttribute('data-k')) { from.replaceChild(y, x); continue; }
     morph(x, y);
   }
   for (let i = b.length; i < a.length; i++) from.removeChild(a[i]);
