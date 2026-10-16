@@ -331,7 +331,7 @@ class App {
     L.exercises.forEach(e => {
       if (e.skipped) return;
       let r = this.res(L, e);
-      if (!r && final) { r = 'None'; L.results[e.id] = 'None'; }
+      if (!r && final) { r = 'Full'; L.results[e.id] = 'Full'; }
       const cid = L.id + ':' + e.id;
       db.carry = db.carry.filter(c => c.id !== cid);
       if ((r === 'Part' || r === 'None') && !L.drop[e.id]) {
@@ -377,11 +377,20 @@ class App {
     return open[0] || this.iso(this.calc(g).next);
   }
   dayLabel(id) { return this.fmtS(this.D(id)) + (id === this.iso(this.today()) ? ' (today)' : ''); }
-  closeLesson(day) {
+  // a past class day (or today, after the class ended) with no lesson closed, newer than the last taught lesson
+  unclosedDay(g) {
+    const today = this.today(), ti = this.iso(today), n = new Date(), [h, m] = (g.end || '23:59').split(':').map(Number);
+    const ended = n.getHours() * 60 + n.getMinutes() >= h * 60 + m;
+    const last = g.taught.map(t => t.date).sort().pop() || '';
+    return this.dayOptions(g, null).find(id => id > last && this.D(id) >= this.add(today, -14) && (id < ti || (id === ti && ended))) || null;
+  }
+  closeLesson(day, gid) {
+    let carried = 0;
     this.upd((db, s) => {
-      const g = db.groups[s.gid]; const L = g.draft; const c = this.calc(g);
+      const g = db.groups[gid || s.gid]; const L = g.draft; const c = this.calc(g);
       this.syncCarry(db, g, L, true);
-      if (L.results.warm == null) L.results.warm = L.run.warmDone ? 'Full' : 'None';
+      carried = db.carry.filter(k => k.lessonId === L.id).length;
+      if (L.results.warm == null) L.results.warm = 'Full';
       const un = this.findUnit(g.level, L.unit);
       L.date = day || this.iso(c.next);
       g.taught.push({ unit: L.unit, name: L.name, date: L.date, slot: !!(un && !un.skip), lessonId: L.id });
@@ -391,7 +400,7 @@ class App {
       return { screen: 'week', sel: null, noteEdit: null, dbDayType: null };
     });
     this.queuePush(500);
-    this.toast('Lesson saved. Carry-over is ready for the next lesson.');
+    this.toast(carried ? `Lesson saved. ${carried} exercise${carried > 1 ? 's' : ''} carried over to the next lesson.` : 'Lesson saved. Everything counted as covered.');
   }
 
   // ---------- backup ----------
@@ -725,7 +734,16 @@ class App {
       onPrepare: ev => { ev.stopPropagation(); this.planAhead(x.id, pk); }
     };
     const draftDiff = x.draft.unit && slot && x.draft.unit !== slot.u;
-    return {
+    const ud = this.unclosedDay(x), sure = this.state.sureClose === x.id + ud;
+    const unc = {
+      hasUnclosed: !!ud, canAsPlanned: !!ud && this.hasOwnPlan(x.draft),
+      unclosedText: ud ? `${this.fmtS(this.D(ud))}${ud === todayIso ? ' (today)' : ''}: ${nowLabel} is not closed yet. Did you teach it?` : '',
+      asPlannedBtn: sure ? `Tap again to close ${this.fmtS(this.D(ud))}` : '✓ Taught as planned',
+      onAsPlanned: ev => { ev.stopPropagation(); if (!sure) { this.setState({ sureClose: x.id + ud }); return; } this.setState({ sureClose: null, gid: x.id }); this.closeLesson(ud, x.id); },
+      onSomeMissed: ev => { ev.stopPropagation(); this.setState({ gid: x.id, screen: 'after', editId: null, sel: null, closeDay: { gid: x.id, date: ud }, sureClose: null }); window.scrollTo(0, 0); },
+      onNoClass: ev => { ev.stopPropagation(); this.upd(d => { d.groups[x.id].noClass.push(ud); }, { sureClose: null }); this.toast(`${this.fmtS(this.D(ud))} marked as no class.`); }
+    };
+    return { ...unc,
       time: `${x.start} - ${x.end}`, level: lv.name, is30: x.is30, tint: lv.tint, dark: lv.dark, color: lv.c,
       date: this.nextText(x, c), unit: x.draft.extra ? this.uLabel(x.draft.unit) : slot ? this.uLabel(slot.u) : 'Done', desc: x.draft.extra ? 'Extra lesson · skippable unit' : this.slotDesc(x.level, slot),
       secs: nu ? this.secsText(nu) : '',
@@ -1176,11 +1194,11 @@ class App {
       const on = cur === o, col = { Full: '#138A6E', Part: '#C98A0B', None: '#D63A3A' }[o];
       return { label: o, bg: on ? col : '#EEF0F5', fg: on ? '#fff' : '#5A6482', weight: on ? 700 : 500, onClick: () => setter(o) };
     });
-    const warmRes = L.results.warm || (L.run.warmDone ? 'Full' : null);
+    const warmRes = L.results.warm || 'Full';
     const rows = [{ label: 'Warm-up', sub: 'Warm-up app', opts: opt(warmRes, o => this.upd(d => { this.T(d.groups[g.id], s).results.warm = o; })), missed: false }];
     L.exercises.forEach((e, i) => {
       if (e.skipped) return;
-      const r = this.res(L, e), dropped = !!L.drop[e.id];
+      const r = this.res(L, e) || 'Full', dropped = !!L.drop[e.id];
       const set = o => this.upd(d => { const gg = d.groups[g.id], T = this.T(gg, s); T.results[e.id] = o; this.syncCarry(d, gg, T, false); });
       const setDrop = val => this.upd(d => { const gg = d.groups[g.id], T = this.T(gg, s); T.drop[e.id] = val; this.syncCarry(d, gg, T, false); });
       rows.push({
@@ -1194,6 +1212,8 @@ class App {
       });
     });
     v.resRows = rows;
+    v.missedN = rows.filter(x => x.missed).length;
+    v.allFull = () => this.upd(d => { const gg = d.groups[g.id], T = this.T(gg, s); T.exercises.forEach(e => { if (!e.skipped) T.results[e.id] = 'Full'; }); T.results.warm = 'Full'; T.drop = {}; this.syncCarry(d, gg, T, false); });
     // templates
     const ne = s.noteEdit;
     const card = (ti) => {
@@ -1354,7 +1374,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 16 Oct b</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 16 Oct c</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
@@ -1371,6 +1391,15 @@ function tJump(v) {
   ${FOR(v.jumpSteps, j => `<button${click(j.onClick)} style="border:none;background:${esc(j.bg)};color:${esc(j.fg)};font-weight:600;font-size:14px;padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;gap:6px;align-items:center"><span style="font-family:'DM Mono';opacity:0.6">${j.num}</span>${esc(j.label)}</button>`)}
 </div>`;
 }
+
+const tUnclosed = (c, small) => IF(c.hasUnclosed, () => `<div class="fx-in" style="background:#FFF1C7;border:1.5px solid #E9B949;border-radius:12px;padding:${small ? '8px 10px' : '10px 12px'};display:flex;flex-direction:column;gap:8px;cursor:default">
+  <span style="font-size:${small ? 13 : 14}px;font-weight:600;color:#6B4E00">${esc(c.unclosedText)}</span>
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    ${IF(c.canAsPlanned, () => `<button${click(c.onAsPlanned)} style="border:none;background:#138A6E;color:#fff;font-weight:700;font-size:13px;padding:7px 10px;border-radius:8px;cursor:pointer">${esc(c.asPlannedBtn)}</button>`)}
+    <button${click(c.onSomeMissed)} style="border:1.5px solid #14213D;background:#fff;font-weight:700;font-size:13px;padding:6px 10px;border-radius:8px;cursor:pointer">Some not finished</button>
+    <button${click(c.onNoClass)} style="border:1.5px solid #C9CFDE;background:#fff;color:#3A4566;font-weight:600;font-size:13px;padding:6px 10px;border-radius:8px;cursor:pointer">No class that day</button>
+  </div>
+</div>`);
 
 function tWeek(v) {
   const tag30 = (c, fs, pad) => IF(c.is30, () => `<span style="background:${esc(c.dark)};color:#fff;font-family:'DM Mono';font-size:${fs};font-weight:500;padding:${pad};border-radius:999px">30+</span>`);
@@ -1398,6 +1427,7 @@ function tWeek(v) {
           </div>
         </div>
         <div style="padding:16px 18px 18px;display:flex;flex-direction:column;gap:12px;flex:1">
+          ${tUnclosed(c, false)}
           <div style="display:flex;flex-direction:column;gap:2px">
             <span style="font-size:14px;color:#5A6482">Next lesson · ${esc(c.date)}</span>
             <span style="font-family:'Bricolage Grotesque';font-size:30px;font-weight:700;letter-spacing:-0.01em">${esc(c.unit)}</span>
@@ -1430,6 +1460,7 @@ function tWeek(v) {
     ${FOR(v.smallCards, c => `<div${click(c.onOpen)} class="hov-small" style="background:#fff;border:1px solid #E2E6F0;border-top:5px solid ${esc(c.color)};border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;cursor:pointer">
         <span style="font-family:'DM Mono';font-size:13px">${esc(c.time)}</span>
         <div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;font-size:17px">${esc(c.level)}</span>${IF(c.is30, () => `<span style="background:${esc(c.dark)};color:#fff;font-family:'DM Mono';font-size:12px;padding:2px 7px;border-radius:999px">30+</span>`)}</div>
+        ${tUnclosed(c, true)}
         <span style="font-size:14px">${esc(c.todayHead)} <b>${esc(c.todayVal)}</b></span>
         ${IF(c.hasNl, () => `<span style="font-size:14px">Next lesson: <b>${esc(c.nlLabel)}</b> · ${esc(c.nlSub)}</span>`)}
         <span style="font-size:14px">Next LP to be prepared: <b>${esc(c.prepVal)}</b></span>
@@ -1854,7 +1885,11 @@ function tAfter(v) {
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:stretch">
     <div style="background:#fff;border:1px solid #E2E6F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px">
-      <span style="font-weight:700;font-size:16px;margin-bottom:4px">1 · What did you cover?</span>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
+        <span style="font-weight:700;font-size:16px">1 · What did you cover?</span>
+        <button${click(v.allFull)} style="margin-left:auto;border:none;background:${v.missedN ? '#DDF3EC' : '#138A6E'};color:${v.missedN ? '#0F6B55' : '#fff'};font-weight:700;font-size:13.5px;padding:7px 12px;border-radius:8px;cursor:pointer">✓ Taught as planned</button>
+      </div>
+      <span style="font-size:13px;color:#5A6482;margin-top:-6px">Everything counts as covered. Only tap Part or None for what you did not finish. Those go to carry-over.</span>
       ${FOR(v.resRows, rr => `<div style="display:flex;flex-direction:column;gap:6px">
           <div style="display:flex;align-items:center;gap:8px">
             <div style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:15px">${esc(rr.label)}</span><span style="font-size:12px;color:#5A6482">${esc(rr.sub)}</span></div>

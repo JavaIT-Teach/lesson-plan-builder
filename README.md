@@ -12,7 +12,9 @@ Open the live page on a laptop. Then work through these steps:
 2. **Plan**: type the unit and lesson name. Add the exercises in order and save each one.
 3. **Lesson starts**: do the warm-up, then add or delete what was not covered last time.
 4. **Mid-lesson**: tap Done, or "Didn't finish, do it next lesson".
-5. **After class**: mark each exercise Full, Part or None, add notes, then tap "Save and close lesson".
+5. **After class**: everything counts as covered. Only tap Part or None for what you did not finish (it goes to carry-over), then tap "Save and close lesson".
+
+**Forgot to close a lesson?** After the class time ends, the group card asks "Did you teach it?" Tap **Taught as planned** (tap twice to confirm), **Some not finished** (opens After class on that day), or **No class that day**.
 6. **Cambridge copy**: fill the yellow boxes. Tap "Download PDF" and choose "Save as PDF".
 
 **Today and next to prepare:** each group card on the Week screen shows the lesson to be taught today (for example "Unit 3, Part 1 (2.1)") and the next lesson that still needs a plan, with a **Prepare it** button. On the Plan screen, **Upcoming lessons** lists the next roadmap lessons. Plan any of them ahead. A lesson planned ahead becomes the next lesson by itself once the one before it is closed.
