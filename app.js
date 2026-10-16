@@ -1155,6 +1155,11 @@ class App {
     v.midEmptyText = finished ? 'Well done. Now mark what you covered.' : 'Open your warm-up app first. The first exercise comes after.';
     v.midEmptyBtn = finished ? 'Go to After class' : 'Go to Lesson starts';
     v.midEmptyGo = () => this.go(finished ? 'after' : 'start');
+    v.allDone = () => {
+      this.upd(d => { const R = d.groups[g.id].draft.run, LL = d.groups[g.id].draft; if (!R.lessonStart) R.lessonStart = Date.now(); R.warmDone = true;
+        LL.exercises.forEach(e => { if (!e.skipped && R.status[e.id] !== 'unfinished') R.status[e.id] = 'done'; }); R.idx = -1; R.pausedAt = null; }, { screen: 'mid' });
+      this.toast('All exercises marked done. Tap any row to change one.');
+    };
     v.exDone = () => this.upd(d => { const LL = d.groups[g.id].draft; LL.run.status[cur.id] = 'done'; this.advance(LL); LL.run.pausedAt = null; });
     // undo an accidental start
     v.isStarted = !!run.lessonStart;
@@ -1349,7 +1354,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 16 Oct</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 16 Oct b</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
@@ -1745,6 +1750,7 @@ function tToday(v, withAfter) {
       </div>`)}
     <span style="margin-top:auto;padding-top:10px;font-size:13px;color:#5A6482">${esc(v.todayFoot)}</span>
     <span style="font-size:12px;color:#8E97B5">Tip: tap any exercise to jump to it. Keys: Space pause · ← → previous / next.</span>
+    <button${click(v.allDone)} style="border:none;background:#DDF3EC;color:#0F6B55;font-weight:700;font-size:14px;padding:10px;border-radius:9px;cursor:pointer;margin-top:6px">✓ Mark all as done</button>
     ${withAfter ? `<button${click(v.goAfter)} style="border:1.5px solid #14213D;background:#fff;font-weight:700;font-size:14px;padding:10px;border-radius:9px;cursor:pointer;margin-top:6px">Class over → After class</button>` : ''}
   </aside>`;
 }
