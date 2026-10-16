@@ -89,6 +89,9 @@ to teach all 4 pages in one lesson. Then:
 
 **Fields** (these are exactly the app's fields)
 - `page`: CB page. `num`: CB exercise number.
+- `sec`: the CB section heading the row sits under, copied from the book (e.g. `Vocabulary · Daily routines`,
+  `Grammar · Present Simple`, `Listening`, `Talking Points`). Same text on every row of that section. The app
+  shows it as a header over the rows, so the plan reads like the book. Leave it off Warmer / Review / Cooler rows.
 - `kind`: the CB section heading: Grammar, Listening, Vocabulary, Speaking, Reading, Writing or Other.
   Everything inside a Writing section is Writing, even reading the model text.
 - `grammar` (Grammar rows only, always filled): the grammar point, for example `-ing forms` or
@@ -195,7 +198,7 @@ and say so.
     "aims": {"main": "By the end of the lesson, Ss will be able to …", "sub": "…", "personal": "…",
              "prob1": "… Solution: …", "prob2": "… Solution: …"},
     "exercises": [
-      {"page": "16", "num": "1", "kind": "Grammar", "grammar": "-ing forms", "who": "All together, I lead",
+      {"page": "16", "num": "1", "sec": "Grammar · -ing forms", "kind": "Grammar", "grammar": "-ing forms", "who": "All together, I lead",
        "min": 5, "note": "…", "self": "Do Warmer: … Answers 1a 2c 3b"}
     ]}
    ```

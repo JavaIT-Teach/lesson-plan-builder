@@ -19,7 +19,9 @@ Open the live page on a laptop. Then work through these steps:
 
 **Today and next to prepare:** each group card on the Week screen shows the lesson to be taught today (for example "Unit 3, Part 1 (2.1)") and the next lesson that still needs a plan, with a **Prepare it** button. On the Plan screen, **Upcoming lessons** lists the next roadmap lessons. Plan any of them ahead. A lesson planned ahead becomes the next lesson by itself once the one before it is closed.
 
-**Cambridge copy:** the table is grouped by stage: Warm-up, Lead-in (the book's Warmer), one row for each part of the lesson, and Cooler / Review.
+**Cambridge copy:** the table is grouped by stage: Warm-up, Lead-in (the book's Warmer), one row for each part of the lesson, and Cooler / Review. To send many at once, tap **Many lessons in one PDF**, pick the dates, groups and taught / planned, then **Download PDF · all pages**. You get one landscape page per lesson.
+
+**Book sections:** exercises are shown under headers like the book (the section name, or the page when no name is saved). Type a name in **Book section** on any exercise. Plans made with Claude fill it in.
 
 **Telegram message:** each lesson has a summary for students (grammar rules, words, check-yourself questions; Uzbek and Russian blocks for Beginner and Elementary). Find it on the After class screen or on the Plan screen, edit it if needed, and tap **Copy message**.
 

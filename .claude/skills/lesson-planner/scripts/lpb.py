@@ -216,6 +216,8 @@ def build_ex(x, n, presets):
          'grammar': x.get('grammar', ''), 'track': str(x.get('track', '')), 'note': x.get('note', ''),
          'who': x.get('who', ''), 'min': x.get('min'), 'otherMin': '', 'self': x.get('self', ''),
          'skipped': bool(x.get('skipped')), 'saved': True, 'fromCarry': None}
+    if x.get('sec'):
+        e['sec'] = x['sec']
     if e['skipped']:
         return e
     if e['kind'] not in KINDS:

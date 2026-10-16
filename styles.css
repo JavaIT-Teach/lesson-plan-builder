@@ -16,6 +16,11 @@ input::placeholder,textarea::placeholder{color:#9AA1B6}
   [data-noprint]{display:none !important}
   body,#app>div,[data-printwrap]{background:#fff !important;padding:0 !important;display:block !important}
   [data-printpage]{box-shadow:none !important;border:none !important;padding:0 !important;aspect-ratio:auto !important}
+  .pp{border-radius:0 !important}
+  .ppw + .ppw{break-before:page}
+  .ppw{display:block !important}
+  .pp{font-size:10.5px !important;gap:8px !important}
+  .pc{padding:3px 5px !important}
   @page{size:A4 landscape;margin:10mm}
 }
 

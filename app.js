@@ -283,6 +283,23 @@ class App {
     if (!n) return `${e.kind || 'Exercise'} (row ${i + 1})`;
     return /^\d/.test(n) ? `${e.kind || 'Exercise'} ex ${n}` : n;
   }
+  // book section a row belongs to: the skill's section title, else Warmer / Review / Cooler, else the page
+  secKey(e) {
+    const n = String(e.num || '').trim();
+    if (e.fromCarry) return 'carry';
+    if (e.sec) return 'sec:' + e.sec;
+    if (/^(warmer|lead-?in)$/i.test(n)) return 'Warmer';
+    if (/^review/i.test(n)) return 'Review';
+    if (/^cooler/i.test(n)) return 'Cooler';
+    return e.page ? 'Page ' + e.page : 'More';
+  }
+  secHead(e) {
+    const k = this.secKey(e);
+    if (k === 'carry') return 'Carried over from last lesson';
+    if (k.startsWith('sec:')) return e.sec + (e.page ? ` · p. ${e.page}` : '');
+    return k === 'More' ? 'More exercises' : k;
+  }
+  heads(L) { let prev = null; return L.exercises.map(e => { const k = this.secKey(e), show = k !== prev; prev = k; return show ? this.secHead(e) : ''; }); }
   exBadge(e, i) { const n = String(e.num || '').trim(); return /^\d/.test(n) && n.length <= 3 ? n : n ? n[0].toUpperCase() : String(i + 1); }
   exWhere(e) { return [e.num && `Exercise ${e.num}`, e.page && `Page ${e.page}`].filter(Boolean).join(' · '); }
   exShort(e) { return [e.num && `Exercise ${e.num}`, e.page && `Page ${e.page}`, e.note].filter(Boolean).join(' · ') || this.exTitle(e); }
@@ -629,11 +646,11 @@ class App {
     const g = db.groups[s.gid], L = this.T(g, s), lv = K.LV[g.level], gc = this.calc(g);
     const scr = s.screen;
     const v = {};
-    const sideScreens = ['week', 'roadmap', 'carry', 'notes', 'sync'];
+    const sideScreens = ['week', 'roadmap', 'carry', 'notes', 'sync', 'cambAll'];
     Object.assign(v, {
       showSide: sideScreens.includes(scr), showJump: !sideScreens.includes(scr),
       isWeek: scr === 'week', isRoadmap: scr === 'roadmap', isCarry: scr === 'carry', isNotes: scr === 'notes', isSync: scr === 'sync',
-      isPlan: scr === 'plan', isStart: scr === 'start', isMid: scr === 'mid', isAfter: scr === 'after', isCamb: scr === 'camb',
+      isPlan: scr === 'plan', isStart: scr === 'start', isMid: scr === 'mid', isAfter: scr === 'after', isCamb: scr === 'camb', isCambAll: scr === 'cambAll',
       isLive: scr === 'start' || scr === 'mid', scrKey: scr + ':' + s.gid + ':' + (s.editId || ''),
       hasToast: !!s.toast, toast: s.toast,
       sideClock: `${this.fmtS(this.today())} · ${this.clock()}`,
@@ -670,7 +687,8 @@ class App {
     });
     const navDefs = [['Week', 'week'], ['Plan a lesson', 'plan'], ['Roadmap', 'roadmap'], ['Carry-over', 'carry'], ['Notes', 'notes'], ['Cambridge copy', 'camb'], ['GitHub sync', 'sync']];
     const ICON = { week: '📅', plan: '✏️', roadmap: '🗺️', carry: '↩️', notes: '📝', camb: '📄', sync: '☁️' };
-    v.navItems = navDefs.map(([label, key]) => ({ label, icon: ICON[key] || '•', bg: scr === key ? '#24345C' : 'transparent', weight: scr === key ? 700 : 500,
+    const navScr = scr === 'cambAll' ? 'camb' : scr;
+    v.navItems = navDefs.map(([label, key]) => ({ label, icon: ICON[key] || '•', bg: navScr === key ? '#24345C' : 'transparent', weight: navScr === key ? 700 : 500,
       onClick: () => { if (key === 'roadmap') this.setState({ rmGid: s.gid }); this.go(key); } }));
     const steps = [['Plan', 'plan'], ['Lesson starts', 'start'], ['Mid-lesson', 'mid'], ['After class', 'after'], ['Cambridge copy', 'camb']];
     {
@@ -696,6 +714,7 @@ class App {
     if (scr === 'start' || scr === 'mid') this.liveVals(v, db, s, g, L, gc);
     if (scr === 'after') this.afterVals(v, db, s, g, L, gc);
     if (scr === 'camb') this.cambVals(v, db, s, g, L, gc);
+    if (scr === 'cambAll') this.bulkVals(v, db, s);
     return v;
   }
 
@@ -1009,12 +1028,12 @@ class App {
       v.useNext = () => { this.upd(d => { this.T(d.groups[g.id], s).unit = nu.u; }); this.toast(`Changed to ${this.uLabel(nu.u)}.`); };
     }
     // list
-    const n = L.exercises.length;
+    const n = L.exercises.length, hd = this.heads(L);
     v.exRows = L.exercises.map((e, i) => {
       const k = this.kc(e.kind), sel = s.sel === e.id;
       const move = (dir) => ev => { ev.stopPropagation(); this.upd(d => { const a = this.T(d.groups[g.id], s).exercises; const j = i + dir; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; }); };
       return {
-        key: e.id, n: this.exBadge(e, i), title: e.skipped ? `Skip: ${this.exLabel(e, i)}` : this.exTitle(e),
+        key: e.id, head: hd[i], hasHead: !!hd[i], n: this.exBadge(e, i), title: e.skipped ? `Skip: ${this.exLabel(e, i)}` : this.exTitle(e),
         sub: e.skipped ? [e.page && `Page ${e.page}`, 'Not teaching this one'].filter(Boolean).join(' · ') : [e.page && `Page ${e.page}`, e.note].filter(Boolean).join(' · ') || 'Tap to fill in',
         min: e.skipped ? '' : (this.em(e) ? `${this.em(e)} min` : '—'), who: e.skipped ? '' : (e.who === 'All together, I lead' ? 'All together' : e.who),
         hasFrom: !!e.fromCarry, from: e.fromCarry ? `Carried over from ${this.uLabel(e.fromCarry.unit || '?')}${e.fromCarry.name ? ' · ' + e.fromCarry.name : ''}` : '',
@@ -1052,6 +1071,7 @@ class App {
       savedText: e.saved ? 'Saved' : 'Not saved yet', savedBg: e.saved ? '#DDF3EC' : '#FFF1C7', savedFg: e.saved ? '#0F6B55' : '#6B4E00',
       page: e.page, num: e.num, grammar: e.grammar, track: e.track, note: e.note, self: e.self, otherMin: e.otherMin,
       isGrammar: e.kind === 'Grammar', isListening: e.kind === 'Listening', isOther: e.min === 'other',
+      sec: e.sec || '', secPh: this.secHead(Object.assign({}, e, { sec: '' })), onSec: ev => this.setEx(e.id, { sec: ev.target.value }),
       onPage: ev => this.setEx(e.id, { page: ev.target.value }), onNum: ev => this.setEx(e.id, { num: ev.target.value }),
       onGrammar: ev => this.setEx(e.id, { grammar: ev.target.value }), onTrack: ev => this.setEx(e.id, { track: ev.target.value }),
       onNote: ev => this.setEx(e.id, { note: ev.target.value }), onSelf: ev => this.setEx(e.id, { self: ev.target.value }),
@@ -1101,14 +1121,15 @@ class App {
       up: { bg: '#fff', border: '#E2E6F0', fg: '#14213D', iconBg: '#fff', iconFg: '#14213D', iconBorder: '#9AA1B6', iconStyle: 'solid', weight: 500 },
       skip: { bg: '#E8EBF3', border: '#E8EBF3', fg: '#5A6482', iconBg: 'transparent', iconFg: '#5A6482', iconBorder: '#9AA1B6', iconStyle: 'dashed', weight: 500 }
     })[state];
-    const warmCur = !run.warmDone;
+    const warmCur = !run.warmDone, hd = this.heads(L);
     rows.push(Object.assign({ key: 'warm', label: warmCur ? 'Warm-up · now' : 'Warm-up', time: this.hm(t), icon: warmCur ? 'Go' : '✓', pop: !warmCur, onJump: () => this.go('start') }, sty(warmCur ? 'cur' : 'done', '#FFB020', true)));
     t += 6;
     L.exercises.forEach((e, i) => {
-      if (e.skipped) { rows.push(Object.assign({ key: e.id, label: `Skip: ${this.exLabel(e, i)}`, time: '', icon: '' }, sty('skip'))); return; }
+      const hk = hd[i] ? { head: hd[i] } : {};
+      if (e.skipped) { rows.push(Object.assign({ key: e.id, ...hk, label: `Skip: ${this.exLabel(e, i)}`, time: '', icon: '' }, sty('skip'))); return; }
       const st = run.status[e.id], cur = run.warmDone && run.idx === i;
       const state = st === 'done' ? 'done' : st === 'unfinished' ? 'unf' : cur ? 'cur' : 'up';
-      rows.push(Object.assign({ key: e.id + state, label: `${this.exLabel(e, i)}${e.kind === 'Listening' && e.track ? ' · Track ' + e.track : ''}${cur ? ' · now' : ''}${st === 'unfinished' ? ' · next lesson' : ''}`, time: this.hm(t), icon: state === 'done' ? '✓' : state === 'unf' ? '→' : state === 'cur' ? this.exBadge(e, i) : '', pop: state === 'done',
+      rows.push(Object.assign({ key: e.id + state, ...hk, label: `${this.exLabel(e, i)}${e.kind === 'Listening' && e.track ? ' · Track ' + e.track : ''}${cur ? ' · now' : ''}${st === 'unfinished' ? ' · next lesson' : ''}`, time: this.hm(t), icon: state === 'done' ? '✓' : state === 'unf' ? '→' : state === 'cur' ? this.exBadge(e, i) : '', pop: state === 'done',
         onJump: () => this.jumpTo(g.id, i) }, sty(state, this.kc(e.kind).c)));
       t += this.em(e);
     });
@@ -1195,6 +1216,7 @@ class App {
       return { label: o, bg: on ? col : '#EEF0F5', fg: on ? '#fff' : '#5A6482', weight: on ? 700 : 500, onClick: () => setter(o) };
     });
     const warmRes = L.results.warm || 'Full';
+    const hd = this.heads(L);
     const rows = [{ label: 'Warm-up', sub: 'Warm-up app', opts: opt(warmRes, o => this.upd(d => { this.T(d.groups[g.id], s).results.warm = o; })), missed: false }];
     L.exercises.forEach((e, i) => {
       if (e.skipped) return;
@@ -1202,7 +1224,7 @@ class App {
       const set = o => this.upd(d => { const gg = d.groups[g.id], T = this.T(gg, s); T.results[e.id] = o; this.syncCarry(d, gg, T, false); });
       const setDrop = val => this.upd(d => { const gg = d.groups[g.id], T = this.T(gg, s); T.drop[e.id] = val; this.syncCarry(d, gg, T, false); });
       rows.push({
-        label: e.note || this.exTitle(e), sub: [`${i + 1} · ${e.kind || 'Exercise'}`, e.page && `Page ${e.page}`].filter(Boolean).join(' · '),
+        head: hd[i], hasHead: !!hd[i], label: e.note || this.exTitle(e), sub: [`${i + 1} · ${e.kind || 'Exercise'}`, e.page && `Page ${e.page}`].filter(Boolean).join(' · '),
         opts: opt(r, set), missed: r === 'Part' || r === 'None',
         missText: r === 'Part' ? 'Missed: part of it' : 'Missed: whole exercise',
         missBg: dropped ? '#E8EBF3' : '#FFF1C7',
@@ -1271,20 +1293,9 @@ class App {
     if (isTaught) v.nextLessonLabel = `${this.gLabel(g)} · ${g.dayType} days · ${g.start} · the lesson after ${this.fmtS(this.D(L.date))}`;
   }
 
-  cambVals(v, db, s, g, L, gc) {
-    const K = this.K, lv = K.LV[g.level];
-    const useLast = !s.editId && !L.exercises.length && g.history.length;
-    const C = useLast ? g.history[g.history.length - 1] : L;
-    const date = C.date ? this.D(C.date) : C.forSlot != null && C !== g.draft ? this.slotDate(g, C.forSlot) : gc.next;
-    v.cambLevel = `${lv.name}${g.is30 ? ' 30+' : ''} (${lv.cefr})`;
-    v.cambDate = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-    v.cambSub = `${this.gLabel(g)} · ${this.fmtS(date)} · ${this.uLabel(C.unit || '?')}${C.name ? ' · ' + C.name : ''}. Built from your planner. Nothing to retype.`;
-    const setAim = key => e => this.upd(d => { const gg = d.groups[g.id]; const T = gg.draft.id === C.id ? gg.draft : gg.history.find(h => h.id === C.id) || (gg.plans || []).find(h => h.id === C.id); T.aims[key] = e.target.value; });
-    const f = (key, label, ph) => ({ label, ph, value: C.aims[key], bg: C.aims[key] ? 'transparent' : '#FFF1B8', onChange: setAim(key) });
-    v.cambAimsL = [f('main', 'Main aim', '[By the end of the lesson, Ss will be able to…]'), f('sub', 'Sub-aims', '[Add sub-aims]'), f('personal', 'Personal aim', '[Add your personal aim]')];
-    v.cambProbs = [f('prob1', '', '1. [Add a problem and solution]'), f('prob2', '', '2. [Add a second problem, or leave empty]')];
-    const Y = '#FFF1B8';
-    // one row per stage: Warm-up, Lead-in (the book's Warmer), then each run of same-kind exercises, then Cooler / Review
+  // one row per stage: Warm-up, Lead-in (the book's Warmer), then each run of same-kind exercises, then Cooler / Review
+  cambRows(g, C) {
+    const K = this.K;
     const AIM = { Listening: 'Develop listening for gist and specific information.', Vocabulary: 'Present and practise new vocabulary.', Speaking: 'Develop speaking fluency.', Reading: 'Develop reading for gist and detail.', Writing: 'Develop writing skills.', Other: '' };
     const kindOf = e => { const n = String(e.num).trim(); return /^(warmer|lead-?in)$/i.test(n) ? 'lead' : /^review/i.test(n) ? 'review' : /^cooler/i.test(n) ? 'cool' : e.kind || 'Other'; };
     const groups = [];
@@ -1302,6 +1313,69 @@ class App {
       const aim = k === 'lead' ? 'Engage Ss, set the context and activate the topic.' : k === 'review' ? `Review ${points.length ? points.join(' and ') : 'language from previous lessons'}.` : k === 'cool' ? 'Review the lesson and end on a positive note.' : k === 'Grammar' ? (points.length ? `Clarify and practise ${points.join(' and ')}.` : '') : AIM[k] || '';
       rows.push({ stage: stage + (where && !['lead', 'cool', 'review'].includes(k) ? ` (${where})` : ''), time: mins ? String(mins) : '', proc, aim, inter: [...new Set(ex.map(e => K.CW[e.who]).filter(Boolean))].join(', ') });
     });
+    return rows;
+  }
+  // every lesson of a group that has exercises, taught or planned, with its date
+  datedLessons(g) {
+    const c = this.calc(g), out = [];
+    g.history.filter(h => h.date && h.exercises.length).forEach(h => out.push({ L: h, date: h.date, taught: true }));
+    if (g.draft && g.draft.exercises.length) out.push({ L: g.draft, date: this.iso(c.next), taught: false });
+    (g.plans || []).filter(p => p.forSlot != null && p.exercises.length && (p.forSlot > c.done || p.extra))
+      .forEach(p => out.push({ L: p, date: this.iso(p.extra ? this.extraDate(g, p) : this.slotDate(g, p.forSlot)), taught: false }));
+    return out;
+  }
+  bulkVals(v, db, s) {
+    const K = this.K, t = this.today(), mon = this.add(t, -((t.getDay() + 6) % 7)), b = s.bulk || {};
+    const from = b.from || this.iso(mon), to = b.to || this.iso(this.add(mon, 5));
+    const all = Object.values(db.groups).sort((x, y) => y.dayType.localeCompare(x.dayType) || x.start.localeCompare(y.start));
+    const on = b.gids || all.map(x => x.id), wantT = b.taught !== false, wantP = b.planned !== false;
+    const set = patch => this.setState({ bulk: Object.assign({ from, to, gids: on, taught: wantT, planned: wantP }, patch) });
+    v.bulkFrom = from; v.bulkTo = to;
+    v.onBulkFrom = e => e.target.value && set({ from: e.target.value });
+    v.onBulkTo = e => e.target.value && set({ to: e.target.value });
+    const chip = (label, sel, fn) => ({ label, box: sel ? '✓' : '', boxBg: sel ? '#14213D' : '#fff', border: sel ? '#14213D' : '#C9CFDE', onClick: fn });
+    v.bulkGroups = all.map(x => chip(`${this.gLabel(x)} · ${x.dayType} · ${x.start}`, on.includes(x.id), () => set({ gids: on.includes(x.id) ? on.filter(id => id !== x.id) : on.concat(x.id) })));
+    v.bulkAllGroups = () => set({ gids: on.length === all.length ? [] : all.map(x => x.id) });
+    v.bulkAllLabel = on.length === all.length ? 'Untick all' : 'Tick all';
+    v.bulkKinds = [chip('Taught lessons', wantT, () => set({ taught: !wantT })), chip('Planned lessons', wantP, () => set({ planned: !wantP }))];
+    const list = [];
+    all.filter(x => on.includes(x.id)).forEach(g => this.datedLessons(g).forEach(d => {
+      if (d.date < from || d.date > to || (d.taught ? !wantT : !wantP)) return;
+      list.push({ g, ...d });
+    }));
+    list.sort((a, b) => a.date.localeCompare(b.date) || a.g.start.localeCompare(b.g.start));
+    const Y = '#FFF1B8';
+    v.bulkPages = list.map(({ g, L, date, taught }) => {
+      const lv = K.LV[g.level], dd = this.D(date);
+      const aim = (key, label) => ({ label, text: L.aims[key] || '[missing]', bg: L.aims[key] ? 'transparent' : Y });
+      return {
+        key: g.id + L.id, teacher: db.teacher, level: `${lv.name}${g.is30 ? ' 30+' : ''} (${lv.cefr})`,
+        date: dd.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+        tag: `${this.fmtS(dd)} · ${this.gLabel(g)} ${g.start} · ${this.lTitle(L)} · ${taught ? 'taught' : 'planned'}`,
+        aimsL: [aim('main', 'Main aim'), aim('sub', 'Sub-aims'), aim('personal', 'Personal aim')],
+        probs: [aim('prob1', ''), Object.assign(aim('prob2', ''), L.aims.prob2 ? {} : { text: '', bg: 'transparent' })],
+        rows: this.cambRows(g, L).map(r => { const o = {}; ['stage', 'time', 'proc', 'aim', 'inter'].forEach(k => { o[k] = r[k] || '[missing]'; o[k + 'Bg'] = r[k] ? 'transparent' : Y; }); return o; })
+      };
+    });
+    v.bulkCount = list.length ? `${list.length} lesson${list.length > 1 ? 's' : ''} · one page each` : 'No lessons in these dates';
+    v.bulkNone = !list.length;
+    v.bulkPrint = () => { if (!list.length) { this.toast('No lessons to print. Change the dates or groups.'); return; } window.print(); };
+    v.bulkBack = () => this.go('camb');
+  }
+  cambVals(v, db, s, g, L, gc) {
+    v.goBulk = () => this.go('cambAll');
+    const K = this.K, lv = K.LV[g.level];
+    const useLast = !s.editId && !L.exercises.length && g.history.length;
+    const C = useLast ? g.history[g.history.length - 1] : L;
+    const date = C.date ? this.D(C.date) : C.forSlot != null && C !== g.draft ? this.slotDate(g, C.forSlot) : gc.next;
+    v.cambLevel = `${lv.name}${g.is30 ? ' 30+' : ''} (${lv.cefr})`;
+    v.cambDate = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    v.cambSub = `${this.gLabel(g)} · ${this.fmtS(date)} · ${this.uLabel(C.unit || '?')}${C.name ? ' · ' + C.name : ''}. Built from your planner. Nothing to retype.`;
+    const setAim = key => e => this.upd(d => { const gg = d.groups[g.id]; const T = gg.draft.id === C.id ? gg.draft : gg.history.find(h => h.id === C.id) || (gg.plans || []).find(h => h.id === C.id); T.aims[key] = e.target.value; });
+    const f = (key, label, ph) => ({ label, ph, value: C.aims[key], bg: C.aims[key] ? 'transparent' : '#FFF1B8', onChange: setAim(key) });
+    v.cambAimsL = [f('main', 'Main aim', '[By the end of the lesson, Ss will be able to…]'), f('sub', 'Sub-aims', '[Add sub-aims]'), f('personal', 'Personal aim', '[Add your personal aim]')];
+    v.cambProbs = [f('prob1', '', '1. [Add a problem and solution]'), f('prob2', '', '2. [Add a second problem, or leave empty]')];
+    const Y = '#FFF1B8', rows = this.cambRows(g, C);
     v.cambRows = rows.map(r => {
       const o = {};
       ['stage', 'time', 'proc', 'aim', 'inter'].forEach(k => { o[k] = r[k] || '[missing]'; o[k + 'Bg'] = r[k] ? 'transparent' : Y; });
@@ -1374,7 +1448,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 16 Oct c</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 17 Oct a</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
@@ -1577,6 +1651,7 @@ function tPlan(v) {
         <span style="font-family:'DM Mono';font-size:14px">5-7 min</span>
       </div>
       ${FOR(v.exRows, r => `<div data-k="${esc(r.key)}" class="fx-in" style="display:flex;flex-direction:column;gap:6px">
+        ${IF(r.hasHead, () => `<span style="margin-top:8px;font-family:'DM Mono';font-size:12.5px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#3A4566;border-bottom:1.5px solid #C9CFDE;padding-bottom:4px">${esc(r.head)}</span>`)}
         <div${click(r.onClick)} style="background:${esc(r.bg)};border:${esc(r.borderW)} ${esc(r.borderStyle)} ${esc(r.border)};border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:12px;cursor:pointer">
           <span style="flex:none;width:32px;height:32px;border-radius:8px;background:${esc(r.numBg)};color:#fff;display:grid;place-items:center;font-weight:700;font-size:15px">${r.n}</span>
           <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
@@ -1693,6 +1768,7 @@ function tPlan(v) {
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
                   <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A6482">Page<input value="${esc(se.page)}"${input(se.onPage)} inputmode="numeric" style="height:46px;border:1.5px solid #C9CFDE;border-radius:10px;padding:0 14px;font-size:17px;color:#14213D"></label>
                   <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A6482">Exercise<input value="${esc(se.num)}"${input(se.onNum)} inputmode="numeric" style="height:46px;border:1.5px solid #C9CFDE;border-radius:10px;padding:0 14px;font-size:17px;color:#14213D"></label>
+                  <label style="grid-column:1 / -1;display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A6482">Book section (optional, the heading in the book)<input value="${esc(se.sec)}"${input(se.onSec)} placeholder="${esc(se.secPh)}" style="height:42px;border:1.5px solid #C9CFDE;border-radius:10px;padding:0 14px;font-size:15px;color:#14213D"></label>
                 </div>
               </div>
               <div style="display:flex;flex-direction:column;gap:8px">
@@ -1774,7 +1850,7 @@ function tNext(v) {
 function tToday(v, withAfter) {
   return `<aside style="background:#fff;border:1px solid #E2E6F0;border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:7px;min-height:420px">
     <span style="font-weight:700;font-size:15px;margin-bottom:4px">Today</span>
-    ${FOR(v.today, t => `<div data-k="${esc(t.key)}"${click(t.onJump)} class="fx-in${t.onJump ? ' hov-row' : ''}" title="${t.onJump ? 'Go to this exercise' : ''}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;background:${esc(t.bg)};border:1px solid ${esc(t.border)};cursor:${t.onJump ? 'pointer' : 'default'}">
+    ${FOR(v.today, t => `${t.head ? `<span style="margin-top:6px;font-family:'DM Mono';font-size:11.5px;letter-spacing:0.08em;text-transform:uppercase;color:#5A6482">${esc(t.head)}</span>` : ''}<div data-k="${esc(t.key)}"${click(t.onJump)} class="fx-in${t.onJump ? ' hov-row' : ''}" title="${t.onJump ? 'Go to this exercise' : ''}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;background:${esc(t.bg)};border:1px solid ${esc(t.border)};cursor:${t.onJump ? 'pointer' : 'default'}">
         <span class="${t.pop ? 'fx-pop' : ''}" style="flex:none;width:26px;height:26px;border-radius:50%;background:${esc(t.iconBg)};color:${esc(t.iconFg)};border:1.5px ${esc(t.iconStyle)} ${esc(t.iconBorder)};display:grid;place-items:center;font-size:12px;font-weight:700">${esc(t.icon)}</span>
         <span style="flex:1;font-size:15px;color:${esc(t.fg)};font-weight:${t.weight}">${esc(t.label)}</span>
         <span style="font-family:'DM Mono';font-size:12.5px;color:${esc(t.fg)}">${esc(t.time)}</span>
@@ -1891,6 +1967,7 @@ function tAfter(v) {
       </div>
       <span style="font-size:13px;color:#5A6482;margin-top:-6px">Everything counts as covered. Only tap Part or None for what you did not finish. Those go to carry-over.</span>
       ${FOR(v.resRows, rr => `<div style="display:flex;flex-direction:column;gap:6px">
+          ${IF(rr.hasHead, () => `<span style="margin-top:6px;font-family:'DM Mono';font-size:11.5px;letter-spacing:0.08em;text-transform:uppercase;color:#5A6482;border-bottom:1px solid #E2E6F0;padding-bottom:3px">${esc(rr.head)}</span>`)}
           <div style="display:flex;align-items:center;gap:8px">
             <div style="flex:1;min-width:0;display:flex;flex-direction:column"><span style="font-size:15px">${esc(rr.label)}</span><span style="font-size:12px;color:#5A6482">${esc(rr.sub)}</span></div>
             ${FOR(rr.opts, o => `<button${click(o.onClick)} style="border:none;background:${esc(o.bg)};color:${esc(o.fg)};font-weight:${o.weight};font-size:13.5px;padding:7px 10px;border-radius:6px;cursor:pointer">${esc(o.label)}</button>`)}
@@ -1955,6 +2032,7 @@ function tCamb(v) {
     </div>
     <button${click(v.printPdf)} style="border:none;background:#14213D;color:#fff;font-weight:700;font-size:15px;padding:14px;border-radius:10px;cursor:pointer">Download PDF · landscape</button>
     <button${click(v.copyTable)} style="border:1.5px solid #14213D;background:#fff;font-weight:700;font-size:15px;padding:13px;border-radius:10px;cursor:pointer">Copy the table</button>
+    <button${click(v.goBulk)} style="border:none;background:#FFB020;color:#14213D;font-weight:700;font-size:15px;padding:13px;border-radius:10px;cursor:pointer">Many lessons in one PDF →</button>
     <div style="background:#FFF1C7;border-radius:12px;padding:12px 14px;font-size:13.5px">Empty fields show here in yellow, so you see what is missing before you send it. Tap any yellow field to fill it.</div>
     <div style="background:#fff;border:1px solid #E2E6F0;border-radius:12px;padding:12px 14px;font-size:13px;color:#5A6482">Download PDF opens the print window. Choose “Save as PDF”.</div>
   </div>
@@ -1983,6 +2061,50 @@ function tCamb(v) {
       ${FOR(v.cambRows, cr => `<div style="display:grid;grid-template-columns:13% 6% 43% 26% 12%">${cell(cr.stage, cr.stageBg)}${cell(cr.time, cr.timeBg)}${cell(cr.proc, cr.procBg)}${cell(cr.aim, cr.aimBg)}${cell(cr.inter, cr.interBg, true)}</div>`)}
       ${IF(v.cambNoEx, () => `<span style="padding:10px 8px;font-style:italic;color:#555">No exercises planned yet. Add them on the Plan screen.</span>`)}
     </div>
+  </div>
+</main>`;
+}
+
+function tCambAll(v) {
+  const cell = (val, bg, last) => `<span class="pc" style="padding:6px 7px;white-space:pre-line;${last ? '' : 'border-right:1px solid #000;'}border-bottom:1px solid #000;background:${esc(bg)}">${esc(val)}</span>`;
+  const box = c => `<button${click(c.onClick)} style="display:flex;align-items:center;gap:8px;border:1.5px solid ${esc(c.border)};background:#fff;border-radius:9px;padding:7px 10px;font-size:14px;font-weight:600;cursor:pointer;text-align:left"><span style="flex:none;width:20px;height:20px;border-radius:5px;border:1.5px solid ${esc(c.border)};background:${esc(c.boxBg)};color:#fff;display:grid;place-items:center;font-size:12px">${c.box}</span>${esc(c.label)}</button>`;
+  return `<main data-screen-label="Cambridge many" data-printwrap="1" style="padding:24px 32px 40px;display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:26px;align-items:start">
+  <div data-noprint="1" style="display:flex;flex-direction:column;gap:14px;position:sticky;top:16px">
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <span style="font-family:'DM Mono';font-size:12px;letter-spacing:0.14em;color:#5A6482">FOR YOUR SUPERVISOR</span>
+      <span style="font-family:'Bricolage Grotesque';font-size:30px;font-weight:700;line-height:1.05">Many lessons, one PDF</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:#5A6482">From<input type="date" value="${esc(v.bulkFrom)}"${input(v.onBulkFrom)} style="height:40px;border:1.5px solid #C9CFDE;border-radius:8px;padding:0 8px;font-size:14px"></label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:#5A6482">To<input type="date" value="${esc(v.bulkTo)}"${input(v.onBulkTo)} style="height:40px;border:1.5px solid #C9CFDE;border-radius:8px;padding:0 8px;font-size:14px"></label>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">${FOR(v.bulkKinds, box)}</div>
+    <div style="display:flex;align-items:center"><span style="font-weight:700;font-size:14px">Groups</span><button${click(v.bulkAllGroups)} style="margin-left:auto;border:none;background:transparent;color:#2F5BEA;font-weight:700;font-size:13px;cursor:pointer">${esc(v.bulkAllLabel)}</button></div>
+    <div style="display:flex;flex-direction:column;gap:6px">${FOR(v.bulkGroups, box)}</div>
+    <span style="font-weight:700;font-size:15px">${esc(v.bulkCount)}</span>
+    <button${click(v.bulkPrint)} style="border:none;background:#14213D;color:#fff;font-weight:700;font-size:15px;padding:14px;border-radius:10px;cursor:pointer">Download PDF · all pages</button>
+    <div style="background:#fff;border:1px solid #E2E6F0;border-radius:12px;padding:12px 14px;font-size:13px;color:#5A6482">Opens the print window. Choose “Save as PDF”. Yellow means missing: fix it on that lesson's Cambridge copy.</div>
+    <button${click(v.bulkBack)} style="border:1.5px solid #C9CFDE;background:#fff;font-weight:700;font-size:14px;padding:10px;border-radius:10px;cursor:pointer">← One lesson</button>
+  </div>
+  <div data-printwrap="1" style="display:flex;flex-direction:column;gap:22px;min-width:0">
+    ${IF(v.bulkNone, () => `<div data-noprint="1" style="background:#fff;border:1px dashed #9AA1B6;border-radius:14px;padding:30px;font-size:16px;color:#5A6482">No lessons with exercises in these dates for the ticked groups.</div>`)}
+    ${FOR(v.bulkPages, pg => `<div data-k="${esc(pg.key)}" class="ppw" style="display:flex;flex-direction:column;gap:6px">
+      <span data-noprint="1" style="font-size:13px;font-weight:700;color:#3A4566">${esc(pg.tag)}</span>
+      <div data-printpage="1" class="pp" style="background:#fff;border:1px solid #E2E6F0;border-radius:14px;padding:26px 28px;font-family:Arial,Helvetica,sans-serif;color:#000;font-size:12.5px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;border-bottom:1.5px solid #000;padding-bottom:8px;flex-wrap:wrap">
+          <span style="font-size:18px;font-weight:700">Lesson plan</span>
+          <span>Teacher: ${esc(pg.teacher)} · Level: ${esc(pg.level)} · Date: ${esc(pg.date)}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 28px">
+          <div style="display:flex;flex-direction:column;gap:6px">${FOR(pg.aimsL, a => `<div style="display:flex;flex-direction:column;gap:1px"><b>${esc(a.label)}</b><span style="background:${esc(a.bg)};padding:1px 3px">${esc(a.text)}</span></div>`)}</div>
+          <div style="display:flex;flex-direction:column;gap:4px"><b>Anticipated problems and possible solutions</b>${FOR(pg.probs, a => `<span style="background:${esc(a.bg)};padding:1px 3px">${esc(a.text)}</span>`)}</div>
+        </div>
+        <div style="border:1px solid #000;display:flex;flex-direction:column">
+          <div style="display:grid;grid-template-columns:13% 6% 43% 26% 12%;background:#E6E6E6;font-weight:700">${cell('Stage', '')}${cell('Time', '')}${cell('Procedure', '')}${cell('Aim of stage', '')}${cell('Interaction', '', true)}</div>
+          ${FOR(pg.rows, cr => `<div style="display:grid;grid-template-columns:13% 6% 43% 26% 12%">${cell(cr.stage, cr.stageBg)}${cell(cr.time, cr.timeBg)}${cell(cr.proc, cr.procBg)}${cell(cr.aim, cr.aimBg)}${cell(cr.inter, cr.interBg, true)}</div>`)}
+        </div>
+      </div>
+    </div>`)}
   </div>
 </main>`;
 }
@@ -2064,6 +2186,7 @@ ${IF(v.isStart, () => tStart(v))}
 ${IF(v.isMid, () => tMid(v))}
 ${IF(v.isAfter, () => tAfter(v))}
 ${IF(v.isCamb, () => tCamb(v))}
+${IF(v.isCambAll, () => tCambAll(v))}
 ${IF(v.isSync, () => tSync(v))}
 </div>
 </div>
