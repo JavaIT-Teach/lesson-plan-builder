@@ -175,6 +175,13 @@ app shows it on the Plan and After class screens (editable, with a Copy button).
 
 For a lesson already taught, or to rewrite only the message: `set-tg GROUP msg.txt [--for SECTION | --date YYYY-MM-DD]`.
 
+## Lessons taught out of book order
+
+The roadmap counts lessons in book order. If a group is taught two lessons in swapped order (e.g. Unit 5 Part 1
+before Unit 4 Part 2), set `slotSwap: [[a, b]]` on the group (roadmap positions, 0-based; the lesson at position
+`done` is the next one). The app and lpb.py both apply it, so labels and dates stay right and the count is
+unchanged. Fix the taught lesson's unit / name / content in history and its `taught` entry to match.
+
 ## Carry-over items Java wants to teach
 
 If Java says to include carry-over (`show GROUP` lists it), take those items into the plan **as carried-over

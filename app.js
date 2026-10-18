@@ -186,8 +186,10 @@ class App {
     if (!c.isToday) return this.fmtS(c.next);
     return c.live === 'now' ? `Today · on now, ends ${g.end}` : c.live === 'over' ? `Today · finished ${g.end}` : `Today · starts ${g.start}`;
   }
+  // slots in the order this group teaches them; slotSwap [[a, b]] = two lessons taught out of book order
+  gslots(g) { const s = this.slots(g.level).slice(); (g.slotSwap || []).forEach(([a, b]) => { if (s[a] && s[b]) [s[a], s[b]] = [s[b], s[a]]; }); return s; }
   calc(g) {
-    const slots = this.slots(g.level);
+    const slots = this.gslots(g);
     const done = g.taught.filter(t => t.slot).length;
     const today = this.today();
     let last = null;
@@ -1553,7 +1555,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 17 Oct b</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 18 Oct a</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;

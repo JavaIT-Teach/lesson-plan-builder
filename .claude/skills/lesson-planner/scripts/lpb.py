@@ -49,6 +49,15 @@ def uid():
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(7))
 
 
+def gslots(g):
+    # the group's lesson order; slotSwap [[a, b]] = two lessons taught out of book order (same as the app)
+    s = slots(g['level'])
+    for a, b in g.get('slotSwap', []):
+        if a < len(s) and b < len(s):
+            s[a], s[b] = s[b], s[a]
+    return s
+
+
 def slots(level):
     out = []
     for part in RM[level].split('|'):
@@ -171,7 +180,7 @@ def show_lesson(title, L):
 def cmd_status(db):
     for gid, g in db['groups'].items():
         done = sum(1 for t in g['taught'] if t.get('slot'))
-        sl = slots(g['level'])
+        sl = gslots(g)
         nxt = sl[done] if done < len(sl) else None
         where = sec_label(nxt) if nxt else 'course finished'
         dr = g['draft']
@@ -197,7 +206,7 @@ def cmd_show(db, gid, all_):
     show_lesson(f"Next lesson ({next_day(g).strftime('%a %d %b')})", g['draft'])
     print('  aims: ' + json.dumps(g['draft']['aims'], ensure_ascii=False))
     for p in sorted([p for p in g.get('plans') or [] if p.get('forSlot') is not None and p['forSlot'] > done_of(g)], key=lambda p: p['forSlot']):
-        show_lesson(f"Planned ahead for {sec_label(slots(g['level'])[p['forSlot']])} ({slot_date(g, p['forSlot']).strftime('%a %d %b')})", p)
+        show_lesson(f"Planned ahead for {sec_label(gslots(g)[p['forSlot']])} ({slot_date(g, p['forSlot']).strftime('%a %d %b')})", p)
     used = [L['aims'].get('personal') for L in g['history'][-4:] + [g['draft']] if L['aims'].get('personal')]
     if used:
         print('Recent personal aims (pick a different one): ' + ' | '.join(used))
@@ -246,7 +255,7 @@ def cmd_write(db, gid, plan_path, dry, replace=False, sec=None):
     g = db['groups'].get(gid) or die(f'unknown group {gid}')
     with open(plan_path, encoding='utf-8') as f:
         plan = json.load(f)
-    done, sl = done_of(g), slots(g['level'])
+    done, sl = done_of(g), gslots(g)
     k = done
     if sec:
         k = next((i for i in range(done, len(sl)) if sec in (sl[i]['sec'], sec_label(sl[i]))), None)
@@ -342,7 +351,7 @@ def main():
         if '--for' in args:
             i = args.index('--for'); sec = args[i + 1]; del args[i:i + 2]
         g = db['groups'].get(args[1]) or die(f'unknown group {args[1]}')
-        sl, done = slots(g['level']), done_of(g)
+        sl, done = gslots(g), done_of(g)
         k = done if not sec else next((i for i in range(done, len(sl)) if sec in (sl[i]['sec'], sec_label(sl[i]))), None)
         L = plan_for(g, k) if k is not None else None
         if not L:
@@ -365,7 +374,7 @@ def main():
         if date_:
             L = next((h for h in g['history'] if h.get('date') == date_), None)
         else:
-            sl, done = slots(g['level']), done_of(g)
+            sl, done = gslots(g), done_of(g)
             k = done if not sec else next((i for i in range(done, len(sl)) if sec in (sl[i]['sec'], sec_label(sl[i]))), None)
             L = plan_for(g, k) if k is not None else None
         if not L:
