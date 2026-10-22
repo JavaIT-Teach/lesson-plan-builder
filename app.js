@@ -337,7 +337,7 @@ class App {
     if (screen === 'start' || screen === 'mid') {
       this.upd(db => { const L = db.groups[id].draft; if (!L.run.lessonStart) L.run.lessonStart = Date.now(); }, { screen, gid: id, del: null });
     } else this.setState({ screen, gid: id, del: null, noteEdit: null });
-    const keep = ['plan', 'after', 'camb'].includes(screen);
+    const keep = ['plan', 'read', 'after', 'camb'].includes(screen);
     if ((screen === 'start' || screen === 'mid') && this.state.editId && id === this.state.gid) this.toast('Lesson starts and Mid-lesson always run the next lesson.');
     if (id !== this.state.gid || !keep) this.setState({ editId: null, delEx: null, delLesson: null });
     window.scrollTo(0, 0);
@@ -756,7 +756,7 @@ class App {
     Object.assign(v, {
       showSide: sideScreens.includes(scr), showJump: !sideScreens.includes(scr),
       isWeek: scr === 'week', isRoadmap: scr === 'roadmap', isCarry: scr === 'carry', isNotes: scr === 'notes', isSync: scr === 'sync',
-      isPlan: scr === 'plan', isStart: scr === 'start', isMid: scr === 'mid', isAfter: scr === 'after', isCamb: scr === 'camb', isCambAll: scr === 'cambAll', isTg: scr === 'tg',
+      isPlan: scr === 'plan', isStart: scr === 'start', isMid: scr === 'mid', isAfter: scr === 'after', isCamb: scr === 'camb', isCambAll: scr === 'cambAll', isTg: scr === 'tg', isRead: scr === 'read',
       isLive: scr === 'start' || scr === 'mid', scrKey: scr + ':' + s.gid + ':' + (s.editId || ''),
       hasToast: !!s.toast, toast: s.toast,
       sideClock: `${this.fmtS(this.today())} · ${this.clock()}`,
@@ -796,7 +796,7 @@ class App {
     const navScr = scr === 'cambAll' ? 'camb' : scr;
     v.navItems = navDefs.map(([label, key]) => ({ label, icon: ICON[key] || '•', bg: navScr === key ? '#24345C' : 'transparent', weight: navScr === key ? 700 : 500,
       onClick: () => { if (key === 'roadmap') this.setState({ rmGid: s.gid }); this.go(key); } }));
-    const steps = [['Plan', 'plan'], ['Lesson starts', 'start'], ['Mid-lesson', 'mid'], ['After class', 'after'], ['Cambridge copy', 'camb']];
+    const steps = [['Plan', 'plan'], ['Read-through', 'read'], ['Lesson starts', 'start'], ['Mid-lesson', 'mid'], ['After class', 'after'], ['Cambridge copy', 'camb']];
     {
       const gg = g, live = scr === 'start' || scr === 'mid', cur = live ? '' : (s.editId && L !== gg.draft ? L.id : '');
       const opts = [{ id: '', label: `Next lesson · ${this.fmtS(gc.next)} · ${this.lTitle(gg.draft)}` }];
@@ -822,6 +822,7 @@ class App {
     if (scr === 'camb') this.cambVals(v, db, s, g, L, gc);
     if (scr === 'cambAll') this.bulkVals(v, db, s);
     if (scr === 'tg') this.tgVals2(v, db, s);
+    if (scr === 'read') this.readVals(v, db, s, g, L, gc);
     return v;
   }
 
@@ -869,7 +870,36 @@ class App {
       onSomeMissed: ev => { ev.stopPropagation(); this.setState({ gid: x.id, screen: 'after', editId: null, sel: null, closeDay: { gid: x.id, date: ud }, sureClose: null }); window.scrollTo(0, 0); },
       onNoClass: ev => { ev.stopPropagation(); this.upd(d => { d.groups[x.id].noClass.push(ud); }, { sureClose: null }); this.toast(`${this.fmtS(this.D(ud))} marked as no class.`); }
     };
-    return { ...unc,
+    const isTodayClass = tIdx >= 0 || (c.isToday && !!slot);
+    const dayBlk = isTodayClass
+      ? { todayKicker: tIdx >= 0 ? 'TODAY · TAUGHT' : 'TODAY', todayBg: lv.tint, todayBorder: lv.c, todayKfg: '#fff', todayKbg: lv.c }
+      : { todayKicker: 'NO CLASS TODAY', todayBg: '#F4F6FB', todayBorder: '#E2E6F0', todayKfg: '#5A6482', todayKbg: '#E6E9F2' };
+    // Telegram reminder for the last closed lesson (shown once the lesson is closed)
+    const lastL = x.history.filter(h => h.date).slice().sort((a, b) => b.date.localeCompare(a.date))[0];
+    const tgDue = !ud && lastL && !lastL.tgSent && !lastL.tgSkip && this.hasOwnPlan(lastL) && this.D(lastL.date) >= this.add(c.today, -3);
+    const tgc = {};
+    if (tgDue) {
+      const link = (db.tgChats || {})[x.id], bot = this.tgCfg(), st = this.state, open = st.tgCard === x.id, sure = st.tgSure === lastL.id;
+      const text = lastL.tg || this.tgAuto(x, lastL);
+      const missed = lastL.exercises.filter(e => !e.skipped && (lastL.results[e.id] === 'None' || lastL.results[e.id] === 'Part'));
+      const setL = fn => this.upd(d => { const h = d.groups[x.id].history.find(y => y.id === lastL.id); if (h) fn(h); });
+      Object.assign(tgc, {
+        tgHead: `Telegram message for ${this.fmtS(this.D(lastL.date))} · ${this.lTitle(lastL)} is not sent yet.`,
+        tgOpen: open, tgText: text, tgBasic: !lastL.tg,
+        tgWarn: missed.length ? `Not fully covered: ${missed.map(e => this.exLabel(e, lastL.exercises.indexOf(e))).join(', ')}. Remove those parts if needed.` : '',
+        tgCanSend: !!(link && bot),
+        tgSendLabel: st.tgSending ? 'Sending…' : sure ? `Tap again to send to ${link && link.title}` : `✈ Send to ${link ? link.title : 'group'}`,
+        tgSendBg: sure ? '#D97706' : '#2AABEE',
+        onTgToggle: ev => { ev.stopPropagation(); this.setState({ tgCard: open ? null : x.id, tgSure: null }); },
+        onTgEdit: ev => { const val = ev.target.value; setL(h => { h.tg = val; }); },
+        onTgSend: ev => { ev.stopPropagation(); if (st.tgSending) return; if (!sure) { this.setState({ tgSure: lastL.id, tgCard: x.id }); return; } this.tgSend(x.id, text, lastL.id).then(ok => { if (ok) this.setState({ tgCard: null }); }); },
+        onTgCopy: ev => { ev.stopPropagation(); if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => this.toast('Copied. Paste it into the Telegram group, then tap "I sent it".'), () => this.toast('Could not copy.')); },
+        onTgDone: ev => { ev.stopPropagation(); setL(h => { h.tgSent = Date.now(); }); this.setState({ tgCard: null }); this.toast('Marked as sent.'); },
+        onTgSkip: ev => { ev.stopPropagation(); setL(h => { h.tgSkip = true; }); this.setState({ tgCard: null }); this.toast('No message for this lesson.'); },
+        stop: ev => ev.stopPropagation()
+      });
+    }
+    return { ...unc, ...dayBlk, isTodayClass, hasTgDue: !!tgDue, ...tgc,
       time: `${x.start} - ${x.end}`, level: lv.name, is30: x.is30, tint: lv.tint, dark: lv.dark, color: lv.c,
       date: this.nextText(x, c), unit: x.draft.extra ? this.uLabel(x.draft.unit) : slot ? this.uLabel(slot.u) : 'Done', desc: x.draft.extra ? 'Extra lesson · skippable unit' : this.slotDesc(x.level, slot),
       secs: nu ? this.secsText(nu) : '',
@@ -1317,6 +1347,30 @@ class App {
     };
   }
 
+  // the whole lesson as full cards, like Mid-lesson, with no timers: for rehearsing
+  readVals(v, db, s, g, L, gc) {
+    const hd = this.heads(L);
+    let t = this.tm(g.start) + 6, n = 0;
+    v.readTitle = this.lTitle(L);
+    v.readSub = `${this.gLabel(g)} · ${L.date ? 'taught ' + this.fmtS(this.D(L.date)) : L !== g.draft && L.forSlot != null ? this.fmtS(this.slotDate(g, L.forSlot)) : this.fmtS(gc.next)} · ${g.start}–${g.end}`;
+    v.readCards = L.exercises.map((e, i) => {
+      const k = this.kc(e.kind), m = this.em(e), at = this.hm(t);
+      if (!e.skipped) { t += m; n += m; }
+      return {
+        key: e.id, head: hd[i], hasHead: !!hd[i], skipped: !!e.skipped,
+        label: this.exLabel(e, i), kind: e.kind || 'Exercise', kc: e.skipped ? '#8E97B5' : k.c, kt: k.t,
+        where: [e.page && `Page ${e.page}`, m ? `${m} min` : '', !e.skipped && `about ${at}`].filter(Boolean).join(' · '),
+        note: e.note || this.exTitle(e),
+        hasExtra: (e.kind === 'Grammar' && !!e.grammar) || (e.kind === 'Listening' && !!e.track),
+        extraLabel: e.kind === 'Grammar' ? 'EXPLAIN THIS GRAMMAR' : 'PLAY THIS TRACK', extra: e.kind === 'Grammar' ? e.grammar : 'Track ' + e.track,
+        who: e.who || 'Not set', hasSelf: !!e.self, self: e.self,
+        from: e.fromCarry ? `Carried over from ${this.uLabel(e.fromCarry.unit || '?')}` : '',
+        onEdit: () => { this.setState({ screen: 'plan', sel: e.id }); window.scrollTo(0, 0); }
+      };
+    });
+    v.readTotal = `${n} min + 5–7 min warm-up · ${L.exercises.filter(e => !e.skipped).length} exercises`;
+    v.readEmpty = !L.exercises.length;
+  }
   afterVals(v, db, s, g, L, gc) {
     const opt = (cur, setter) => ['Full', 'Part', 'None'].map(o => {
       const on = cur === o, col = { Full: '#138A6E', Part: '#C98A0B', None: '#D63A3A' }[o];
@@ -1555,7 +1609,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 18 Oct a</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 22 Oct a</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
@@ -1573,6 +1627,18 @@ function tJump(v) {
 </div>`;
 }
 
+const tTgDue = (c, small) => IF(c.hasTgDue, () => `<div${click(c.stop)} class="fx-in" style="background:#E3F4FD;border:1.5px solid #2AABEE;border-radius:12px;padding:${small ? '8px 10px' : '10px 12px'};display:flex;flex-direction:column;gap:8px;cursor:default">
+  <span style="font-size:${small ? 13 : 14}px;font-weight:600;color:#0B5568">✈ ${esc(c.tgHead)}</span>
+  ${c.tgOpen ? `${c.tgBasic ? `<span style="font-size:12.5px;color:#5A6482">Basic message built from the plan. Edit it here if needed.</span>` : ''}${c.tgWarn ? `<span style="background:#FFF1C7;border-radius:8px;padding:6px 9px;font-size:12.5px;font-weight:600;color:#6B4E00">${esc(c.tgWarn)}</span>` : ''}
+  <textarea data-autogrow="1"${input(c.onTgEdit)} rows="8" style="border:1.5px solid #9CCFEA;border-radius:10px;padding:10px 12px;font-size:13.5px;line-height:1.45;resize:vertical;max-height:420px;overflow:auto;background:#fff;font-family:'DM Sans',system-ui,sans-serif">${esc(c.tgText)}</textarea>` : ''}
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    <button${click(c.onTgToggle)} style="border:1.5px solid #14213D;background:#fff;font-weight:700;font-size:13px;padding:6px 10px;border-radius:8px;cursor:pointer">${c.tgOpen ? 'Hide message' : 'Preview & edit'}</button>
+    ${c.tgCanSend ? `<button${click(c.onTgSend)} style="border:none;background:${esc(c.tgSendBg)};color:#fff;font-weight:700;font-size:13px;padding:7px 10px;border-radius:8px;cursor:pointer">${esc(c.tgSendLabel)}</button>`
+      : `<button${click(c.onTgCopy)} style="border:none;background:#2AABEE;color:#fff;font-weight:700;font-size:13px;padding:7px 10px;border-radius:8px;cursor:pointer">Copy message</button>`}
+    <button${click(c.onTgDone)} style="border:1.5px solid #C9CFDE;background:#fff;color:#3A4566;font-weight:600;font-size:13px;padding:6px 10px;border-radius:8px;cursor:pointer">I sent it myself</button>
+    <button${click(c.onTgSkip)} style="border:none;background:transparent;color:#5A6482;font-size:12.5px;text-decoration:underline;cursor:pointer">No message</button>
+  </div>
+</div>`);
 const tUnclosed = (c, small) => IF(c.hasUnclosed, () => `<div class="fx-in" style="background:#FFF1C7;border:1.5px solid #E9B949;border-radius:12px;padding:${small ? '8px 10px' : '10px 12px'};display:flex;flex-direction:column;gap:8px;cursor:default">
   <span style="font-size:${small ? 13 : 14}px;font-weight:600;color:#6B4E00">${esc(c.unclosedText)}</span>
   <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -1614,13 +1680,18 @@ function tWeek(v) {
             <span style="font-family:'Bricolage Grotesque';font-size:30px;font-weight:700;letter-spacing:-0.01em">${esc(c.unit)}</span>
             <span style="font-size:15px;color:#3A4566">${esc(c.desc)}</span>
           </div>
+          ${tTgDue(c, false)}
+          <div style="background:${esc(c.todayBg)};border:2px solid ${esc(c.todayBorder)};border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:5px">
+            <span style="align-self:flex-start;background:${esc(c.todayKbg)};color:${esc(c.todayKfg)};font-family:'DM Mono';font-size:11.5px;font-weight:500;letter-spacing:0.1em;padding:3px 9px;border-radius:999px">${esc(c.todayKicker)}</span>
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:14px;color:#3A4566">${esc(c.todayHead)}</span><b style="font-size:${c.isTodayClass ? 19 : 16}px">${esc(c.todayVal)}</b>${IF(c.hasTodayTag, () => `<span style="margin-left:auto;background:${esc(c.todayTagBg)};color:${esc(c.todayTagFg)};font-weight:700;font-size:12px;padding:3px 9px;border-radius:999px">${esc(c.todayTag)}</span>`)}</div>
+          </div>
           <div style="background:#F4F6FB;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:7px">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:14px;color:#3A4566">${esc(c.todayHead)}</span><b style="font-size:16px">${esc(c.todayVal)}</b>${IF(c.hasTodayTag, () => `<span style="margin-left:auto;background:${esc(c.todayTagBg)};color:${esc(c.todayTagFg)};font-weight:700;font-size:12px;padding:3px 9px;border-radius:999px">${esc(c.todayTag)}</span>`)}</div>
-            ${IF(c.hasNl, () => `<div style="height:1px;background:#E2E6F0"></div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:14px;color:#3A4566">Next lesson:</span><b style="font-size:16px">${esc(c.nlLabel)}</b><span style="font-size:13px;color:#5A6482">${esc(c.nlSub)}</span><span style="margin-left:auto;background:${esc(c.nlTagBg)};color:${esc(c.nlTagFg)};font-weight:700;font-size:12px;padding:3px 9px;border-radius:999px">${esc(c.nlTag)}</span></div>`)}
-            <div style="height:1px;background:#E2E6F0"></div>
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:14px;color:#3A4566">Next LP to be prepared:</span><b style="font-size:16px">${esc(c.prepVal)}</b></div>
+            ${IF(c.hasNl, () => `
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-family:'DM Mono';font-size:11.5px;letter-spacing:0.08em;color:#5A6482">UPCOMING</span><span style="font-size:14px;color:#3A4566">Next lesson:</span><b style="font-size:16px">${esc(c.nlLabel)}</b><span style="font-size:13px;color:#5A6482">${esc(c.nlSub)}</span><span style="margin-left:auto;background:${esc(c.nlTagBg)};color:${esc(c.nlTagFg)};font-weight:700;font-size:12px;padding:3px 9px;border-radius:999px">${esc(c.nlTag)}</span></div>`)}
+            <div style="border:1.5px dashed #9AA1B6;border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:6px;background:#fff">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-family:'DM Mono';font-size:11.5px;letter-spacing:0.08em;color:#8A4B00">TO PREPARE</span><span style="font-size:14px;color:#3A4566">Next LP to be prepared:</span><b style="font-size:16px">${esc(c.prepVal)}</b></div>
             ${IF(c.hasPrep, () => `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="font-size:13px;color:#5A6482">${esc(c.prepSub)}</span><button${click(c.onPrepare)} style="margin-left:auto;border:1.5px solid #14213D;background:#fff;font-weight:700;font-size:13px;padding:5px 10px;border-radius:8px;cursor:pointer">${esc(c.prepBtn)}</button></div>`)}
+            </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px">
             <div style="display:flex;justify-content:space-between;font-size:14px"><span style="color:#5A6482">Roadmap</span><span style="font-weight:700">${esc(c.progress)}</span></div>
@@ -1642,7 +1713,8 @@ function tWeek(v) {
         <span style="font-family:'DM Mono';font-size:13px">${esc(c.time)}</span>
         <div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;font-size:17px">${esc(c.level)}</span>${IF(c.is30, () => `<span style="background:${esc(c.dark)};color:#fff;font-family:'DM Mono';font-size:12px;padding:2px 7px;border-radius:999px">30+</span>`)}</div>
         ${tUnclosed(c, true)}
-        <span style="font-size:14px">${esc(c.todayHead)} <b>${esc(c.todayVal)}</b></span>
+        ${tTgDue(c, true)}
+        <span style="font-size:14px;${c.isTodayClass ? `background:${esc(c.todayBg)};border-left:4px solid ${esc(c.todayBorder)};padding:4px 8px;border-radius:6px;font-weight:600` : ''}">${c.isTodayClass ? '<b>TODAY</b> · ' : ''}${esc(c.todayHead)} <b>${esc(c.todayVal)}</b></span>
         ${IF(c.hasNl, () => `<span style="font-size:14px">Next lesson: <b>${esc(c.nlLabel)}</b> · ${esc(c.nlSub)}</span>`)}
         <span style="font-size:14px">Next LP to be prepared: <b>${esc(c.prepVal)}</b></span>
         <span style="font-size:14px;font-weight:700;color:${esc(c.pillFg)}">${esc(c.pill)} · ${esc(c.progressShort)}</span>
@@ -2232,6 +2304,34 @@ function tConflict(v) {
 </div>`;
 }
 
+function tRead(v) {
+  return `<main data-screen-label="Read-through" class="m-main" style="padding:22px 32px 48px;display:flex;flex-direction:column;gap:16px;max-width:980px">
+  <div style="display:flex;flex-direction:column;gap:4px">
+    <span style="font-family:'DM Mono';font-size:13px;letter-spacing:0.12em;color:#5A6482">READ-THROUGH · NO TIMERS</span>
+    <span style="font-family:'Bricolage Grotesque';font-size:32px;font-weight:700;letter-spacing:-0.01em">${esc(v.readTitle)}</span>
+    <span style="font-size:15px;color:#5A6482">${esc(v.readSub)} · ${esc(v.readTotal)}</span>
+  </div>
+  <div style="background:#fff;border:3px solid #FFB020;border-radius:16px;padding:16px 20px;display:flex;align-items:center;gap:12px"><span style="background:#FFB020;font-weight:700;font-size:15px;padding:5px 12px;border-radius:8px">Warm-up</span><span style="font-size:16px">Your warm-up app · 5–7 min</span></div>
+  ${IF(v.readEmpty, () => `<div style="background:#fff;border:1px dashed #9AA1B6;border-radius:14px;padding:24px;font-size:16px;color:#5A6482">No exercises yet. Add them on the Plan screen.</div>`)}
+  ${FOR(v.readCards, rc => `${rc.hasHead ? `<span style="margin-top:10px;font-family:'DM Mono';font-size:13px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:#3A4566;border-bottom:1.5px solid #C9CFDE;padding-bottom:4px">${esc(rc.head)}</span>` : ''}
+    <div data-k="${esc(rc.key)}" style="background:${rc.skipped ? '#E8EBF3' : '#fff'};border:3px ${rc.skipped ? 'dashed' : 'solid'} ${esc(rc.kc)};border-radius:18px;padding:20px 24px;display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="background:${esc(rc.kc)};color:#fff;font-weight:700;font-size:15px;padding:5px 12px;border-radius:8px">${esc(rc.kind)}</span>
+        <b style="font-size:17px">${rc.skipped ? 'Skip: ' : ''}${esc(rc.label)}</b>
+        <span style="font-size:14px;color:#5A6482">${esc(rc.where)}</span>
+        <button${click(rc.onEdit)} style="margin-left:auto;border:1.5px solid #C9CFDE;background:#fff;font-weight:700;font-size:13px;padding:5px 10px;border-radius:8px;cursor:pointer">Edit</button>
+      </div>
+      ${rc.from ? `<span style="font-size:13px;font-weight:700;color:#9A4A0A">${esc(rc.from)}</span>` : ''}
+      <span class="m-big" style="font-family:'Bricolage Grotesque';font-size:28px;font-weight:700;line-height:1.18;letter-spacing:-0.01em">${esc(rc.note)}</span>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        ${rc.hasExtra ? `<div style="background:${esc(rc.kt)};border-radius:10px;padding:8px 14px;display:flex;flex-direction:column"><span style="font-size:11.5px;font-weight:700;letter-spacing:0.04em;color:${esc(rc.kc)}">${esc(rc.extraLabel)}</span><span style="font-size:18px;font-weight:700">${esc(rc.extra)}</span></div>` : ''}
+        <div style="background:#ECEEF3;border-radius:10px;padding:8px 14px;display:flex;flex-direction:column"><span style="font-size:11.5px;font-weight:700;letter-spacing:0.04em;color:#5A6482">WHO DOES IT</span><span style="font-size:18px;font-weight:700">${esc(rc.who)}</span></div>
+      </div>
+      ${rc.hasSelf ? `<div style="background:#FFF1C7;border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:3px"><span style="font-size:11.5px;font-weight:700;letter-spacing:0.04em;color:#6B4E00">NOTE TO SELF</span><span style="font-size:16px;line-height:1.45;white-space:pre-line">${esc(rc.self)}</span></div>` : ''}
+    </div>`)}
+</main>`;
+}
+
 function tTg(v) {
   const box = 'height:44px;border:1.5px solid #C9CFDE;border-radius:10px;padding:0 14px;font-size:16px;color:#14213D;background:#fff';
   const step = (n, title, body) => `<div style="display:flex;gap:14px;align-items:flex-start">
@@ -2331,6 +2431,7 @@ ${IF(v.isAfter, () => tAfter(v))}
 ${IF(v.isCamb, () => tCamb(v))}
 ${IF(v.isCambAll, () => tCambAll(v))}
 ${IF(v.isTg, () => tTg(v))}
+${IF(v.isRead, () => tRead(v))}
 ${IF(v.isSync, () => tSync(v))}
 </div>
 </div>

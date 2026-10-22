@@ -31,6 +31,10 @@ Open the live page on a laptop. Then work through these steps:
 
 **Phone:** Lesson starts, Mid-lesson and After class fit a phone screen. The left bar starts folded on small screens.
 
+**Read-through:** step 2 in the top bar shows the whole lesson as big cards, like Mid-lesson, with no timers: note, grammar or track, who does it, note to self, and the rough clock time. Use it to rehearse. Edit on any card opens it on the Plan screen.
+
+**Week cards:** today's lesson sits in a coloured TODAY box. Next lesson is marked UPCOMING, and the next plan to write is in a dashed TO PREPARE box. After you close a lesson, the card asks about its Telegram message: Preview & edit, Send (tap twice), Copy, I sent it myself, or No message.
+
 ## Your data
 
 - Everything is saved in this browser only, in `localStorage`. Another browser or computer will not see it.
