@@ -267,7 +267,7 @@ class App {
     v.hasTgSent = !!L.tgSent;
     v.sendTg = () => { if (s.tgSending) return; if (!sure) { this.setState({ tgSure: L.id }); return; } this.tgSend(g.id, v.tgText, L.id); };
     v.copyTg = () => {
-      const done = () => this.toast('Copied. Paste it into the Telegram group.');
+      const done = () => { this.upd(d => { const T = this.T(d.groups[g.id], s); if (!T.tgSent) T.tgSent = Date.now(); }); this.toast('Copied and marked as sent. Paste it into the Telegram group.'); };
       if (navigator.clipboard) navigator.clipboard.writeText(v.tgText).then(done, () => this.toast('Could not copy. Select the text and copy by hand.'));
       else done();
     };
@@ -893,7 +893,7 @@ class App {
         onTgToggle: ev => { ev.stopPropagation(); this.setState({ tgCard: open ? null : x.id, tgSure: null }); },
         onTgEdit: ev => { const val = ev.target.value; setL(h => { h.tg = val; }); },
         onTgSend: ev => { ev.stopPropagation(); if (st.tgSending) return; if (!sure) { this.setState({ tgSure: lastL.id, tgCard: x.id }); return; } this.tgSend(x.id, text, lastL.id).then(ok => { if (ok) this.setState({ tgCard: null }); }); },
-        onTgCopy: ev => { ev.stopPropagation(); if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => this.toast('Copied. Paste it into the Telegram group, then tap "I sent it".'), () => this.toast('Could not copy.')); },
+        onTgCopy: ev => { ev.stopPropagation(); const ok = () => { setL(h => { h.tgSent = Date.now(); }); this.setState({ tgCard: null }); this.toast('Copied and marked as sent. Paste it into the Telegram group.'); }; if (navigator.clipboard) navigator.clipboard.writeText(text).then(ok, () => this.toast('Could not copy. Select the text and copy by hand.')); else ok(); },
         onTgDone: ev => { ev.stopPropagation(); setL(h => { h.tgSent = Date.now(); }); this.setState({ tgCard: null }); this.toast('Marked as sent.'); },
         onTgSkip: ev => { ev.stopPropagation(); setL(h => { h.tgSkip = true; }); this.setState({ tgCard: null }); this.toast('No message for this lesson.'); },
         stop: ev => ev.stopPropagation()
@@ -1609,7 +1609,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 22 Oct a</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 22 Oct b</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
