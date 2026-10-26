@@ -29,7 +29,7 @@ Open the live page on a laptop. Then work through these steps:
 
 **Telegram bot:** open **Telegram bot** in the left bar. Make a bot with @BotFather, paste its token, add the bot to each class group as admin, write "hi" there, tap **Find my groups** and pick the group for each class. Then the Telegram message box has **✈ Send to …** (tap twice). The token stays in this browser only; the class-to-group links sync with your lessons.
 
-**Phone:** Lesson starts, Mid-lesson and After class fit a phone screen. The left bar starts folded on small screens.
+**Phone:** every screen fits a phone. The Cambridge table scrolls sideways inside its box on a phone; the PDF is unchanged. The left bar starts folded on small screens.
 
 **Read-through:** step 2 in the top bar shows the whole lesson as big cards, like Mid-lesson, with no timers: note, grammar or track, who does it, note to self, and the rough clock time. Use it to rehearse. Edit on any card opens it on the Plan screen.
 

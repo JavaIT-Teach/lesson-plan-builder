@@ -57,4 +57,12 @@ input:focus,textarea:focus{box-shadow:0 0 0 3px rgba(47,91,234,.15)}
   .m-timer{font-size:44px !important}
   .m-main{padding:16px 12px 32px !important}
   .m-main h1{font-size:30px !important}
+  main[data-screen-label]{padding:14px 12px 28px !important}
+  main h1{font-size:28px !important}
+  .m-1col{grid-template-columns:minmax(0,1fr) !important}
+  .m-page{aspect-ratio:auto !important;overflow-x:auto;padding:14px !important}
+  .m-tbl{min-width:640px}
+  .m-pad{padding:12px !important}
+  input,select,textarea{max-width:100%}
+  label > input{min-width:0;width:100%}
 }

@@ -1651,7 +1651,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 26 Oct b</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 26 Oct c</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
@@ -1706,7 +1706,7 @@ function tWeek(v) {
       <span style="font-size:14px">${esc(v.statusSub)}</span>
     </div>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:20px">
     ${FOR(v.bigCards, c => `<div${click(c.onOpen)} class="hov-card" style="background:#fff;border:1px solid #E2E6F0;border-radius:18px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column">
         <div style="background:${esc(c.tint)};padding:16px 18px 14px;display:flex;flex-direction:column;gap:4px">
           <span style="font-family:'DM Mono';font-size:15px;font-weight:500">${esc(c.time)}</span>
@@ -1750,7 +1750,7 @@ function tWeek(v) {
       </div>`)}
   </div>
   <span style="font-family:'DM Mono';font-size:13px;letter-spacing:0.12em;color:#5A6482;margin-top:8px">${esc(v.otherKicker)}</span>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr));gap:14px">
     ${FOR(v.smallCards, c => `<div${click(c.onOpen)} class="hov-small" style="background:#fff;border:1px solid #E2E6F0;border-top:5px solid ${esc(c.color)};border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;cursor:pointer">
         <span style="font-family:'DM Mono';font-size:13px">${esc(c.time)}</span>
         <div style="display:flex;align-items:center;gap:6px"><span style="font-weight:700;font-size:17px">${esc(c.level)}</span>${IF(c.is30, () => `<span style="background:${esc(c.dark)};color:#fff;font-family:'DM Mono';font-size:12px;padding:2px 7px;border-radius:999px">30+</span>`)}</div>
@@ -1780,7 +1780,7 @@ function tRoadmap(v) {
     <span style="font-weight:700;font-size:18px">${esc(v.rm.pill)} · ${esc(v.rm.progress)}</span>
     <span style="font-size:15px">${esc(v.rm.explain)}</span>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px">
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(112px,100%),1fr));gap:10px">
     ${FOR(v.rmUnits, u => `<div style="background:${esc(u.bg)};border:2px ${esc(u.borderStyle)} ${esc(u.border)};border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;color:${esc(u.fg)}">
         <span style="font-weight:700;font-size:16px">${esc(u.label)}</span>
         <span style="font-family:'DM Mono';font-size:13px">${esc(u.secs)}</span>
@@ -1845,7 +1845,7 @@ function tNotes(v) {
 function tPlan(v) {
   const se = v.se;
   return `<div data-screen-label="02 Plan the lesson" style="display:flex;flex-direction:column">
-  <div style="background:#14213D;color:#fff;padding:14px 32px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
+  <div class="m-pad" style="background:#14213D;color:#fff;padding:14px 32px;display:flex;align-items:center;gap:18px;flex-wrap:wrap">
     <span style="font-family:'Bricolage Grotesque';font-size:26px;font-weight:700">Plan the lesson</span>
     <span style="background:${esc(v.lvTint)};color:#14213D;font-weight:700;font-size:14px;padding:5px 12px;border-radius:999px">${esc(v.lvName)}</span>
     <span style="font-size:15px;color:#D5DAEA">${esc(v.dayLabel)} · ${esc(v.dateText)} · ${esc(v.startTime)}</span>
@@ -1863,7 +1863,7 @@ function tPlan(v) {
       ${IF(v.hasTaughtDay, () => `<label style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600">Taught on<select${input(v.onTaughtDay)} style="height:38px;border:1.5px solid #14213D;border-radius:8px;padding:0 10px;font-size:15px;font-weight:700;background:#fff;color:#14213D;cursor:pointer">${FOR(v.taughtDays, o => `<option value="${o.id}"${o.sel ? ' selected' : ''}>${esc(o.label)}</option>`)}</select></label>`)}
       <button${click(v.backToNext)} style="border:1.5px solid #14213D;background:#fff;font-weight:700;font-size:14px;padding:8px 14px;border-radius:8px;cursor:pointer">Back to the next lesson</button>
     </div>`)}
-  <main style="padding:22px 32px 48px;display:grid;grid-template-columns:minmax(300px,410px) minmax(0,1fr);gap:24px;align-items:start">
+  <main class="m-1col m-main" style="padding:22px 32px 48px;display:grid;grid-template-columns:minmax(300px,410px) minmax(0,1fr);gap:24px;align-items:start">
     <div style="display:flex;flex-direction:column;gap:8px">
       <span style="font-size:14px;color:#5A6482;margin-bottom:4px">Your lesson, in order. Tap one to change it.</span>
       <div style="background:#FFF1C7;border:1px solid #F3DC91;border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:12px">
@@ -1982,11 +1982,11 @@ function tPlan(v) {
             <span style="margin-left:auto;background:${esc(se.savedBg)};color:${esc(se.savedFg)};font-size:13px;font-weight:700;padding:4px 10px;border-radius:999px">${esc(se.savedText)}</span>
           </div>
           ${IF(se.skipped, () => `<div style="background:#E8EBF3;border-radius:10px;padding:12px 14px;font-size:15px;color:#3A4566;font-weight:600">You are skipping this one. It shows as “${esc(se.skipLabel)}” in grey and never carries over.</div>`)}
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px 28px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:22px 28px">
             <div style="display:flex;flex-direction:column;gap:20px">
               <div style="display:flex;flex-direction:column;gap:8px">
                 <span style="font-weight:700;font-size:16px">1 · Where in the book?</span>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px">
                   <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A6482">Page<input value="${esc(se.page)}"${input(se.onPage)} inputmode="numeric" style="height:46px;border:1.5px solid #C9CFDE;border-radius:10px;padding:0 14px;font-size:17px;color:#14213D"></label>
                   <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A6482">Exercise<input value="${esc(se.num)}"${input(se.onNum)} inputmode="numeric" style="height:46px;border:1.5px solid #C9CFDE;border-radius:10px;padding:0 14px;font-size:17px;color:#14213D"></label>
                   <label style="grid-column:1 / -1;display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A6482">Book section (optional, the heading in the book)<input value="${esc(se.sec)}"${input(se.onSec)} placeholder="${esc(se.secPh)}" style="height:42px;border:1.5px solid #C9CFDE;border-radius:10px;padding:0 14px;font-size:15px;color:#14213D"></label>
@@ -2191,7 +2191,7 @@ function tAfter(v) {
     ${IF(v.canClose, () => `<label style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:#3A4566">Lesson day<select${input(v.onCloseDay)} style="height:38px;border:1.5px solid #14213D;border-radius:8px;padding:0 10px;font-size:15px;font-weight:700;background:#fff;color:#14213D;cursor:pointer">${FOR(v.closeDays, o => `<option value="${o.id}"${o.sel ? ' selected' : ''}>${esc(o.label)}</option>`)}</select></label>
     <button${click(v.closeLesson)} style="border:none;background:#14213D;color:#fff;font-weight:700;font-size:16px;padding:14px 24px;border-radius:10px;cursor:pointer">Save and close lesson</button>`)}
   </div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;align-items:stretch">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:20px;align-items:stretch">
     <div style="background:#fff;border:1px solid #E2E6F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px">
         <span style="font-weight:700;font-size:16px">1 · What did you cover?</span>
@@ -2251,7 +2251,7 @@ function tAfter(v) {
 function tCamb(v) {
   const ta = (x, extra) => `<textarea data-autogrow="1"${input(x.onChange)} placeholder="${esc(x.ph)}" rows="2" style="font-family:Arial,Helvetica,sans-serif;font-size:13.5px;color:#000;border:none;resize:none;overflow:hidden;padding:2px 4px;background:${esc(x.bg)};outline-color:#2F5BEA${extra || ''}">${esc(x.value)}</textarea>`;
   const cell = (val, bg, last) => `<span style="padding:7px 8px;white-space:pre-line;${last ? '' : 'border-right:1px solid #000;'}border-bottom:1px solid #000;background:${esc(bg)}">${esc(val)}</span>`;
-  return `<main data-screen-label="06 Cambridge copy" data-printwrap="1" style="padding:24px 32px 40px;display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:26px;align-items:start">
+  return `<main data-screen-label="06 Cambridge copy" data-printwrap="1" class="m-1col m-main" style="padding:24px 32px 40px;display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:26px;align-items:start">
   <div data-noprint="1" style="display:flex;flex-direction:column;gap:16px">
     <div style="display:flex;flex-direction:column;gap:4px">
       <span style="font-family:'DM Mono';font-size:12px;letter-spacing:0.14em;color:#5A6482">FOR YOUR SUPERVISOR</span>
@@ -2268,12 +2268,12 @@ function tCamb(v) {
     <div style="background:#FFF1C7;border-radius:12px;padding:12px 14px;font-size:13.5px">Empty fields show here in yellow, so you see what is missing before you send it. Tap any yellow field to fill it.</div>
     <div style="background:#fff;border:1px solid #E2E6F0;border-radius:12px;padding:12px 14px;font-size:13px;color:#5A6482">Download PDF opens the print window. Choose “Save as PDF”.</div>
   </div>
-  <div data-printpage="1" style="background:#fff;border:1px solid #E2E6F0;border-radius:14px;padding:28px 30px;font-family:Arial,Helvetica,sans-serif;color:#000;font-size:13.5px;aspect-ratio:1.414/1;display:flex;flex-direction:column;gap:14px;min-width:0">
+  <div data-printpage="1" class="m-page" style="background:#fff;border:1px solid #E2E6F0;border-radius:14px;padding:28px 30px;font-family:Arial,Helvetica,sans-serif;color:#000;font-size:13.5px;aspect-ratio:1.414/1;display:flex;flex-direction:column;gap:14px;min-width:0">
     <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;border-bottom:1.5px solid #000;padding-bottom:8px;flex-wrap:wrap">
       <span style="font-size:19px;font-weight:700">Lesson plan</span>
       <span>Teacher: ${esc(v.teacher)} · Level: ${esc(v.cambLevel)} · Date: ${esc(v.cambDate)}</span>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 28px">
+    <div class="m-1col" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 28px">
       <div style="display:flex;flex-direction:column;gap:8px">
         ${FOR(v.cambAimsL, ca => `<label style="display:flex;flex-direction:column;gap:1px"><b>${esc(ca.label)}</b>${ta(ca)}</label>`)}
       </div>
@@ -2282,7 +2282,7 @@ function tCamb(v) {
         ${FOR(v.cambProbs, cp => ta(cp))}
       </div>
     </div>
-    <div style="border:1px solid #000;display:flex;flex-direction:column;flex:1">
+    <div class="m-tbl" style="border:1px solid #000;display:flex;flex-direction:column;flex:1">
       <div style="display:grid;grid-template-columns:13% 6% 43% 26% 12%;background:#E6E6E6;font-weight:700">
         <span style="padding:7px 8px;border-right:1px solid #000;border-bottom:1px solid #000">Stage</span>
         <span style="padding:7px 8px;border-right:1px solid #000;border-bottom:1px solid #000">Time</span>
@@ -2300,13 +2300,13 @@ function tCamb(v) {
 function tCambAll(v) {
   const cell = (val, bg, last) => `<span class="pc" style="padding:6px 7px;white-space:pre-line;${last ? '' : 'border-right:1px solid #000;'}border-bottom:1px solid #000;background:${esc(bg)}">${esc(val)}</span>`;
   const box = c => `<button${click(c.onClick)} style="display:flex;align-items:center;gap:8px;border:1.5px solid ${esc(c.border)};background:#fff;border-radius:9px;padding:7px 10px;font-size:14px;font-weight:600;cursor:pointer;text-align:left"><span style="flex:none;width:20px;height:20px;border-radius:5px;border:1.5px solid ${esc(c.border)};background:${esc(c.boxBg)};color:#fff;display:grid;place-items:center;font-size:12px">${c.box}</span>${esc(c.label)}</button>`;
-  return `<main data-screen-label="Cambridge many" data-printwrap="1" style="padding:24px 32px 40px;display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:26px;align-items:start">
+  return `<main data-screen-label="Cambridge many" data-printwrap="1" class="m-1col m-main" style="padding:24px 32px 40px;display:grid;grid-template-columns:minmax(240px,300px) minmax(0,1fr);gap:26px;align-items:start">
   <div data-noprint="1" style="display:flex;flex-direction:column;gap:14px;position:sticky;top:16px">
     <div style="display:flex;flex-direction:column;gap:4px">
       <span style="font-family:'DM Mono';font-size:12px;letter-spacing:0.14em;color:#5A6482">FOR YOUR SUPERVISOR</span>
       <span style="font-family:'Bricolage Grotesque';font-size:30px;font-weight:700;line-height:1.05">Many lessons, one PDF</span>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div class="m-1col" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:#5A6482">From<input type="date" value="${esc(v.bulkFrom)}"${input(v.onBulkFrom)} style="height:40px;border:1.5px solid #C9CFDE;border-radius:8px;padding:0 8px;font-size:14px"></label>
       <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:#5A6482">To<input type="date" value="${esc(v.bulkTo)}"${input(v.onBulkTo)} style="height:40px;border:1.5px solid #C9CFDE;border-radius:8px;padding:0 8px;font-size:14px"></label>
     </div>
@@ -2322,16 +2322,16 @@ function tCambAll(v) {
     ${IF(v.bulkNone, () => `<div data-noprint="1" style="background:#fff;border:1px dashed #9AA1B6;border-radius:14px;padding:30px;font-size:16px;color:#5A6482">No lessons with exercises in these dates for the ticked groups.</div>`)}
     ${FOR(v.bulkPages, pg => `<div data-k="${esc(pg.key)}" class="ppw" style="display:flex;flex-direction:column;gap:6px">
       <span data-noprint="1" style="font-size:13px;font-weight:700;color:#3A4566">${esc(pg.tag)}</span>
-      <div data-printpage="1" class="pp" style="background:#fff;border:1px solid #E2E6F0;border-radius:14px;padding:26px 28px;font-family:Arial,Helvetica,sans-serif;color:#000;font-size:12.5px;display:flex;flex-direction:column;gap:12px">
+      <div data-printpage="1" class="pp m-page" style="background:#fff;border:1px solid #E2E6F0;border-radius:14px;padding:26px 28px;font-family:Arial,Helvetica,sans-serif;color:#000;font-size:12.5px;display:flex;flex-direction:column;gap:12px">
         <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;border-bottom:1.5px solid #000;padding-bottom:8px;flex-wrap:wrap">
           <span style="font-size:18px;font-weight:700">Lesson plan</span>
           <span>Teacher: ${esc(pg.teacher)} · Level: ${esc(pg.level)} · Date: ${esc(pg.date)}</span>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 28px">
+        <div class="m-1col" style="display:grid;grid-template-columns:1fr 1fr;gap:6px 28px">
           <div style="display:flex;flex-direction:column;gap:6px">${FOR(pg.aimsL, a => `<div style="display:flex;flex-direction:column;gap:1px"><b>${esc(a.label)}</b><span style="background:${esc(a.bg)};padding:1px 3px">${esc(a.text)}</span></div>`)}</div>
           <div style="display:flex;flex-direction:column;gap:4px"><b>Anticipated problems and possible solutions</b>${FOR(pg.probs, a => `<span style="background:${esc(a.bg)};padding:1px 3px">${esc(a.text)}</span>`)}</div>
         </div>
-        <div style="border:1px solid #000;display:flex;flex-direction:column">
+        <div class="m-tbl" style="border:1px solid #000;display:flex;flex-direction:column">
           <div style="display:grid;grid-template-columns:13% 6% 43% 26% 12%;background:#E6E6E6;font-weight:700">${cell('Stage', '')}${cell('Time', '')}${cell('Procedure', '')}${cell('Aim of stage', '')}${cell('Interaction', '', true)}</div>
           ${FOR(pg.rows, cr => `<div style="display:grid;grid-template-columns:13% 6% 43% 26% 12%">${cell(cr.stage, cr.stageBg)}${cell(cr.time, cr.timeBg)}${cell(cr.proc, cr.procBg)}${cell(cr.aim, cr.aimBg)}${cell(cr.inter, cr.interBg, true)}</div>`)}
         </div>
@@ -2397,7 +2397,7 @@ function tTg(v) {
   <div style="background:#fff;border:1px solid #E2E6F0;border-radius:18px;padding:22px 24px;display:flex;flex-direction:column;gap:22px">
     ${step(1, 'Make the bot', `<span>In Telegram, open <a href="https://t.me/BotFather" target="_blank" rel="noopener">@BotFather</a>, send <b>/newbot</b>, give it a name (for example <b>Java's English Class</b>) and a username ending in <b>bot</b>. BotFather replies with a token like <span style="font-family:'DM Mono'">123456:ABC…</span>. Copy it.</span>
       ${v.tgOn ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#DDF3EC;border-radius:10px;padding:10px 14px"><b style="color:#0F6B55">✓ Connected to ${esc(v.tgBot)}</b><button${click(v.tgForget)} style="margin-left:auto;${BTN_DEL};font-size:13px;padding:6px 10px;border-radius:8px">${esc(v.tgForgetLabel)}</button></div>`
-      : `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px"><input type="password" value="${esc(v.tgForm)}"${input(v.onTgForm)} autocomplete="off" placeholder="Paste the bot token" style="${box};flex:1;min-width:220px"><button${click(v.tgConnect)} style="border:none;background:#138A6E;color:#fff;font-weight:700;font-size:16px;padding:0 22px;border-radius:10px;cursor:pointer">${esc(v.tgConnectLabel)}</button></div>
+      : `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px"><input type="password" value="${esc(v.tgForm)}"${input(v.onTgForm)} autocomplete="off" placeholder="Paste the bot token" style="${box};flex:1;min-width:min(220px,100%)"><button${click(v.tgConnect)} style="border:none;background:#138A6E;color:#fff;font-weight:700;font-size:16px;padding:0 22px;border-radius:10px;cursor:pointer">${esc(v.tgConnectLabel)}</button></div>
       <span style="font-size:13px;color:#5A6482">The token is kept in this browser only. It is not in backups or on GitHub. On another device, paste it again.</span>`}`)}
     ${step(2, 'Add the bot to each class group', `<span>Open the class group → group name → <b>Add members</b> → search your bot's username. Then make it an <b>admin</b> (only "Post messages" is needed). Then write <b>hi</b> in the group, so the bot can see it.</span>`)}
     ${step(3, 'Link each class to its group', `${v.tgOn ? `<button${click(v.tgFind)} style="align-self:flex-start;border:none;background:#14213D;color:#fff;font-weight:700;font-size:15px;padding:10px 18px;border-radius:10px;cursor:pointer">${esc(v.tgFindLabel)}</button>
@@ -2451,7 +2451,7 @@ function tSync(v) {
         <span>· Repository access: <b>Only select repositories</b>, then pick <b>lesson-plan-data</b>.</span>
         <span>· Permissions: <b>Contents</b>, set to <b>Read and write</b>.</span>
         <span>· Tap <b>Generate token</b> and copy it.</span>`)}
-      ${step(3, 'Paste it here', `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+      ${step(3, 'Paste it here', `<div class="m-1col" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
           <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A6482">GitHub username<input value="${esc(v.form.owner)}"${input(v.onOwner)} autocomplete="off" style="${box}"></label>
           <label style="display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A6482">Repository<input value="${esc(v.form.repo)}"${input(v.onRepo)} autocomplete="off" style="${box}"></label>
           <label style="grid-column:1 / -1;display:flex;flex-direction:column;gap:4px;font-size:13px;color:#5A6482">Key<input type="password" value="${esc(v.form.token)}"${input(v.onToken)} autocomplete="off" placeholder="github_pat_…" style="${box}"></label>
