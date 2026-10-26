@@ -35,7 +35,7 @@ Open the live page on a laptop. Then work through these steps:
 
 **Week cards:** today's lesson sits in a coloured TODAY box. Next lesson is marked UPCOMING, and the next plan to write is in a dashed TO PREPARE box. After you close a lesson, the card asks about its Telegram message: Preview & edit, Send (tap twice), Copy, I sent it myself, or No message.
 
-**Class checklist and reminders:** on Lesson starts and Mid-lesson, under the warm-up: Take attendance, Speaking scores 100 for all, Check homework (start + 15 min) and Update attendance (start + 40 min). Turn on **Class reminders** in the left bar to get PC notifications at those times for every class on the day. Notifications only come while the app is open in a browser tab (it can be in the background). Ticked items are not reminded.
+**Class checklist and reminders:** on Lesson starts and Mid-lesson, under the warm-up: Badge on (at the start), Take attendance, Speaking scores 100 for all, Check homework (start + 15 min) and Update attendance (start + 40 min). Turn on **Class reminders** in the left bar to get PC notifications at those times for every class on the day. Notifications only come while the app is open in a browser tab (it can be in the background). Ticked items are not reminded.
 
 ## Your data
 

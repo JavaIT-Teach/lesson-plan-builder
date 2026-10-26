@@ -475,7 +475,7 @@ class App {
   // Lessons are mirrored to one file (lessons.json) in a private repo, using the GitHub contents API.
   // Settings (incl. the key) live in their own localStorage entry, never in backups or on GitHub.
   // ---------- class reminders (PC notifications while the app is open) ----------
-  CHECKS = [['att', 'Take attendance', 15], ['speak', 'Speaking scores: 100 for all', 15], ['hw', 'Check homework', 15], ['att2', 'Update attendance (late students)', 40]];
+  CHECKS = [['badge', 'Badge on', 0], ['att', 'Take attendance', 15], ['speak', 'Speaking scores: 100 for all', 15], ['hw', 'Check homework', 15], ['att2', 'Update attendance (late students)', 40]];
   remindOn() { try { return localStorage.getItem('lpb-remind') === '1'; } catch (e) { return false; } }
   async toggleRemind() {
     if (this.remindOn()) { try { localStorage.setItem('lpb-remind', '0'); } catch (e) {} this.setState({}); this.toast('Class reminders off.'); return; }
@@ -495,11 +495,11 @@ class App {
     Object.values(this.state.db.groups).forEach(g => {
       if (!this.isType(today, g.dayType) || g.noClass.includes(ti) || g.taught.some(t => t.date === ti)) return;
       const st = this.tm(g.start), done = (g.draft.run && g.draft.run.checks) || {};
-      [[15, ['att', 'speak', 'hw']], [40, ['att2']]].forEach(([off, keys]) => {
+      [[0, ['badge']], [15, ['att', 'speak', 'hw']], [40, ['att2']]].forEach(([off, keys]) => {
         const key = `${ti}:${g.id}:${off}`, todo = this.CHECKS.filter(c => keys.includes(c[0]) && !done[c[0]]);
         if (fired[key] || nm < st + off || nm > st + off + 10 || !todo.length) return;
         fired[key] = 1;
-        const n = new Notification(`${this.gLabel(g)} ${g.start} · ${off} min in`, { body: todo.map(c => '☐ ' + c[1]).join('\n'), tag: key, requireInteraction: true });
+        const n = new Notification(`${this.gLabel(g)} ${g.start} · ${off ? off + ' min in' : 'starting now'}`, { body: todo.map(c => '☐ ' + c[1]).join('\n'), tag: key, requireInteraction: true });
         n.onclick = () => { window.focus(); this.setState({ gid: g.id, screen: 'mid', editId: null }); n.close(); };
         this.toast(`${this.gLabel(g)}: ${todo.map(c => c[1]).join(' · ')}`);
       });
@@ -1651,7 +1651,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 26 Oct a</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 26 Oct b</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
