@@ -90,6 +90,8 @@ class App {
       if (live || Math.floor(n / 60000) !== Math.floor(this.state.now / 60000)) this.setState({ now: n });
     }, 1000);
     try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+    this.remindIv = setInterval(() => this.remind(), 20000);
+    setTimeout(() => this.remind(), 3000);
     document.addEventListener('keydown', e => {
       if (this.state.screen !== 'mid' || /INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '')) return;
       const g = this.state.db.groups[this.state.gid], R = g.draft.run;
@@ -472,6 +474,39 @@ class App {
   // ---------- GitHub sync ----------
   // Lessons are mirrored to one file (lessons.json) in a private repo, using the GitHub contents API.
   // Settings (incl. the key) live in their own localStorage entry, never in backups or on GitHub.
+  // ---------- class reminders (PC notifications while the app is open) ----------
+  CHECKS = [['att', 'Take attendance', 15], ['speak', 'Speaking scores: 100 for all', 15], ['hw', 'Check homework', 15], ['att2', 'Update attendance (late students)', 40]];
+  remindOn() { try { return localStorage.getItem('lpb-remind') === '1'; } catch (e) { return false; } }
+  async toggleRemind() {
+    if (this.remindOn()) { try { localStorage.setItem('lpb-remind', '0'); } catch (e) {} this.setState({}); this.toast('Class reminders off.'); return; }
+    if (!('Notification' in window)) { this.toast('This browser cannot show notifications.'); return; }
+    let p = Notification.permission;
+    if (p !== 'granted') p = await Notification.requestPermission();
+    if (p !== 'granted') { this.toast('Notifications are blocked. Allow them for this site in the browser settings.'); return; }
+    try { localStorage.setItem('lpb-remind', '1'); } catch (e) {}
+    this.setState({});
+    new Notification('Lesson Plan Builder', { body: 'Class reminders are on. Keep this tab open during your lessons.' });
+  }
+  remind() {
+    if (!this.remindOn() || !('Notification' in window) || Notification.permission !== 'granted') return;
+    const now = new Date(), today = this.today(), ti = this.iso(today), nm = now.getHours() * 60 + now.getMinutes();
+    let fired = {}; try { fired = JSON.parse(localStorage.getItem('lpb-fired')) || {}; } catch (e) {}
+    Object.keys(fired).forEach(k => { if (!k.startsWith(ti)) delete fired[k]; });
+    Object.values(this.state.db.groups).forEach(g => {
+      if (!this.isType(today, g.dayType) || g.noClass.includes(ti) || g.taught.some(t => t.date === ti)) return;
+      const st = this.tm(g.start), done = (g.draft.run && g.draft.run.checks) || {};
+      [[15, ['att', 'speak', 'hw']], [40, ['att2']]].forEach(([off, keys]) => {
+        const key = `${ti}:${g.id}:${off}`, todo = this.CHECKS.filter(c => keys.includes(c[0]) && !done[c[0]]);
+        if (fired[key] || nm < st + off || nm > st + off + 10 || !todo.length) return;
+        fired[key] = 1;
+        const n = new Notification(`${this.gLabel(g)} ${g.start} · ${off} min in`, { body: todo.map(c => '☐ ' + c[1]).join('\n'), tag: key, requireInteraction: true });
+        n.onclick = () => { window.focus(); this.setState({ gid: g.id, screen: 'mid', editId: null }); n.close(); };
+        this.toast(`${this.gLabel(g)}: ${todo.map(c => c[1]).join(' · ')}`);
+      });
+    });
+    try { localStorage.setItem('lpb-fired', JSON.stringify(fired)); } catch (e) {}
+  }
+
   // ---------- Telegram bot (token stays in this browser; which chat belongs to which group syncs in db.tgChats) ----------
   tgCfg() { try { return JSON.parse(localStorage.getItem(this.TG_KEY)) || null; } catch (e) { return null; } }
   setTgCfg(c) { try { if (c) localStorage.setItem(this.TG_KEY, JSON.stringify(c)); else localStorage.removeItem(this.TG_KEY); } catch (e) {} }
@@ -789,7 +824,8 @@ class App {
       restoreBackup: () => this.pickBackup(),
       hasRestore: !!s.restore, restoreName: s.restore ? s.restore.name : '',
       restoreYes: () => this.applyRestore(),
-      restoreNo: () => this.setState({ restore: null })
+      restoreNo: () => this.setState({ restore: null }),
+      remindOn: this.remindOn(), toggleRemind: () => this.toggleRemind()
     });
     const navDefs = [['Week', 'week'], ['Plan a lesson', 'plan'], ['Roadmap', 'roadmap'], ['Carry-over', 'carry'], ['Notes', 'notes'], ['Cambridge copy', 'camb'], ['Telegram bot', 'tg'], ['GitHub sync', 'sync']];
     const ICON = { week: '📅', plan: '✏️', roadmap: '🗺️', carry: '↩️', notes: '📝', camb: '📄', tg: '✈️', sync: '☁️' };
@@ -1271,6 +1307,11 @@ class App {
       t += this.em(e);
     });
     v.today = rows;
+    const ck = run.checks || {}, st0 = this.tm(g.start);
+    v.checks = this.CHECKS.map(([key, label, off]) => ({ key, label, at: this.hm(st0 + off), on: !!ck[key],
+      onClick: () => this.upd(d => { const R = d.groups[g.id].draft.run; R.checks = R.checks || {}; R.checks[key] = !R.checks[key]; }) }));
+    v.checksLeft = v.checks.filter(c => !c.on).length;
+    v.remindOn = this.remindOn(); v.toggleRemind = () => this.toggleRemind();
     const free = this.tm(g.end) - t;
     v.todayFoot = free >= 0 ? `Planned work ends ${this.hm(t)}. Free time left: ${free} min.` : `Planned work ends ${this.hm(t)}, ${-free} min after the lesson ends.`;
     // carry
@@ -1597,6 +1638,7 @@ function tSidebar(v) {
   <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px;font-size:12.5px;color:#B8C0D8;line-height:1.45">
     <div style="display:flex;flex-direction:column;gap:6px">
       <span style="font-weight:700;color:#fff;font-size:13px">Your lessons are saved in this browser.</span>
+      <button${click(v.toggleRemind)} class="hov-side" style="text-align:left;border:1px solid ${v.remindOn ? '#FFB020' : '#3A4A72'};background:transparent;color:#fff;font-weight:600;font-size:13.5px;padding:8px 12px;border-radius:8px;cursor:pointer">${v.remindOn ? '🔔 Class reminders: on' : '🔕 Class reminders: off'}</button>
       <button${click(v.downloadBackup)} class="hov-side" style="text-align:left;border:1px solid #3A4A72;background:transparent;color:#fff;font-weight:600;font-size:13.5px;padding:8px 12px;border-radius:8px;cursor:pointer">Download backup</button>
       <button${click(v.restoreBackup)} class="hov-side" style="text-align:left;border:1px solid #3A4A72;background:transparent;color:#fff;font-weight:600;font-size:13.5px;padding:8px 12px;border-radius:8px;cursor:pointer">Restore backup</button>
       ${IF(v.hasRestore, () => `<div style="background:#FFE3E0;color:#14213D;border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px">
@@ -1609,7 +1651,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 22 Oct b</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 26 Oct a</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
@@ -2026,10 +2068,18 @@ function tNext(v) {
     </div>`;
 }
 
+const tChecks = v => `<div style="background:#F4F6FB;border:1.5px solid #C9CFDE;border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:5px;margin:2px 0">
+  <div style="display:flex;align-items:center;gap:6px"><span style="font-family:'DM Mono';font-size:11.5px;letter-spacing:0.08em;color:#3A4566">CLASS CHECKLIST</span><span style="margin-left:auto;font-size:12px;font-weight:700;color:${v.checksLeft ? '#8A4B00' : '#0F6B55'}">${v.checksLeft ? v.checksLeft + ' left' : 'All done ✓'}</span></div>
+  ${FOR(v.checks, c => `<div${click(c.onClick)} style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 0">
+    <span style="flex:none;width:20px;height:20px;border-radius:5px;border:1.5px solid ${c.on ? '#138A6E' : '#9AA1B6'};background:${c.on ? '#138A6E' : '#fff'};color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700">${c.on ? '✓' : ''}</span>
+    <span style="flex:1;font-size:14px;${c.on ? 'color:#5A6482;text-decoration:line-through' : ''}">${esc(c.label)}</span>
+    <span style="font-family:'DM Mono';font-size:12px;color:#5A6482">${esc(c.at)}</span></div>`)}
+  <button${click(v.toggleRemind)} style="align-self:flex-start;border:none;background:transparent;color:#2F5BEA;font-size:12.5px;font-weight:600;padding:0;cursor:pointer">${v.remindOn ? '🔔 PC reminders on · turn off' : '🔕 Turn on PC reminders'}</button>
+</div>`;
 function tToday(v, withAfter) {
   return `<aside style="background:#fff;border:1px solid #E2E6F0;border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:7px;min-height:420px">
     <span style="font-weight:700;font-size:15px;margin-bottom:4px">Today</span>
-    ${FOR(v.today, t => `${t.head ? `<span style="margin-top:6px;font-family:'DM Mono';font-size:11.5px;letter-spacing:0.08em;text-transform:uppercase;color:#5A6482">${esc(t.head)}</span>` : ''}<div data-k="${esc(t.key)}"${click(t.onJump)} class="fx-in${t.onJump ? ' hov-row' : ''}" title="${t.onJump ? 'Go to this exercise' : ''}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;background:${esc(t.bg)};border:1px solid ${esc(t.border)};cursor:${t.onJump ? 'pointer' : 'default'}">
+    ${FOR(v.today, (t, ti) => `${ti === 1 ? tChecks(v) : ''}${t.head ? `<span style="margin-top:6px;font-family:'DM Mono';font-size:11.5px;letter-spacing:0.08em;text-transform:uppercase;color:#5A6482">${esc(t.head)}</span>` : ''}<div data-k="${esc(t.key)}"${click(t.onJump)} class="fx-in${t.onJump ? ' hov-row' : ''}" title="${t.onJump ? 'Go to this exercise' : ''}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;background:${esc(t.bg)};border:1px solid ${esc(t.border)};cursor:${t.onJump ? 'pointer' : 'default'}">
         <span class="${t.pop ? 'fx-pop' : ''}" style="flex:none;width:26px;height:26px;border-radius:50%;background:${esc(t.iconBg)};color:${esc(t.iconFg)};border:1.5px ${esc(t.iconStyle)} ${esc(t.iconBorder)};display:grid;place-items:center;font-size:12px;font-weight:700">${esc(t.icon)}</span>
         <span style="flex:1;font-size:15px;color:${esc(t.fg)};font-weight:${t.weight}">${esc(t.label)}</span>
         <span style="font-family:'DM Mono';font-size:12.5px;color:${esc(t.fg)}">${esc(t.time)}</span>
