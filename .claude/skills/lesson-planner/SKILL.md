@@ -124,7 +124,9 @@ to teach all 4 pages in one lesson. Then:
   Book complicates this…").
 - Level matters. For Beginner and Elementary, keep notes shorter and add a modelling step. For
   Intermediate, exam-format tips from the TB are useful in `self`.
-- Don't invent answer keys. If the TB answers aren't in the pages, leave them out and say so.
+- If the TB answer page is missing, work the key out from the CB yourself and mark it in `self` as
+  `(my key: TB page not sent)`. If the answer depends on audio you can't hear, write "check with the recording"
+  instead. List every "my key" row in the report so Java can check it before class.
 
 **Lesson fields**
 - `unit`: the group's roadmap unit from `status` (the app also uses it for the roadmap count).
@@ -196,6 +198,51 @@ rows with a short Python edit of `lessons.json` before `push`. Total minutes inc
 everything doesn't fit, move a whole section (e.g. the grammar) to next lesson rather than half of it,
 and say so.
 
+## Working habits (agreed with Java)
+
+**Receiving pages.** Java sends up to 5 images per message. After each batch, reply briefly: what arrived
+(CB page numbers and sections, TB parts with answers), what is a repeat, and what is still missing (a CB page,
+a TB answer block, the Cooler). Then wait for "all done". If Java says "all done" with gaps left, build anyway
+and mark the gaps (see "my key" above).
+
+**Planning a whole week.** When asked to prepare the week:
+1. List every lesson Mon–Sat per group with its status (script below), then group the missing ones by
+   **level + Unit N, Part X**: one set of pages covers every group on that level and part.
+2. Present the sets in date order (most urgent first) as a short table: set, pages to send, groups and days.
+3. Build one set at a time. Write the same plan to each group with `--for "Unit N, Part X"`, giving each its
+   own date in the Telegram header and a different personal aim if that group's recent ones overlap.
+   Include a group's lesson in the following week too when it uses the same pages.
+4. When finished, re-run the check and confirm nothing is missing before saying the week is done.
+
+```python
+import lpb, datetime as dt   # run from scripts/
+db = lpb.load('/home/claude/lesson-plan-data'); end = dt.date(2026, 10, 31)   # set the week's Saturday
+for gid, g in db['groups'].items():
+    sl, done = lpb.gslots(g), lpb.done_of(g)
+    for k in range(done, min(done + 6, len(sl))):
+        d = lpb.slot_date(g, k); d = d.date() if hasattr(d, 'date') else d
+        if d > end: break
+        print(d, lpb.label(g), lpb.sec_label(sl[k]), 'READY' if lpb.has_own(lpb.plan_for(g, k)) else 'need')
+```
+
+**Reusing a plan another group already taught** (e.g. Elementary 10:30 following Elementary 17:00): copy the
+exercises, aims and Telegram text from that group's `history` lesson, drop its `fromCarry` rows, change the
+🗓 date, then `write ... --for`. Tell Java which lesson it came from.
+
+**Something wasn't finished in one group.** In that group's taught lesson set those exercises'
+`results` to `None` (and `run.status` to `unfinished`), then add copies to the top of that group's next
+lesson with `fromCarry: {unit, name}` and new ids. Only that group; others stay as planned. Mention that the
+Telegram message for the taught lesson may need trimming.
+
+**Taught out of order** see the section above (`slotSwap`).
+
+**After every push** tell Java to refresh the app or tap Sync now. If the app shows an old state, it hasn't
+pulled yet: the data on GitHub is the source of truth.
+
+**Talking to Java.** Short, plain sentences. "Unit N, Part X" only. When guiding through an app or website,
+one step at a time and wait for a screenshot or "done". Keep the report to the table of sections and minutes,
+tracks, "my key" rows, aims in one line each, then the next set to send.
+
 ## Step 3: write it into the app
 
 1. Write the plan as JSON, for example to the session scratchpad as `plan.json`:
@@ -246,6 +293,6 @@ and say so.
 
 - Don't edit anything in `lessons.json` except the target group's draft (and `plans` / `customMins`
   through the script). Never touch taught lessons, other groups or carry-over unless Java asks.
-- Don't push while Java says he is mid-lesson.
+- Don't push while Java says a lesson is in progress.
 - Don't use the words PW, TTT, GW, OCFB, Frontal or "stage" in `note` or `self`. The app uses plain
   words. "Ss" is fine, because Java uses it himself.
