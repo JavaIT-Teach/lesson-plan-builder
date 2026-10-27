@@ -167,7 +167,9 @@ glancing between the board and the book always knows where the class is. You wri
 - Items, word boxes, tables, texts and dialogues **word for word**, with the book's numbering and order. Keep the
   book's spelling, punctuation and brackets. Write a gap as `___`.
 - Nothing teacher-facing in it: no notes to self, no TB tips, no CCQs.
-- Answers only in `answers` (they stay hidden until Java taps), and only from the TB or the CB key. No key, no answers.
+- Answers only in `answers` or a list's `answers` (they stay hidden until Java taps). Take them from the TB or the CB key.
+  A key you worked out yourself ("my key", see above) may go in too, because it is on the report's my-key list for
+  Java to check. Answers that depend on audio you can't hear stay out.
 
 **Capture the page look once per lesson** in the plan's `book` object, by looking at the CB pages:
 - `unitColor`: the unit's main colour (unit header, exercise-number badges), as hex. Estimate it from the image
@@ -279,8 +281,8 @@ and say so.
 ## Working habits (agreed with Java)
 
 **Receiving pages.** Java sends up to 5 images per message. After each batch, reply briefly: what arrived
-(CB page numbers and sections, TB parts with answers), what is a repeat, and what is still missing (a CB page,
-a TB answer block, the Cooler). Then wait for "all done". If Java says "all done" with gaps left, build anyway
+(CB page numbers and sections, TB parts with answers, picture snips for the board), what is a repeat, and what is
+still missing (a CB page, a TB answer block, the Cooler, a snip of a picture a task depends on). Then wait for "all done". If Java says "all done" with gaps left, build anyway
 and mark the gaps (see "my key" above).
 
 **Planning a whole week.** When asked to prepare the week:
@@ -304,7 +306,7 @@ for gid, g in db['groups'].items():
 ```
 
 **Reusing a plan another group already taught** (e.g. Elementary 10:30 following Elementary 17:00): copy the
-exercises, aims and Telegram text from that group's `history` lesson, drop its `fromCarry` rows, change the
+exercises (with their `world` book copy), the lesson's `book`, aims and Telegram text from that group's `history` lesson, drop its `fromCarry` rows, change the
 🗓 date, then `write ... --for`. Tell Java which lesson it came from.
 
 **Something wasn't finished in one group.** In that group's taught lesson set those exercises'
@@ -319,7 +321,7 @@ pulled yet: the data on GitHub is the source of truth.
 
 **Talking to Java.** Short, plain sentences. "Unit N, Part X" only. When guiding through an app or website,
 one step at a time and wait for a screenshot or "done". Keep the report to the table of sections and minutes,
-tracks, "my key" rows, aims in one line each, then the next set to send.
+tracks, "my key" rows, aims in one line each, the snips still needed for the board, then the next set to send.
 
 ## Step 3: write it into the app
 
