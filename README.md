@@ -37,6 +37,8 @@ Open the live page on a laptop. Then work through these steps:
 
 **Class checklist and reminders:** on Lesson starts and Mid-lesson, under the warm-up: Badge on (at the start), Take attendance, Speaking scores 100 for all, Check homework (start + 15 min) and Update attendance (start + 40 min). Turn on **Class reminders** in the left bar to get PC notifications at those times for every class on the day. Notifications only come while the app is open in a browser tab (it can be in the background). Ticked items are not reminded.
 
+**Lesson world:** tap **🌌 Lesson world** in the top bar. The lesson opens as a bright 3D world in a second window: one panel per exercise (skipped ones are left out), and the camera flies between them. Put the two windows side by side while you plan: the world updates as you type, and tapping an exercise in the plan flies the camera to it. To teach, drag that window to the interactive board and make it full screen. Swipe to move between panels, tap **Board** for the whiteboard, and use **Lite** if the board stutters. Notes to self never appear in the world.
+
 ## Your data
 
 - Everything is saved in this browser only, in `localStorage`. Another browser or computer will not see it.
@@ -60,6 +62,7 @@ Setup (once): open **GitHub sync** in the left bar and follow the 3 steps. You c
 
 - `index.html`: the page
 - `styles.css`: global styles and print layout (A4 landscape)
+- `world.html`: the lesson world (3D presentation and whiteboard). It reads the same saved lessons and needs no setup.
 - `app.js`: all data, roadmap rules and screens. The data is one object (`db`) saved under the key `lesson-plan-builder-v1`.
 
 ## Run locally

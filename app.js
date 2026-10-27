@@ -349,6 +349,13 @@ class App {
     if (id) { const h = gg.history.find(x => x.id === id) || (gg.plans || []).find(x => x.id === id); if (h) return h; }
     return gg.draft;
   }
+  // the lesson world (world.html) follows along in its own window
+  worldPing(g, l, sel) {
+    const k = `${g}|${l}|${sel || ''}`;
+    if (k === this._wk) return;
+    this._wk = k;
+    try { (this._bc || (this._bc = new BroadcastChannel('lpb-world'))).postMessage({ g, l, sel: sel || null }); } catch (e) {}
+  }
   lTitle(L) { return `${this.uLabel(L.unit || '?')}${L.name ? ' · ' + L.name : ''}`; }
   setEx(id, patch) {
     this.upd((db, s) => { const e = this.T(db.groups[s.gid], s).exercises.find(x => x.id === id); if (e) Object.assign(e, { saved: false }, patch); });
@@ -786,6 +793,7 @@ class App {
     const s = this.state, db = s.db, K = this.K;
     const g = db.groups[s.gid], L = this.T(g, s), lv = K.LV[g.level], gc = this.calc(g);
     const scr = s.screen;
+    this.worldPing(s.gid, L.id, scr === 'plan' || scr === 'read' ? s.sel : null);
     const v = {};
     const sideScreens = ['week', 'roadmap', 'carry', 'notes', 'sync', 'cambAll', 'tg'];
     Object.assign(v, {
@@ -800,6 +808,7 @@ class App {
       startTime: g.start, endTime: g.end, teacher: db.teacher,
       lessonTitle: `${this.uLabel(L.unit || '?')}${L.name ? ' · ' + L.name : ''}`,
       goWeek: () => this.go('week'),
+      openWorld: () => { const w = window.open(`world.html?g=${encodeURIComponent(s.gid)}&l=${encodeURIComponent(L.id)}`, 'lpb-world'); if (w) w.focus(); },
       goStart: () => this.go('start'),
       goAfter: () => this.go('after')
     });
@@ -1666,6 +1675,7 @@ function tJump(v) {
   <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#3A4566">Lesson<select${input(v.onLessonSel)}${v.lessonSelLocked ? ' disabled title="Lesson starts and Mid-lesson always run the next lesson"' : ''} style="max-width:340px;height:36px;border:1.5px solid #14213D;border-radius:8px;padding:0 8px;font-size:13.5px;font-weight:700;background:${esc(v.lessonSelBg)};color:#14213D;cursor:pointer">${FOR(v.lessonOpts, o => `<option value="${esc(o.id)}"${o.sel ? ' selected' : ''}>${esc(o.label)}</option>`)}</select></label>
   <span style="width:1px;height:22px;background:#E2E6F0;margin:0 6px"></span>
   ${FOR(v.jumpSteps, j => `<button${click(j.onClick)} style="border:none;background:${esc(j.bg)};color:${esc(j.fg)};font-weight:600;font-size:14px;padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;gap:6px;align-items:center"><span style="font-family:'DM Mono';opacity:0.6">${j.num}</span>${esc(j.label)}</button>`)}
+  <button${click(v.openWorld)} title="Opens the lesson in its 3D world, in a second window that updates as you plan" style="margin-left:auto;border:1.5px solid #14213D;background:#fff;color:#14213D;font-weight:700;font-size:14px;padding:7px 12px;border-radius:8px;cursor:pointer;display:flex;gap:6px;align-items:center">🌌 Lesson world</button>
 </div>`;
 }
 
