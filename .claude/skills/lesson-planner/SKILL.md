@@ -1,6 +1,6 @@
 ---
 name: lesson-planner
-description: Turns coursebook pages plus teacher's book pages into a lesson plan in Java's Lesson Plan Builder app, written in Java's own style, and saves it into the right group's next lesson (synced through the private lesson-plan-data repo). Use when Java shares coursebook / teacher's book pages (images or PDF) and asks to plan, prepare or build a lesson for one of his groups, or asks to put a plan into the lesson plan builder.
+description: Turns coursebook pages plus teacher's book pages into a lesson plan in Java's Lesson Plan Builder app, written in Java's own style, with a faithful copy of each coursebook exercise for the app's 3D lesson world (the board students see), and saves it into the right group's next lesson (synced through the private lesson-plan-data repo). Use when Java shares coursebook / teacher's book pages (images or PDF) and asks to plan, prepare or build a lesson for one of his groups, or asks to put a plan into the lesson plan builder.
 ---
 
 # Lesson planner for the Lesson Plan Builder
@@ -53,6 +53,11 @@ need to find the section for a unit and part, use `status`, or `slots()` in lpb.
    **say which pages you assumed** in your summary.
 
 ## Step 2: convert. Read `reference/model-plan-preint-u3.md` first
+
+Every plan has **two layers**:
+1. **The teacher's plan** (note, self, who, min…): Java's voice, for Java only. This step and the field list below.
+2. **The book copy** (`book` + each row's `world`): what the **students** see on the interactive board in the app's
+   lesson world. Step 2b. It must look and read like the coursebook page they hold.
 
 That file is Java's own plan, built from CB + TB. It is the model for voice, density and choices. Rules:
 
@@ -148,6 +153,79 @@ to teach all 4 pages in one lesson. Then:
     infinitive after enjoy (enjoyed to visit). Solution: board the 3 rules from Ex 1 and point back during
     Ex 4.*
   - Use the full words here. Never TTT, PW or similar: write "teacher talking time".
+
+## Step 2b: copy the book for the lesson world (always)
+
+The app's **🌌 Lesson world** button opens the lesson as panels in a bright 3D space on the classroom's interactive
+board, one panel per exercise. Students keep their books open, so the board must mirror the page: same section
+headings, same colours, same exercise numbers, same instructions, same items, in the same order. Then a student
+glancing between the board and the book always knows where the class is. You write this copy from the CB pages.
+
+**Copy, don't adapt.** The book copy is a transcription, not a summary:
+- `rubric` = the CB instruction line **word for word** (e.g. "Complete the sentences with the -ing form of the verbs
+  in brackets."). Never Java's `note`, never simplified, never "Ss…".
+- Items, word boxes, tables, texts and dialogues **word for word**, with the book's numbering and order. Keep the
+  book's spelling, punctuation and brackets. Write a gap as `___`.
+- Nothing teacher-facing in it: no notes to self, no TB tips, no CCQs.
+- Answers only in `answers` (they stay hidden until Java taps), and only from the TB or the CB key. No key, no answers.
+
+**Capture the page look once per lesson** in the plan's `book` object, by looking at the CB pages:
+- `unitColor`: the unit's main colour (unit header, exercise-number badges), as hex. Estimate it from the image
+  (e.g. a strong pink is about `#D6336C`, a teal about `#0C8599`).
+- `sections`: the colour of each section heading, keyed by the exact `sec` text of the rows, e.g.
+  `{"Vocabulary · Personality": "#1C7ED6", "Grammar · -ing forms": "#D6336C"}`. Add one entry per section whose
+  heading colour differs from `unitColor`.
+- `numStyle`: how exercise numbers are printed: `circle` (number in a filled circle), `square` (filled square), or
+  `plain` (just a coloured number).
+- `headStyle`: how section headings are printed: `band` (white text on a coloured strip), `tab` (coloured tab), or
+  `text` (coloured text with a rule).
+- `font`: the page's feel: `rounded` (soft, round letters, common in Beginner and Elementary books), `sans`
+  (plain modern), or `serif`.
+
+Keep the same `book` for every lesson of the same book and unit, so the board doesn't change look mid-unit.
+
+**`world` on each row.** Warmer, Review and Cooler rows have no book exercise; give them a `world` only if there is
+something for students to read, such as the Warmer question.
+```json
+"world": {"rubric": "Complete the sentences with the -ing form of the verbs in brackets.",
+          "track": "07",
+          "blocks": [ … in the book's order … ]}
+```
+Use `track` only when the exercise has audio but its kind isn't Listening. The board then shows "Listen · Track 07".
+
+Blocks. Use the one that matches what's printed:
+
+| Book shows | Block |
+|---|---|
+| word box / word pool | `{"type": "words", "items": ["friendly", "shy", "funny"]}` |
+| numbered items, gap-fill, questions, true/false | `{"type": "list", "items": ["I enjoy ___ (read) comics.", "…"], "answers": ["reading", "…"]}`. Add `"numbering": "a"` for a, b, c, or `"none"`. With gaps: one answer per `___`, in order, filled into the gaps one tap at a time. Without gaps: one answer per item (e.g. T / F). |
+| two matching columns | `{"type": "match", "left": ["…"], "right": ["…"]}`. Leave out the book's 1–n and a–z; the board adds them. |
+| table / chart | `{"type": "table", "rows": [["Verb", "-ing form"], ["swim", "___"]]}`. The first row is the header. |
+| grammar box / rule box | `{"type": "rule", "title": "-ing forms", "items": ["We use -ing after love, like, enjoy…"]}` |
+| reading text, email, model text | `{"type": "text", "title": "My best friend", "body": "Paragraph 1\n\nParagraph 2"}` |
+| dialogue | `{"type": "dialogue", "lines": [["Amy", "What do you enjoy doing?"], ["Ben", "I love playing football."]]}` |
+| picture the task depends on | `{"type": "image", "src": "img:beginner/p16-ex1.png", "alt": "Pictures A–F"}` |
+| answer key to reveal at the end | `{"type": "answers", "items": ["1 b", "2 c", "3 a"]}` |
+| more than fits one board panel | `{"type": "break"}` starts a continuation panel ("continued") for the same exercise |
+
+**Size.** A panel holds about half a CB page. The board shrinks text to fit, but not below about 60%, so split long
+reading texts or long lists with `break`: roughly 150 words of text, or 8 list items, per panel.
+
+**Pictures.** Book pictures are often made for one task (match the photos, find the differences), so never
+replace them with web images. Java snips each picture a task needs (Windows snip tool) and sends it as its own
+image. For each one:
+1. Save the attachment to a file, then store it:
+   `python3 scripts/lpb.py add-img snip.png beginner/p16-ex1.png`. Name pictures `<level>/p<page>-ex<num>.png`,
+   adding `-a`, `-b` for several per exercise. The same book means the same name, so other groups of that level reuse it.
+2. Use it in the row's `world` as `{"type": "image", "src": "img:beginner/p16-ex1.png", "alt": "…"}`.
+
+If a task needs a picture Java hasn't sent, still add the image block (the board shows a labelled placeholder)
+and list the missing snips in your report: "Send me snips of: p. 16 ex 1 (the 6 photos)". Only tight crop-snips
+work; a whole-page photo is too small to read on the board.
+
+If the plan is already in the app and Java edited it, add the book copy without touching his rows:
+`python3 scripts/lpb.py set-world GROUP world.json [--for SECTION]`, where `world.json` is
+`{"book": {…}, "exercises": [{"page": "16", "num": "1", "world": {…}}]}`. Rows are matched by page + num.
 
 ## Telegram message for students (always write one)
 
@@ -248,16 +326,21 @@ tracks, "my key" rows, aims in one line each, then the next set to send.
 1. Write the plan as JSON, for example to the session scratchpad as `plan.json`:
    ```json
    {"unit": "2", "name": "Best Friends Forever",
+    "book": {"unitColor": "#D6336C", "numStyle": "circle", "headStyle": "band", "font": "rounded",
+             "sections": {"Grammar · -ing forms": "#D6336C"}},
     "telegram": "📘 Unit 2 · Best Friends Forever · Part 2\n🗓 Tue 13 Oct · Book p. 16–17\n\n✏️ GRAMMAR: …",
     "aims": {"main": "By the end of the lesson, Ss will be able to …", "sub": "…", "personal": "…",
              "prob1": "… Solution: …", "prob2": "… Solution: …"},
     "exercises": [
       {"page": "16", "num": "1", "sec": "Grammar · -ing forms", "kind": "Grammar", "grammar": "-ing forms", "who": "All together, I lead",
-       "min": 5, "note": "…", "self": "Do Warmer: … Answers 1a 2c 3b"}
+       "min": 5, "note": "…", "self": "Do Warmer: … Answers 1a 2c 3b",
+       "world": {"rubric": "Complete the sentences with the -ing form of the verbs in brackets.",
+                 "blocks": [{"type": "list", "items": ["I enjoy ___ (read) comics.", "…"], "answers": ["reading", "…"]}]}}
     ]}
    ```
 2. Preview it: `python3 scripts/lpb.py write GROUP plan.json --dry-run`. Fix any errors or warnings
-   (unknown kind or who, a Grammar row with no grammar point, total minutes far from 80).
+   (unknown kind or who, a Grammar row with no grammar point, total minutes far from 80, a missing book copy,
+   answers that don't match the gaps, a picture not stored yet). Rows with a book copy show `[book copy]`.
 3. Before writing, tell Java in one line to make sure the app's dot says **"Saved to GitHub"** (green).
    Then save and push:
    ```
@@ -265,6 +348,7 @@ tracks, "my key" rows, aims in one line each, then the next set to send.
    python3 scripts/lpb.py write GROUP plan.json --for 2.2    # or a later lesson, planned ahead
    python3 scripts/lpb.py push "Plan: <group> Unit <u> Part <n> <name>"
    ```
+   `push` also sends the pictures stored with `add-img`.
    A lesson planned ahead appears in the app under **Upcoming lessons**. It becomes the next lesson by
    itself once the lessons before it are closed. To fill only the aims of a plan Java has already edited,
    use `set-aims GROUP aims.json [--for SECTION]`. It leaves the exercises untouched.
@@ -286,6 +370,9 @@ tracks, "my key" rows, aims in one line each, then the next set to send.
 - Group, lesson ("Unit 4, Part 1 (2.2)"), date, how many exercises, and total minutes.
 - The 5 aims you wrote, in one short block.
 - Tracks you assigned, exercise by exercise.
+- The lesson world: the book look you captured (unit colour, number and heading style) in one line, and the
+  **snips still needed** (page, exercise, what the picture shows). If none are missing, write: "Board copy complete.
+  Open 🌌 Lesson world to check it against the book."
 - Assumptions you made (page numbers, missing TB pages, anything you simplified or suggest skipping).
 - "Open it in the app and adjust."
 
@@ -294,5 +381,6 @@ tracks, "my key" rows, aims in one line each, then the next set to send.
 - Don't edit anything in `lessons.json` except the target group's draft (and `plans` / `customMins`
   through the script). Never touch taught lessons, other groups or carry-over unless Java asks.
 - Don't push while Java says a lesson is in progress.
+- Don't paraphrase the book in `world`, and don't put Java's notes there: students read it.
 - Don't use the words PW, TTT, GW, OCFB, Frontal or "stage" in `note` or `self`. The app uses plain
   words. "Ss" is fine, because Java uses it himself.

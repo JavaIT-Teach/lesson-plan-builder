@@ -15,14 +15,18 @@ Commands
   set-aims GROUP AIMS.json    fill only the Cambridge aims of the next lesson (or --for SECTION); exercises untouched
   set-tg GROUP MSG.txt        set the Telegram message of the next lesson (or --for SECTION, or --date YYYY-MM-DD
                               for a lesson already taught)
-  push  "message"             commit lessons.json and push it to GitHub
+  set-world GROUP WORLD.json  add the lesson-world book copy (lesson "book" look + each exercise's "world") to the next
+                              lesson (or --for SECTION) without touching anything else; rows matched by page + num
+  add-img FILE NAME           store a book picture as img/NAME in the data repo (shrunk to 1400 px wide when Pillow
+                              is installed); use it in a world block as {"type": "image", "src": "img:NAME"}
+  push  "message"             commit lessons.json and img/ and push them to GitHub
 
 Options
   --data DIR                  folder of the lesson-plan-data clone (default: $LPB_DATA or /home/claude/lesson-plan-data)
 
 Group ids: e-odd2 b-odd e-odd b30-odd (Mon/Wed/Fri)   b-even e-even p-even i-even (Tue/Thu/Sat)
 """
-import json, os, random, string, subprocess, sys, time
+import json, os, random, re, shutil, string, subprocess, sys, time
 from datetime import date, timedelta
 
 KINDS = ['Grammar', 'Listening', 'Vocabulary', 'Speaking', 'Reading', 'Writing', 'Other']
@@ -162,6 +166,7 @@ def ex_line(i, e):
     mins = e['min'] if e.get('min') not in (None, 'other') else (e.get('otherMin') or '-')
     extra = f" [{e['grammar']}]" if e.get('kind') == 'Grammar' and e.get('grammar') else f" [Track {e['track']}]" if e.get('kind') == 'Listening' and e.get('track') else ''
     carry = '  (carried over)' if e.get('fromCarry') else ''
+    carry += '  [book copy]' if e.get('world') else ''
     s = f"  {i}. {e.get('kind') or '?'}{extra}  p.{e.get('page','')} ex.{e.get('num','')}  {e.get('who') or '?'}  {mins} min{carry}"
     if e.get('note'):
         s += f"\n       note: {e['note']}"
@@ -220,6 +225,46 @@ def cmd_show(db, gid, all_):
             show_lesson(f"Taught {h.get('date')}", h)
 
 
+# ---------- lesson world (world.html in the app): a copy of the book page ----------
+BLOCKS = {'words': ['items'], 'list': ['items'], 'match': ['left', 'right'], 'table': ['rows'], 'rule': ['items'],
+          'text': ['body'], 'dialogue': ['lines'], 'answers': ['items'], 'image': ['src'], 'break': []}
+HEX = re.compile(r'^#[0-9a-fA-F]{6}$')
+DATA = None  # data repo folder, set in main(); used to check that pictures exist
+
+
+def check_world(w, n):
+    if not isinstance(w, dict):
+        die(f"exercise {n}: world must be an object with rubric and blocks")
+    if not str(w.get('rubric', '')).strip():
+        print(f"warning: exercise {n}: world has no rubric (the book's instruction line)", file=sys.stderr)
+    for j, b in enumerate(w.get('blocks') or [], 1):
+        t = b.get('type') if isinstance(b, dict) else None
+        if t not in BLOCKS:
+            die(f"exercise {n}, block {j}: type must be one of {sorted(BLOCKS)}, got {t!r}")
+        miss = [k for k in BLOCKS[t] if not b.get(k)]
+        if miss:
+            die(f"exercise {n}, block {j} ({t}): missing {', '.join(miss)}")
+        if t == 'list' and b.get('answers'):
+            gaps = sum(len(re.findall(r'_{3,}', str(i))) for i in b['items'])
+            want = gaps or len(b['items'])
+            if len(b['answers']) != want:
+                print(f"warning: exercise {n}, block {j}: {len(b['answers'])} answers for {want} {'gaps' if gaps else 'items'}", file=sys.stderr)
+        if t == 'image' and str(b['src']).startswith('img:') and DATA and not os.path.exists(os.path.join(DATA, 'img', b['src'][4:])):
+            print(f"warning: exercise {n}: picture {b['src']} is not in img/ yet; store it with add-img", file=sys.stderr)
+
+
+def check_book(bk):
+    if not isinstance(bk, dict):
+        die('book must be an object: unitColor, sections, numStyle, headStyle, font')
+    for k, v in [('unitColor', bk.get('unitColor'))] + [(f'sections[{s}]', c) for s, c in (bk.get('sections') or {}).items()]:
+        if v is not None and not HEX.match(str(v)):
+            die(f'book {k}: colour must look like #1C7ED6, got {v!r}')
+    for k, ok in (('numStyle', ('circle', 'square', 'plain')), ('headStyle', ('band', 'tab', 'text')), ('font', ('sans', 'rounded', 'serif'))):
+        if bk.get(k) is not None and bk[k] not in ok:
+            die(f'book {k} must be one of {ok}')
+    return bk
+
+
 def build_ex(x, n, presets):
     e = {'id': uid(), 'page': str(x.get('page', '')), 'num': str(x.get('num', '')), 'kind': x.get('kind', ''),
          'grammar': x.get('grammar', ''), 'track': str(x.get('track', '')), 'note': x.get('note', ''),
@@ -227,6 +272,9 @@ def build_ex(x, n, presets):
          'skipped': bool(x.get('skipped')), 'saved': True, 'fromCarry': None}
     if x.get('sec'):
         e['sec'] = x['sec']
+    if x.get('world'):
+        check_world(x['world'], n)
+        e['world'] = x['world']
     if e['skipped']:
         return e
     if e['kind'] not in KINDS:
@@ -292,6 +340,10 @@ def cmd_write(db, gid, plan_path, dry, replace=False, sec=None):
     old_own = [e for e in dr['exercises'] if not e.get('fromCarry')]
     new = dict(dr)
     new.update({'unit': unit, 'name': plan.get('name', dr.get('name', '')), 'exercises': keep_carry + exs})
+    if plan.get('book'):
+        new['book'] = check_book(plan['book'])
+    if not new.get('book') or not any(e.get('world') for e in exs if not e['skipped']):
+        print('warning: no lesson-world copy (book + world); the skill should write one so the board matches the book', file=sys.stderr)
     if plan.get('telegram'):
         new['tg'] = plan['telegram'].strip()
     elif not new.get('tg'):
@@ -334,12 +386,35 @@ def main():
     if c == 'push':
         msg = args[1] if len(args) > 1 else 'Lesson plan written by Claude'
         git(d, 'add', 'lessons.json')
+        if os.path.isdir(os.path.join(d, 'img')):
+            git(d, 'add', 'img')
         if not git(d, 'status', '--porcelain'):
             print('nothing to push')
             return
         git(d, '-c', 'user.name=JavaIT-Teach', '-c', 'user.email=javahirahmedov@gmail.com', 'commit', '-q', '-m', msg)
         git(d, 'push', '-q', 'origin', 'HEAD')
         print('pushed: ' + git(d, 'log', '--oneline', '-1'))
+        return
+    global DATA
+    DATA = d
+    if c == 'add-img':
+        src, name = args[1], args[2].replace('\\', '/').lstrip('/')
+        if not re.match(r'^[\w./-]+\.(png|jpe?g|webp)$', name, re.I) or '..' in name:
+            die('NAME must be like beginner/p16-ex1.png (letters, digits, - _ / and .png .jpg or .webp)')
+        out = os.path.join(d, 'img', name)
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        try:
+            from PIL import Image
+            im = Image.open(src)
+            if im.width > 1400:
+                im = im.resize((1400, round(im.height * 1400 / im.width)))
+            im.save(out)
+        except Exception:  # no Pillow, or a format it can't read: keep the file as it is
+            shutil.copyfile(src, out)
+        kb = os.path.getsize(out) // 1024
+        print(f'stored img/{name} ({kb} KB). Use {{"type": "image", "src": "img:{name}"}}')
+        if kb > 600:
+            print('warning: big picture; crop it tighter so the board loads it fast', file=sys.stderr)
         return
     db = load(d)
     if c == 'status':
@@ -385,6 +460,31 @@ def main():
         print(f"telegram message set ({len(L['tg'])} chars) on Unit {L.get('unit')} {L.get('name') or ''}")
         if len(L['tg']) > 4000:
             print('warning: Telegram messages are limited to 4096 characters', file=sys.stderr)
+    elif c == 'set-world':
+        sec = None
+        if '--for' in args:
+            i = args.index('--for'); sec = args[i + 1]; del args[i:i + 2]
+        g = db['groups'].get(args[1]) or die(f'unknown group {args[1]}')
+        sl, done = gslots(g), done_of(g)
+        k = done if not sec else next((i for i in range(done, len(sl)) if sec in (sl[i]['sec'], sec_label(sl[i]))), None)
+        L = plan_for(g, k) if k is not None else None
+        if not L:
+            die('no plan for that lesson yet; write the plan first')
+        with open(args[2], encoding='utf-8') as f:
+            wd = json.load(f)
+        if wd.get('book'):
+            L['book'] = check_book(wd['book'])
+        key = lambda e: (str(e.get('page', '')).strip(), str(e.get('num', '')).strip().lower())
+        rows = {key(e): e for e in L['exercises']}
+        for n, x in enumerate(wd.get('exercises', []), 1):
+            e = rows.get(key(x))
+            if not e:
+                print(f"warning: no row p.{x.get('page','')} ex.{x.get('num','')} in the plan; skipped", file=sys.stderr)
+                continue
+            check_world(x['world'], n)
+            e['world'] = x['world']
+        save(d, db)
+        show_lesson('Lesson world copy added', L)
     elif c == 'write':
         dry, replace = '--dry-run' in args, '--replace' in args
         sec = None

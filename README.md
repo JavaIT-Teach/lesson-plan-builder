@@ -39,6 +39,8 @@ Open the live page on a laptop. Then work through these steps:
 
 **Lesson world:** tap **🌌 Lesson world** in the top bar. The lesson opens as a bright 3D world in a second window: one panel per exercise (skipped ones are left out), and the camera flies between them. Put the two windows side by side while you plan: the world updates as you type, and tapping an exercise in the plan flies the camera to it. To teach, drag that window to the interactive board and make it full screen. Swipe to move between panels, tap **Board** for the whiteboard, and use **Lite** if the board stutters. Notes to self never appear in the world.
 
+**Book copy on the board:** plans made with Claude (the `lesson-planner` skill) include a copy of each coursebook exercise: the book's instruction, word boxes, items with gaps, tables, grammar boxes, texts, dialogues and pictures, in the book's own colours, section headings, exercise numbers and page numbers. Students can match the board to the page in their books. Answers stay hidden: tap to fill in the gaps one at a time. Book pictures are the snips you send Claude; they are saved in your private `lesson-plan-data` repo (folder `img/`) and loaded with your GitHub sync key, so turn on GitHub sync on the computer that runs the board. After a picture has loaded once, it also shows without internet.
+
 ## Your data
 
 - Everything is saved in this browser only, in `localStorage`. Another browser or computer will not see it.

@@ -6,7 +6,7 @@
 <meta charset="utf-8">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700;800&family=Nunito:wght@500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,500;8..60,700;8..60,800&display=swap">
 <style>
 html,body{margin:0}
 [hidden]{display:none!important}
@@ -151,6 +151,65 @@ body.wb-open .wb-tab{visibility:hidden}
 .empty div{max-width:440px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;font-size:17px;line-height:1.5}
 .empty b{display:block;font:700 24px/1.2 var(--display);margin-bottom:8px}
 .hint b{color:var(--ink)}
+/* ── book copy: panels styled like the coursebook page the students hold ── */
+.panel.bk,.panel.opener{background:#fff}
+.panel.bk{padding:40px 52px 34px;gap:14px;font-family:var(--bf, var(--body));--fs:1}
+.bk .ptop{display:flex;align-items:center;gap:16px;min-height:44px}
+.bk .sechead{font:800 calc(24px*var(--fs))/1.1 var(--bf, var(--body));letter-spacing:.01em;color:var(--c)}
+.bk .sechead.hs-band{background:var(--c);color:#fff;padding:9px 20px 9px 18px;border-radius:6px}
+.bk .sechead.hs-tab{background:var(--c);color:#fff;padding:9px 22px;border-radius:14px 14px 0 0;box-shadow:0 3px 0 var(--c)}
+.bk .sechead.hs-text{border-bottom:4px solid var(--c);padding-bottom:4px}
+.bk .pageref{margin-left:auto;display:flex;align-items:baseline;gap:6px;font:800 20px/1 var(--bf, var(--body));color:var(--u);white-space:nowrap}
+.bk .pageref b{font-size:40px;line-height:.9}
+.bk .rubric{display:flex;align-items:flex-start;gap:14px;font:700 calc(29px*var(--fs))/1.28 var(--bf, var(--body));color:var(--ink)}
+.bk .rubric .num{flex:none;display:grid;place-items:center;min-width:calc(46px*var(--fs));height:calc(46px*var(--fs));padding:0 8px;box-sizing:border-box;font:800 calc(25px*var(--fs))/1 var(--bf, var(--body));background:var(--u);color:#fff}
+.bk .rubric .num.ns-circle{border-radius:999px}
+.bk .rubric .num.ns-square{border-radius:8px}
+.bk .rubric .num.ns-plain{background:none;color:var(--u);font-size:calc(34px*var(--fs));padding:0;min-width:0}
+.bk .rubric .lbl{flex:none;padding:6px 12px;border-radius:8px;background:var(--mist);color:var(--ink-2);font-size:calc(19px*var(--fs))}
+.bk .body{flex:1;min-height:0;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-content:start}
+.bk .body.has-side{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr)}
+.bk .col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.bk .meta{font:600 15px/1 var(--body);color:var(--ink-2);letter-spacing:.02em}
+.bk .blk-words{display:flex;flex-wrap:wrap;gap:8px 10px;padding:14px 16px;border:2.5px solid var(--c);border-radius:12px}
+.bk .blk-words span{font:600 calc(23px*var(--fs))/1.2 var(--bf, var(--body))}
+.bk .blk-words span+span::before{content:"";display:inline-block;width:5px;height:5px;margin:0 10px 4px 0;border-radius:50%;background:var(--c);opacity:.6}
+.bk ol.blk-list,.bk .blk-match ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:calc(9px*var(--fs))}
+.bk ol.blk-list li,.bk .blk-match li{display:flex;gap:12px;font:500 calc(24px*var(--fs))/1.35 var(--bf, var(--body))}
+.bk li > i{flex:none;font-style:normal;font-weight:800;color:var(--c);min-width:1.2em}
+.bk .gap{display:inline-block;min-width:3.6em;border-bottom:2.5px solid var(--ink-2);text-align:center;line-height:1.1;margin:0 3px}
+.bk .ans{color:var(--c);font-weight:700;transition:opacity .35s}
+.bk .ans.hide{opacity:0}
+.bk .blk-match{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.bk table.blk-table{border-collapse:collapse;width:100%;font:500 calc(22px*var(--fs))/1.3 var(--bf, var(--body))}
+.bk table.blk-table td,.bk table.blk-table th{border:1.5px solid var(--line);padding:calc(8px*var(--fs)) 12px;text-align:left;vertical-align:top}
+.bk table.blk-table th{background:var(--tint);color:var(--c);font-weight:800}
+.bk .blk-rule{border-radius:14px;background:var(--tint);padding:14px 18px;display:flex;flex-direction:column;gap:6px}
+.bk .blk-rule b{font:800 calc(21px*var(--fs))/1.2 var(--bf, var(--body));color:var(--c);text-transform:uppercase;letter-spacing:.04em}
+.bk .blk-rule p{font:500 calc(22px*var(--fs))/1.4 var(--bf, var(--body))}
+.bk .blk-text{display:flex;flex-direction:column;gap:8px}
+.bk .blk-text b{font:800 calc(25px*var(--fs))/1.2 var(--bf, var(--body));color:var(--c)}
+.bk .blk-text p{font:500 calc(21px*var(--fs))/1.5 var(--bf, var(--body))}
+.bk .blk-dialogue{display:flex;flex-direction:column;gap:8px}
+.bk .blk-dialogue p{font:500 calc(23px*var(--fs))/1.4 var(--bf, var(--body))}
+.bk .blk-dialogue p span{font-weight:800;color:var(--c);margin-right:10px}
+.bk .blk-answers{font:600 calc(21px*var(--fs))/1.4 var(--body);color:#12806F;background:#E8F6F1;border-radius:12px;padding:10px 16px;transition:opacity .35s}
+.bk .blk-answers.hide{opacity:0}
+.bk figure{margin:0;border-radius:12px;overflow:hidden;background:#fff;border:1px solid var(--line);display:grid;place-items:center;min-height:120px}
+.bk figure img{display:block;max-width:100%;max-height:430px;object-fit:contain}
+.bk figure.missing{border:2.5px dashed #B9C8DF;background:repeating-linear-gradient(45deg,#fff 0 12px,var(--mist) 12px 24px);padding:20px;text-align:center;font:600 18px/1.4 var(--body);color:var(--ink-2)}
+.bk .bigbox{align-self:flex-start;display:flex;flex-direction:column;gap:6px;padding:18px 26px;border-radius:18px;background:var(--tint)}
+.bk .bigbox span{font:700 15px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
+.bk .bigbox b{font:700 48px/1.05 var(--display)}
+/* title panel as a unit opener */
+.panel.opener{padding:0;overflow:hidden;font-family:var(--bf, var(--body))}
+.opener .band{background:var(--u);color:#fff;padding:40px 56px 34px;display:flex;flex-direction:column;gap:10px}
+.opener .band small{font:700 18px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;opacity:.85}
+.opener .band h1{color:#fff;font-family:var(--bf, var(--display));font-size:92px}
+.opener .rest{padding:28px 56px;display:flex;flex-direction:column;gap:18px;flex:1}
+.opener .pages{font:700 26px/1.2 var(--bf, var(--body));color:var(--ink)}
+.opener .secs{display:flex;flex-wrap:wrap;gap:10px}
+.opener .secs span{padding:10px 16px;border-radius:8px;background:var(--k);color:#fff;font:700 19px/1 var(--bf, var(--body))}
 </style>
 
 </head>
@@ -341,14 +400,19 @@ addEventListener("keydown",e=>{
 // ═══ BUILDER LINK: panels come from the Lesson Plan Builder's saved lessons (same browser). ═══
 // The builder saves to localStorage on every change, and the "storage" event tells this window, so the world rebuilds live.
 // The builder also broadcasts which lesson and exercise is open, and the camera follows.
-const DBKEY="lesson-plan-builder-v1";
+// An exercise's `world` (written by the lesson-planner skill) is a copy of the book exercise; the lesson's `book`
+// holds the page look (colours, number badges, headings), so the board looks like the page the students hold.
+const DBKEY="lesson-plan-builder-v1",SYNCKEY="lesson-plan-builder-sync";
 const LV={beginner:"Beginner",elementary:"Elementary",preint:"Pre-Intermediate",inter:"Intermediate"};
 const KC={Grammar:["#6D3FF0","#F1EBFF","bulb"],Listening:["#2F5BEA","#E6EDFF","headphones"],Vocabulary:["#0E6E85","#DDF1F5","cards"],
   Speaking:["#138A6E","#DDF3EC","bubble"],Reading:["#B87A00","#FFF0CC","book"],Writing:["#D63A3A","#FDE3E3","pencil"],Other:["#6B7390","#ECEEF3","star"]};
 const WHO={"On their own":"On your own","All together, I lead":"All together","In pairs":"In pairs"};
+const FONTS={sans:'"Figtree","Segoe UI",system-ui,sans-serif',rounded:'"Nunito","Segoe UI",system-ui,sans-serif',serif:'"Source Serif 4",Georgia,serif'};
 const esc=v=>String(v==null?"":v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 const uLabel=u=>u==="PREP"?"Exam prep":u==="FE"?"Final exams":"Unit "+(u||"?");
 const mins=e=>e.min==="other"?(parseInt(e.otherMin)||0):(+e.min||0);
+const hex=c=>/^#[0-9a-f]{6}$/i.test(c||"")?c:null;
+const tint=c=>c+"1F"; // the section colour at ~12% for boxes and table heads
 const q=new URLSearchParams(location.search);
 let want={g:q.get("g"),l:q.get("l")},shownKey="",sig="";
 
@@ -356,45 +420,118 @@ function readDb(){try{return JSON.parse(localStorage.getItem(DBKEY));}catch(e){r
 function findLesson(db){const g=db&&db.groups&&(db.groups[want.g]||db.groups["b-odd"]);if(!g)return null;
   const L=(want.l&&(g.draft.id===want.l?g.draft:(g.plans||[]).find(x=>x.id===want.l)||g.history.find(x=>x.id===want.l)))||g.draft;
   return {g,L};}
-function titlePanel(g,L,exs){
-  return `<section class="panel" data-id="title"><div class="eyebrow">${esc(LV[g.level]||"")} · ${esc(uLabel(L.unit))}</div>
-    <h1>${esc(L.name||uLabel(L.unit))}</h1>
-    <p class="lead">${exs.length?`Today: ${exs.length} ${exs.length===1?"task":"tasks"}`:"Add exercises in the builder and they appear here."}</p>
-    <div class="agenda">${exs.map(e=>{const k=KC[e.kind]||KC.Other;return `<span style="--k:${k[0]}"><i></i>${esc(e.kind||"Task")}</span>`;}).join("")}</div>
-    <div class="kindart"><img alt="" src="${IMG.globe}"></div></section>`;}
-function exPanel(e){
-  const k=KC[e.kind]||KC.Other,m=mins(e);
-  const eyebrow=[e.fromCarry&&"From last lesson",e.kind||"Task",WHO[e.who],m&&`${m} min`].filter(Boolean).join(" · ");
-  const where=[e.sec,e.page&&`Page ${e.page}`,e.num&&(/^\d/.test(e.num)?`Exercise ${e.num}`:e.num)].filter(Boolean).join(" · ");
-  const head=e.note||e.kind||"Task";
-  let body="";
-  if(e.world&&e.world.html)body=e.world.html; // rich content written by the lesson-world skill, when present
-  else if(e.kind==="Grammar"&&e.grammar)body=`<div class="bigbox"><span>Grammar</span><b>${esc(e.grammar)}</b></div>`;
-  else if(e.kind==="Listening"&&e.track)body=`<div class="bigbox"><span>Listen</span><b>Track ${esc(e.track)}</b></div>`;
-  return `<section class="panel" data-id="${esc(e.id)}" style="--k:${k[0]};--tint:${k[1]}"><div class="eyebrow">${esc(eyebrow)}</div>
-    <h2 class="${head.length>48?"long":""}">${esc(head)}</h2>${where?`<p class="where">${esc(where)}</p>`:""}${body}
-    <div class="kindart"><img alt="" src="${IMG[k[2]]}"></div></section>`;}
+function look(L){const b=L.book||{};
+  return {has:!!L.book,u:hex(b.unitColor)||"#E4572E",num:["circle","square","plain"].includes(b.numStyle)?b.numStyle:"circle",
+    head:["band","tab","text"].includes(b.headStyle)?b.headStyle:"band",font:FONTS[b.font]||FONTS.sans,secs:b.sections||{}};}
+const secColor=(B,e)=>hex(B.secs[e.sec])||(B.has?B.u:(KC[e.kind]||KC.Other)[0]);
+
+// "___" in book text becomes a writing line; with answers, the answer appears in it on tap
+function gaps(s,ans){let i=0;return esc(s).replace(/_{3,}/g,()=>{const a=ans&&ans[i++];
+  return `<span class="gap">${a!=null&&a!==""?`<span class="ans" data-step>${esc(a)}</span>`:"&nbsp;"}</span>`;});}
+const mark=(style,i)=>style==="a"?String.fromCharCode(97+i):style==="none"?"":String(i+1);
+function block(b){
+  switch(b&&b.type){
+    case "words":return `<div class="blk-words">${(b.items||[]).map(w=>`<span>${esc(w)}</span>`).join("")}</div>`;
+    case "list":{let k=0;const ans=b.answers||[];
+      return `<ol class="blk-list">${(b.items||[]).map((it,i)=>{const n=(String(it).match(/_{3,}/g)||[]).length,a=ans.slice(k,k+=Math.max(n,0));
+        const tail=!n&&ans[i]!=null?` <span class="ans" data-step>${esc(ans[i])}</span>`:"";
+        return `<li><i>${esc(mark(b.numbering,i))}</i><span>${gaps(it,a)}${tail}</span></li>`;}).join("")}</ol>`;}
+    case "match":return `<div class="blk-match"><ol>${(b.left||[]).map((t,i)=>`<li><i>${i+1}</i><span>${gaps(t)}</span></li>`).join("")}</ol><ol>${(b.right||[]).map((t,i)=>`<li><i>${String.fromCharCode(97+i)}</i><span>${gaps(t)}</span></li>`).join("")}</ol></div>`;
+    case "table":{const r=b.rows||[];return `<table class="blk-table">${r.map((row,i)=>`<tr>${row.map(c=>i===0&&b.head!==false?`<th>${gaps(c)}</th>`:`<td>${gaps(c)}</td>`).join("")}</tr>`).join("")}</table>`;}
+    case "rule":return `<div class="blk-rule">${b.title?`<b>${esc(b.title)}</b>`:""}${(b.items||[]).map(t=>`<p>${gaps(t)}</p>`).join("")}</div>`;
+    case "text":return `<div class="blk-text">${b.title?`<b>${esc(b.title)}</b>`:""}${String(b.body||"").split(/\n{2,}/).map(p=>`<p>${gaps(p)}</p>`).join("")}</div>`;
+    case "dialogue":return `<div class="blk-dialogue">${(b.lines||[]).map(([who,t])=>`<p><span>${esc(who)}</span>${gaps(t)}</p>`).join("")}</div>`;
+    case "answers":return `<div class="blk-answers" data-step>${esc((b.items||[]).join("   "))}</div>`;
+    case "image":return `<figure data-img="${esc(b.src||"")}" data-alt="${esc(b.alt||"Book picture")}"></figure>`;
+    default:return "";}
+}
+function titlePanel(g,L,exs,B){
+  const pages=[...new Set(exs.map(e=>parseInt(e.page)).filter(n=>n>0))].sort((a,b)=>a-b);
+  const pr=pages.length?`Book p. ${pages[0]}${pages.length>1?"–"+pages[pages.length-1]:""}`:"";
+  const secs=[...new Set(exs.filter(e=>e.sec).map(e=>e.sec))];
+  return `<section class="panel opener" data-id="title" style="--u:${B.u};--bf:${esc(B.font)}">
+    <div class="band"><small>${esc(LV[g.level]||"")} · ${esc(uLabel(L.unit))}</small><h1>${esc(L.name||uLabel(L.unit))}</h1></div>
+    <div class="rest">${pr?`<p class="pages">${pr}</p>`:""}
+      ${secs.length?`<div class="secs">${secs.map(s=>`<span style="--k:${secColor(B,{sec:s})}">${esc(s)}</span>`).join("")}</div>`
+        :`<p class="lead">${exs.length?`Today: ${exs.length} ${exs.length===1?"task":"tasks"}`:"Add exercises in the builder and they appear here."}</p>`}
+    </div><div class="kindart"><img alt="" src="${IMG.globe}"></div></section>`;}
+// one exercise can fill several panels: a {"type":"break"} block starts the next one
+function exPanels(e,B){
+  const c=secColor(B,e),k=KC[e.kind]||KC.Other,w=e.world||{},m=mins(e);
+  const n=String(e.num||"").trim(),numeric=/^\d/.test(n)&&n.length<=4;
+  const meta=[e.fromCarry&&"From last lesson",e.kind,WHO[e.who],m&&`${m} min`].filter(Boolean).join(" · ");
+  const rub=w.rubric||e.note||e.kind||"Task";
+  const head=e.sec?`<div class="sechead hs-${B.head}">${esc(e.sec)}</div>`:(!numeric&&n?`<div class="sechead hs-text">${esc(n)}</div>`:"");
+  const page=e.page?`<div class="pageref">p.<b>${esc(e.page)}</b></div>`:"";
+  const badge=numeric?`<span class="num ns-${B.num}">${esc(n)}</span>`:"";
+  let parts=[[]];(w.blocks||[]).forEach(b=>b&&b.type==="break"?parts.push([]):parts[parts.length-1].push(b));
+  if(!w.blocks||!w.blocks.length){
+    if(e.kind==="Grammar"&&e.grammar)parts=[[{type:"_big",l:"Grammar",v:e.grammar}]];
+    else if(e.kind==="Listening"&&e.track)parts=[[{type:"_big",l:"Listen",v:"Track "+e.track}]];}
+  if(w.track&&e.kind!=="Listening")parts[0].unshift({type:"_big",l:"Listen",v:"Track "+w.track});
+  return parts.map((bl,pi)=>{
+    const main=bl.filter(b=>b.type!=="image"),side=bl.filter(b=>b.type==="image");
+    const html=b=>b.type==="_big"?`<div class="bigbox"><span>${esc(b.l)}</span><b>${esc(b.v)}</b></div>`:block(b);
+    const body=side.length?`<div class="body has-side"><div class="col">${main.map(html).join("")}</div><div class="col">${side.map(html).join("")}</div></div>`
+      :`<div class="body"><div class="col">${main.map(html).join("")}</div></div>`;
+    return `<section class="panel bk" data-id="${esc(e.id)}${pi?"#"+pi:""}" style="--c:${c};--tint:${tint(c)};--u:${B.has?B.u:c};--bf:${esc(B.font)}">
+      <div class="ptop">${head}${page}</div>
+      <div class="rubric">${badge}<span>${pi?`<span class="lbl">continued</span> `:""}${gaps(rub)}</span></div>
+      ${body}<div class="meta">${esc(meta)}</div>${bl.length?"":`<div class="kindart"><img alt="" src="${IMG[k[2]]}"></div>`}</section>`;});
+}
+
+// book pictures live in the private data repo (img/…); the GitHub sync key in this browser fetches them,
+// and a cache keeps them for class even without internet
+async function imgUrl(src){
+  if(/^data:image\//.test(src))return src;
+  const name=src.replace(/^img:/,"").replace(/^img\//,"");
+  let c=null;try{c=JSON.parse(localStorage.getItem(SYNCKEY));}catch(e){}
+  const url=c?`https://api.github.com/repos/${encodeURIComponent(c.owner)}/${encodeURIComponent(c.repo)}/contents/img/${name.split("/").map(encodeURIComponent).join("/")}`:null;
+  const cache=window.caches?await caches.open("lesson-world-img").catch(()=>null):null;
+  const hit=cache&&url?await cache.match(url).catch(()=>null):null;
+  if(hit)return URL.createObjectURL(await hit.blob());
+  if(!url||!c.token)throw new Error("nosync");
+  const r=await fetch(url,{headers:{Authorization:"Bearer "+c.token,Accept:"application/vnd.github.raw"}});
+  if(!r.ok)throw new Error("http "+r.status);
+  if(cache)await cache.put(url,r.clone()).catch(()=>{});
+  return URL.createObjectURL(await r.blob());
+}
+const imgDone=new Map();
+function loadImages(){world.querySelectorAll("figure[data-img]").forEach(f=>{const src=f.dataset.img;
+  const show=u=>{f.className="";f.innerHTML=`<img alt="${esc(f.dataset.alt)}" src="${u}">`;const im=f.firstChild;im.onload=()=>fitPanel(f.closest(".panel"));};
+  const miss=why=>{f.className="missing";f.textContent=`${f.dataset.alt}: ${why}`;fitPanel(f.closest(".panel"));};
+  if(!src)return miss("no picture yet");
+  if(!imgDone.has(src))imgDone.set(src,imgUrl(src));
+  imgDone.get(src).then(show,err=>{imgDone.delete(src);miss(err.message==="nosync"?"turn on GitHub sync in the builder to load book pictures":"picture not found yet");});});}
+// shrink the text until the exercise fits its panel, like zooming out on the page
+function fitPanel(p){if(!p||!p.classList.contains("bk"))return;const b=p.querySelector(".body");if(!b)return;
+  let fs=1;p.style.setProperty("--fs",fs);
+  while(fs>.58&&(b.scrollHeight>b.clientHeight+2||p.scrollHeight>p.clientHeight+2)){fs-=.06;p.style.setProperty("--fs",fs.toFixed(2));}}
 
 function render(first){
   const db=readDb(),F=findLesson(db);
   document.getElementById("empty").hidden=!!F;if(!F)return;
-  const {g,L}=F,exs=L.exercises.filter(e=>!e.skipped);
-  const key=g.id+"|"+L.id,ids=exs.map(e=>e.id).join(",");
+  const {g,L}=F,exs=L.exercises.filter(e=>!e.skipped),B=look(L);
+  const html=[titlePanel(g,L,exs,B)].concat(...exs.map(e=>exPanels(e,B)));
+  const key=g.id+"|"+L.id,ids=html.map(h=>(h.match(/data-id="([^"]*)"/)||[])[1]).join(",");
   document.getElementById("lessonLabel").textContent=`${LV[g.level]||""} · ${uLabel(L.unit)}${L.name?" · "+L.name:""}`;
   const keepId=panels[cur]&&panels[cur].dataset.id;
-  const html=[titlePanel(g,L,exs)].concat(exs.map(exPanel));
-  if(key===shownKey&&ids===sig){ // same panels: only refresh their text, the camera stays put
-    panels.forEach((p,i)=>{const t=document.createElement("template");t.innerHTML=html[i];const n=t.content.firstElementChild;if(p.innerHTML!==n.innerHTML)p.innerHTML=n.innerHTML;
-      for(const v of ["--k","--tint"])p.style.setProperty(v,n.style.getPropertyValue(v));});
-    return;}
+  if(key===shownKey&&ids===sig){ // same panels: only refresh their content, the camera stays put
+    panels.forEach((p,i)=>{const t=document.createElement("template");t.innerHTML=html[i];const n=t.content.firstElementChild;
+      if(p.innerHTML!==n.innerHTML){const shown=new Set([...p.querySelectorAll("[data-step]")].map((x,j)=>x.classList.contains("hide")?-1:j));
+        p.innerHTML=n.innerHTML;p.querySelectorAll("[data-step]").forEach((x,j)=>x.classList.toggle("hide",!shown.has(j)));}
+      p.className=n.className;for(const v of ["--c","--tint","--u","--bf","--k"])p.style.setProperty(v,n.style.getPropertyValue(v));});
+    loadImages();panels.forEach(fitPanel);return;}
   const lessonChanged=key!==shownKey;shownKey=key;sig=ids;
   world.innerHTML=html.join("");
   panels=[...world.querySelectorAll(".panel")];
   P=panels.map((el,i)=>{const p=place(i);el.style.transform=`translate3d(${p.x}px,${p.y}px,${p.z}px) rotateY(${p.ry}deg) rotateX(${p.rx}deg)`;return {...p,d:0,roll:0};});
   world.insertAdjacentHTML("afterbegin",scatter());
+  panels.forEach((p,i)=>{if(i!==cur||lessonChanged)p.querySelectorAll("[data-step]").forEach(x=>x.classList.add("hide"));});
   let idx=lessonChanged?0:Math.max(0,panels.findIndex(p=>p.dataset.id===keepId));
   cur=Math.min(idx,panels.length-1);overview=false;makeDots();
   panels.forEach((p,j)=>p.classList.toggle("active",j===cur));
+  loadImages();(document.fonts?document.fonts.ready:Promise.resolve()).then(()=>panels.forEach(fitPanel));panels.forEach(fitPanel);
   if(first||lessonChanged){cam={...P[cur],d:3400,ry:P[cur].ry-18,rx:P[cur].rx-6};apply(cam);setTimeout(()=>fly(P[cur]),300);}
   else{cancelAnimationFrame(anim);cam={...P[cur]};apply(cam);}
 }
