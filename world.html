@@ -214,8 +214,11 @@ body.wb-open .wb-tab{visibility:hidden}
 
 </head>
 <body>
+<!-- A lesson can also travel inside this file: put {"level": "beginner", "lesson": {…same shape as a builder lesson…}}
+     in this script tag and the world shows it with no builder (the lesson-world skill publishes lessons this way). -->
+<script type="application/json" id="lesson-data"></script>
 <div class="hint"><b id="lessonLabel">Lesson world</b> · <span id="liveTag">live from the builder</span></div>
-<!-- ═══ EDITABLE: PANELS. One <section class="panel" data-pos="x,y,z,rx,ry"> per lesson stage. Steps: add data-step to reveal on tap. ═══ -->
+<!-- Panels are generated from the lesson (builder data or the lesson-data tag); nothing to edit here. -->
 <div id="fit"><div id="stage"><div id="world"></div></div></div>
 
 
@@ -416,8 +419,10 @@ const tint=c=>c+"1F"; // the section colour at ~12% for boxes and table heads
 const q=new URLSearchParams(location.search);
 let want={g:q.get("g"),l:q.get("l")},shownKey="",sig="";
 
+let EMBED=null;try{EMBED=JSON.parse(document.getElementById("lesson-data").textContent||"null");}catch(e){}
+if(EMBED)document.getElementById("liveTag").textContent=EMBED.lesson&&EMBED.lesson.date?EMBED.lesson.date:"lesson world";
 function readDb(){try{return JSON.parse(localStorage.getItem(DBKEY));}catch(e){return null;}}
-function findLesson(db){const g=db&&db.groups&&(db.groups[want.g]||db.groups["b-odd"]);if(!g)return null;
+function findLesson(db){if(EMBED&&EMBED.lesson)return {g:{id:"embed",level:EMBED.level||""},L:Object.assign({exercises:[]},EMBED.lesson)};const g=db&&db.groups&&(db.groups[want.g]||db.groups["b-odd"]);if(!g)return null;
   const L=(want.l&&(g.draft.id===want.l?g.draft:(g.plans||[]).find(x=>x.id===want.l)||g.history.find(x=>x.id===want.l)))||g.draft;
   return {g,L};}
 function look(L){const b=L.book||{};
@@ -509,7 +514,7 @@ function fitPanel(p){if(!p||!p.classList.contains("bk"))return;const b=p.querySe
   while(fs>.58&&(b.scrollHeight>b.clientHeight+2||p.scrollHeight>p.clientHeight+2)){fs-=.06;p.style.setProperty("--fs",fs.toFixed(2));}}
 
 function render(first){
-  const db=readDb(),F=findLesson(db);
+  const db=EMBED?null:readDb(),F=findLesson(db);
   document.getElementById("empty").hidden=!!F;if(!F)return;
   const {g,L}=F,exs=L.exercises.filter(e=>!e.skipped),B=look(L);
   const html=[titlePanel(g,L,exs,B)].concat(...exs.map(e=>exPanels(e,B)));
@@ -536,8 +541,8 @@ function render(first){
   else{cancelAnimationFrame(anim);cam={...P[cur]};apply(cam);}
 }
 render(true);
-let rt=0;addEventListener("storage",e=>{if(e.key===DBKEY){clearTimeout(rt);rt=setTimeout(()=>render(false),250);}});
-try{new BroadcastChannel("lpb-world").onmessage=({data:m})=>{if(!m)return;
+let rt=0;if(!EMBED)addEventListener("storage",e=>{if(e.key===DBKEY){clearTimeout(rt);rt=setTimeout(()=>render(false),250);}});
+if(!EMBED)try{new BroadcastChannel("lpb-world").onmessage=({data:m})=>{if(!m)return;
   if(m.g!==want.g||m.l!==want.l){want={g:m.g,l:m.l};history.replaceState(null,"",`?g=${encodeURIComponent(m.g)}&l=${encodeURIComponent(m.l)}`);render(false);}
   if(m.sel&&!document.body.classList.contains("wb-open")){const i=panels.findIndex(p=>p.dataset.id===m.sel);if(i>-1&&i!==cur)go(i,true);}};}catch(e){}
 
