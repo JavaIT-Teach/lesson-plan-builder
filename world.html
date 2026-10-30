@@ -716,7 +716,7 @@ function render(first){
 render(true);
 let rt=0;if(!EMBED)addEventListener("storage",e=>{if(e.key===DBKEY){clearTimeout(rt);rt=setTimeout(()=>render(false),250);}});
 if(!EMBED)try{new BroadcastChannel("lpb-world").onmessage=({data:m})=>{if(!m)return;
-  if(m.g!==want.g||m.l!==want.l){want={g:m.g,l:m.l};history.replaceState(null,"",`?g=${encodeURIComponent(m.g)}&l=${encodeURIComponent(m.l)}`);render(false);}
+  if(m.g!==want.g||m.l!==want.l){want={g:m.g,l:m.l};history.replaceState(null,"",`?${q.get("v")?"v="+encodeURIComponent(q.get("v"))+"&":""}g=${encodeURIComponent(m.g)}&l=${encodeURIComponent(m.l)}`);render(false);}
   if(m.sel&&!document.body.classList.contains("wb-open")){const i=panels.findIndex(p=>p.dataset.id===m.sel);if(i>-1&&i!==cur)go(i,true);}};}catch(e){}
 
 // ═══ WHITEBOARD (engine) ═══

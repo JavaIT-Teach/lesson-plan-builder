@@ -7,6 +7,8 @@
  */
 
 // ---------- tiny view helpers ----------
+// bump when world.html changes, so the Lesson world button never opens a cached old copy
+const WORLD_V = '3';
 const esc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const IF = (c, html) => (c ? html() : '');
 const FOR = (list, fn) => (list || []).map(fn).join('');
@@ -808,7 +810,7 @@ class App {
       startTime: g.start, endTime: g.end, teacher: db.teacher,
       lessonTitle: `${this.uLabel(L.unit || '?')}${L.name ? ' · ' + L.name : ''}`,
       goWeek: () => this.go('week'),
-      openWorld: () => { const w = window.open(`world.html?g=${encodeURIComponent(s.gid)}&l=${encodeURIComponent(L.id)}`, 'lpb-world'); if (w) w.focus(); },
+      openWorld: () => { const w = window.open(`world.html?v=${WORLD_V}&g=${encodeURIComponent(s.gid)}&l=${encodeURIComponent(L.id)}`, 'lpb-world'); if (w) w.focus(); },
       goStart: () => this.go('start'),
       goAfter: () => this.go('after')
     });
@@ -1496,7 +1498,16 @@ class App {
     v.closeDays = this.dayOptions(g, null).map(id => ({ id, label: this.dayLabel(id), sel: id === cd }));
     v.onCloseDay = e => this.setState({ closeDay: { gid: g.id, date: e.target.value } });
     this.tgVals(v, g, L, s);
-    v.closeLesson = () => { this.closeLesson(cd); this.setState({ closeDay: null }); };
+    // closing before the class has ended needs a second tap (a lesson was once closed by mistake a day early)
+    const closeIso = cd || this.iso(gc.next), [eh, em] = (g.end || '23:59').split(':').map(Number);
+    const classEnd = this.D(closeIso); classEnd.setHours(eh, em, 0, 0);
+    const early = Date.now() < classEnd.getTime(), sureEarly = early && s.sureEarly === g.id + closeIso;
+    v.closeLabel = sureEarly ? 'Not taught yet: tap again to close' : 'Save and close lesson';
+    v.closeBg = sureEarly ? '#C92A2A' : '#14213D';
+    v.closeLesson = () => {
+      if (early && !sureEarly) { this.setState({ sureEarly: g.id + closeIso }); this.toast(`This class (${this.fmtS(this.D(closeIso))}, ${g.start}) hasn't happened yet. Tap again only if you really taught it.`); return; }
+      this.closeLesson(cd); this.setState({ closeDay: null, sureEarly: null });
+    };
     const isTaught = L !== g.draft && !!L.date, isAhead = L !== g.draft && !L.date;
     v.canClose = L === g.draft; v.afterDateLabel = L.date ? this.fmtS(this.D(L.date)) : ''; v.afterTaught = isTaught; v.afterAhead = isAhead;
     v.afterDays = isTaught ? this.dayOptions(g, L.date).map(id => ({ id, label: this.dayLabel(id), sel: id === L.date })) : [];
@@ -2199,7 +2210,7 @@ function tAfter(v) {
     <label style="display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:#3A4566">Taught on<select${input(v.onAfterDay)} style="height:38px;border:1.5px solid #14213D;border-radius:8px;padding:0 10px;font-size:15px;font-weight:700;background:#fff;color:#14213D;cursor:pointer">${FOR(v.afterDays, o => `<option value="${o.id}"${o.sel ? ' selected' : ''}>${esc(o.label)}</option>`)}</select></label>`)}
     ${IF(v.afterAhead, () => `<span style="margin-left:auto;background:#FFF1C7;color:#6B4E00;font-weight:700;font-size:14px;padding:8px 12px;border-radius:9px">Planned ahead · not taught yet</span>`)}
     ${IF(v.canClose, () => `<label style="margin-left:auto;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:600;color:#3A4566">Lesson day<select${input(v.onCloseDay)} style="height:38px;border:1.5px solid #14213D;border-radius:8px;padding:0 10px;font-size:15px;font-weight:700;background:#fff;color:#14213D;cursor:pointer">${FOR(v.closeDays, o => `<option value="${o.id}"${o.sel ? ' selected' : ''}>${esc(o.label)}</option>`)}</select></label>
-    <button${click(v.closeLesson)} style="border:none;background:#14213D;color:#fff;font-weight:700;font-size:16px;padding:14px 24px;border-radius:10px;cursor:pointer">Save and close lesson</button>`)}
+    <button${click(v.closeLesson)} style="border:none;background:${esc(v.closeBg)};color:#fff;font-weight:700;font-size:16px;padding:14px 24px;border-radius:10px;cursor:pointer">${esc(v.closeLabel)}</button>`)}
   </div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:20px;align-items:stretch">
     <div style="background:#fff;border:1px solid #E2E6F0;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:10px">

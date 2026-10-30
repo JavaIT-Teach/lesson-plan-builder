@@ -64,7 +64,7 @@ Setup (once): open **GitHub sync** in the left bar and follow the 3 steps. You c
 
 - `index.html`: the page
 - `styles.css`: global styles and print layout (A4 landscape)
-- `world.html`: the lesson world (3D presentation and whiteboard). It reads the same saved lessons and needs no setup.
+- `world.html`: the lesson world (3D presentation and whiteboard). It reads the same saved lessons and needs no setup. When you change it, bump `WORLD_V` at the top of `app.js` (and `?v=` in `index.html`), or browsers may keep showing the old copy for a while.
 - `app.js`: all data, roadmap rules and screens. The data is one object (`db`) saved under the key `lesson-plan-builder-v1`.
 
 ## Run locally
