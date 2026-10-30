@@ -30,6 +30,18 @@ need to find the section for a unit and part, use `status`, or `slots()` in lpb.
 2. The helper script is `scripts/lpb.py` in this skill folder. Run it with `python3`. It reads
    `$LPB_DATA` or `--data DIR`, and defaults to `/home/claude/lesson-plan-data`.
 
+## Start here in every new chat: the plan log
+
+`PLANS.md` in the data repo is the record of what is planned. `lpb.py push` rewrites it every time, so it is
+always current. It lists, per group, the last lessons taught (and whether their Telegram message was sent),
+the next two weeks with READY / NEEDS A PLAN, rows that use "my key", and carry-over waiting. At the top,
+**Still to plan** groups the missing lessons by level and part, in date order, and says for each one whether
+another group already has it ("copy from …, no new pages needed") or whether Java must send pages.
+
+At the start of a chat (after Step 0), read it: `python3 scripts/lpb.py log` (add a number of days, e.g. `log 21`,
+to look further ahead). Use it to answer "what's next?" and to plan the week. Copy reusable plans first, then
+ask Java for pages for the rest, most urgent first.
+
 ## Step 1: check the input and the group
 
 1. Run `python3 scripts/lpb.py status`. It shows each group's next lesson as "Unit 3, Part 1 (2.1)",

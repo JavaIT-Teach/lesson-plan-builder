@@ -19,7 +19,9 @@ Commands
                               lesson (or --for SECTION) without touching anything else; rows matched by page + num
   add-img FILE NAME           store a book picture as img/NAME in the data repo (shrunk to 1400 px wide when Pillow
                               is installed); use it in a world block as {"type": "image", "src": "img:NAME"}
-  push  "message"             commit lessons.json and img/ and push them to GitHub
+  log [DAYS]                  write PLANS.md (the plan log: per group, what was taught, what is planned and
+                              ready, what still needs a plan in the next DAYS days, default 14) and print it
+  push  "message"             refresh PLANS.md, then commit lessons.json, PLANS.md and img/ and push them to GitHub
 
 Options
   --data DIR                  folder of the lesson-plan-data clone (default: $LPB_DATA or /home/claude/lesson-plan-data)
@@ -128,6 +130,84 @@ def sec_label(sl):
 
 def label(g):
     return f"{LEVEL[g['level']]}{' 30+' if g.get('is30') else ''}, {g['dayType']} days, {g['start']}"
+
+
+ORDER = ['e-odd2', 'b-odd', 'e-odd', 'b30-odd', 'b-even', 'e-even', 'p-even', 'i-even']
+
+
+def build_log(db, days=14):
+    """Plain-text plan log for a fresh chat: what each group was taught, what is ready, what is missing."""
+    from datetime import datetime
+    today, end = date.today(), date.today() + timedelta(days=days)
+    fmt = lambda d: d.strftime('%a %d %b')
+    out = [f"# Lesson plan log", "",
+           f"Written automatically by lpb.py on every push. Last update: {datetime.now().strftime('%a %d %b %Y %H:%M')}.",
+           "lessons.json is the source of truth; this file is a readable summary of it.", ""]
+    todo = {}
+    body = []
+    # lessons any group already has (taught or planned), so missing ones can be copied instead of rebuilt
+    have = {}
+    for gid, g in db['groups'].items():
+        sl = gslots(g)
+        hist = {h['id']: h for h in g['history']}
+        for i, t in enumerate([t for t in g['taught'] if t.get('slot')]):
+            h = hist.get(t.get('lessonId'))
+            if i < len(sl) and h and has_own(h):
+                have.setdefault(f"{g['level']} {sec_label(sl[i])}", f"{label(g).split(', ')[0]} {g['start']}, taught {fmt(date.fromisoformat(t['date']))}")
+        for k in range(done_of(g), len(sl)):
+            L = plan_for(g, k)
+            if has_own(L):
+                have.setdefault(f"{g['level']} {sec_label(sl[k])}", f"{label(g).split(', ')[0]} {g['start']}, planned for {fmt(slot_date(g, k))}")
+    for gid in ORDER + [k for k in db['groups'] if k not in ORDER]:
+        g = db['groups'].get(gid)
+        if not g:
+            continue
+        sl, done = gslots(g), done_of(g)
+        body += [f"## {label(g)} (`{gid}`)", f"Roadmap: {done} of {len(sl)} lessons taught.", "", "Taught (latest 4):"]
+        hist = {h['id']: h for h in g['history']}
+        taught = [t for t in g['taught'] if t.get('slot')]
+        for i, t in list(enumerate(taught))[-4:]:
+            h = hist.get(t.get('lessonId'), {})
+            sent = 'Telegram sent' if h.get('tgSent') else 'Telegram skipped' if h.get('tgSkip') else 'Telegram not sent'
+            body.append(f"- {fmt(date.fromisoformat(t['date']))} · {sec_label(sl[i]) if i < len(sl) else 'Unit ' + str(t['unit'])}"
+                        f"{' · ' + h['name'] if h.get('name') else ''} · {sent}")
+        body += ["", "Next lessons:"]
+        for k in range(done, len(sl)):
+            d = slot_date(g, k)
+            if d > end:
+                break
+            L = plan_for(g, k)
+            if has_own(L):
+                own = [e for e in L['exercises'] if not e.get('skipped')]
+                mins = sum(e.get('min') for e in own if isinstance(e.get('min'), int))
+                carry = sum(1 for e in L['exercises'] if e.get('fromCarry'))
+                mykey = sum(1 for e in own if 'my key' in (e.get('self') or ''))
+                bits = [f"{len(own)} rows, {mins} min", 'Telegram ready' if L.get('tg') else 'no Telegram message',
+                        f"{carry} carried over" if carry else '', f"{mykey} rows with my key (check before class)" if mykey else '']
+                body.append(f"- {fmt(d)} · {sec_label(sl[k])} · {L.get('name') or ''} · READY ({', '.join(b for b in bits if b)})")
+            else:
+                body.append(f"- {fmt(d)} · {sec_label(sl[k])} · NEEDS A PLAN")
+                key = (g['level'], sec_label(sl[k]))
+                todo.setdefault(key, []).append((d, f"{label(g).split(', ')[0]} {g['start']} {fmt(d)}"))
+        waiting = [c for c in db.get('carry', []) if c.get('groupId') == gid]
+        if waiting:
+            body.append(f"Carry-over waiting: " + '; '.join(f"p.{c['ex'].get('page', '')} ex {c['ex'].get('num', '')}" for c in waiting))
+        body.append("")
+    out += [f"## Still to plan (next {days} days)", ""]
+    if todo:
+        for (lv, sec), v in sorted(todo.items(), key=lambda kv: min(x[0] for x in kv[1])):
+            src = have.get(f"{lv} {sec}")
+            out.append(f"- **{LEVEL[lv]} {sec}**: {', '.join(x[1] for x in sorted(v))}"
+                       + (f" · copy from {src} (no new pages needed)" if src else " · needs CB + TB pages"))
+    else:
+        out.append("- Nothing. Every lesson in this period has a plan.")
+    out.append("")
+    return '\n'.join(out + body)
+
+
+def write_log(d, db, days=14):
+    with open(os.path.join(d, 'PLANS.md'), 'w', encoding='utf-8') as f:
+        f.write(build_log(db, days))
 
 
 def data_dir(args):
@@ -385,7 +465,8 @@ def main():
     c = args[0]
     if c == 'push':
         msg = args[1] if len(args) > 1 else 'Lesson plan written by Claude'
-        git(d, 'add', 'lessons.json')
+        write_log(d, load(d))
+        git(d, 'add', 'lessons.json', 'PLANS.md')
         if os.path.isdir(os.path.join(d, 'img')):
             git(d, 'add', 'img')
         if not git(d, 'status', '--porcelain'):
@@ -417,6 +498,11 @@ def main():
             print('warning: big picture; crop it tighter so the board loads it fast', file=sys.stderr)
         return
     db = load(d)
+    if c == 'log':
+        days = int(args[1]) if len(args) > 1 and args[1].isdigit() else 14
+        write_log(d, db, days)
+        print(build_log(db, days))
+        return
     if c == 'status':
         cmd_status(db)
     elif c == 'show':
