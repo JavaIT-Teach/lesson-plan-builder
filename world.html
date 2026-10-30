@@ -70,8 +70,9 @@ p{margin:0}
   pointer-events:none;font-size:14px;color:var(--ink-2)}
 .hud > *{pointer-events:auto}
 .dots{display:flex;gap:8px;align-items:center}
-.dots{gap:4px}
-.dots button{width:36px;height:36px;border:0;padding:0;background:none;cursor:pointer;display:grid;place-items:center}
+.dots{gap:4px;flex-wrap:wrap;max-width:calc(50vw - 90px)}
+.stepct{font:700 14px/1 var(--body);color:var(--ink-2);margin-left:6px;font-variant-numeric:tabular-nums}
+.dots button{width:26px;height:36px;border:0;padding:0;background:none;cursor:pointer;display:grid;place-items:center}
 .dots button::after{content:"";width:12px;height:12px;border-radius:6px;background:#C7D3E6}
 .dots button.on::after{background:var(--orange);width:30px}
 .ctrls{display:flex;gap:10px}
@@ -210,6 +211,63 @@ body.wb-open .wb-tab{visibility:hidden}
 .opener .pages{font:700 26px/1.2 var(--bf, var(--body));color:var(--ink)}
 .opener .secs{display:flex;flex-wrap:wrap;gap:10px}
 .opener .secs span{padding:10px 16px;border-radius:8px;background:var(--k);color:#fff;font:700 19px/1 var(--bf, var(--body))}
+/* ── student steps and touch tasks ── */
+.bk .steplbl{padding:7px 14px;border-radius:999px;background:var(--ink);color:#fff;font:700 15px/1 var(--body);letter-spacing:.06em;text-transform:uppercase}
+.bk ol.asks{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:calc(18px*var(--fs))}
+.bk ol.asks li{display:flex;flex-direction:column;gap:6px;font:700 calc(36px*var(--fs))/1.25 var(--bf, var(--body));color:var(--ink);transition:opacity .35s,transform .35s}
+.bk ol.asks li.hide{opacity:0;transform:translateY(10px)}
+.bk ol.asks li em{font-style:normal;font-weight:600;font-size:.8em;color:var(--c)}
+.bk ol.asks li em.hide{opacity:0}
+.bk .ia{touch-action:none}
+.bk .mini{font:700 calc(20px*var(--fs))/1 var(--body);border:2px solid var(--c);color:var(--c);background:#fff;border-radius:12px;padding:12px 20px;cursor:pointer;min-height:48px}
+.bk .mini:disabled{opacity:.5;cursor:default}
+.bk .pool{display:flex;flex-wrap:wrap;gap:10px;padding:14px;border:2.5px dashed var(--c);border-radius:14px;margin-bottom:6px}
+.bk .chip,.chip.ghost{font:700 calc(23px*var(--fs))/1 var(--bf, var(--body));padding:12px 18px;border-radius:12px;border:0;background:var(--c);color:#fff;cursor:grab;touch-action:none;min-height:48px}
+.bk .chip:disabled{opacity:.25;cursor:default}
+.chip.ghost{position:fixed;z-index:60;pointer-events:none;font-size:23px;box-shadow:0 12px 30px rgba(20,33,61,.3);background:#14213D;color:#fff}
+.bk .dz{min-width:4.5em;min-height:1.2em;background:var(--tint);border-radius:6px 6px 0 0}
+.bk .dz.ok{background:#E3F6EE;color:#12806F;font-weight:700;border-bottom-color:#12806F;padding:0 6px}
+.bk .dz.no,.bk .mi.no{animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.bk .ia.drag .reset{align-self:flex-start;margin-top:6px}
+.bk .ia.drag{display:flex;flex-direction:column;gap:10px}
+.bk .mt{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.bk .mcol{display:flex;flex-direction:column;gap:10px}
+.bk .mi{display:flex;align-items:center;gap:12px;text-align:left;font:600 calc(23px*var(--fs))/1.3 var(--bf, var(--body));color:var(--ink);background:#fff;border:2.5px solid var(--line);border-radius:14px;padding:12px 16px;cursor:pointer;min-height:56px}
+.bk .mi i{font-style:normal;font-weight:800;color:var(--c)}
+.bk .mi.sel{border-color:var(--c);background:var(--tint)}
+.bk .mi.ok{border-color:var(--h);background:color-mix(in srgb,var(--h) 14%,#fff);cursor:default}
+.bk .mi.ok i{color:var(--h)}
+.bk .clk{display:flex;gap:28px;align-items:center}
+.bk .clk .face{width:calc(330px*var(--fs));height:calc(330px*var(--fs));flex:none;touch-action:none;cursor:pointer}
+.bk .clk .rim{fill:#fff;stroke:var(--c);stroke-width:7}
+.bk .clk text{font:700 17px var(--body);fill:var(--ink);text-anchor:middle}
+.bk .clk line{stroke:#9AA6BF;stroke-width:1.5}
+.bk .clk .hh{stroke:var(--ink);stroke-width:8;stroke-linecap:round}
+.bk .clk .mh{stroke:var(--c);stroke-width:5;stroke-linecap:round}
+.bk .clk .pin{fill:var(--ink)}
+.bk .cside{display:flex;flex-direction:column;gap:14px}
+.bk .cside .say{font:800 calc(38px*var(--fs))/1.2 var(--bf, var(--body));color:var(--ink);margin:0}
+.bk .res{font:700 calc(26px*var(--fs))/1.2 var(--body);min-height:1.2em;margin:0}
+.bk .res.ok{color:#12806F}.bk .res.no{color:#C92A2A}
+.bk .cbtns{display:flex;gap:10px}
+.bk .cnt{font:600 16px var(--body);color:var(--ink-2);margin:0}
+.bk .ch{display:flex;flex-direction:column;gap:16px}
+.bk .cq p{margin:0 0 8px;font:700 calc(26px*var(--fs))/1.3 var(--bf, var(--body))}
+.bk .opts{display:flex;flex-wrap:wrap;gap:10px}
+.bk .opt.ok{background:#12806F;border-color:#12806F;color:#fff;opacity:1}
+.bk .opt.no{background:#FFE3E3;border-color:#C92A2A;color:#C92A2A}
+.bk .model{border-radius:14px;background:var(--tint);padding:16px 20px;display:flex;flex-direction:column;gap:6px}
+.bk .model b{font:800 15px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
+.bk .model p{margin:0;font:600 calc(26px*var(--fs))/1.35 var(--bf, var(--body))}
+.bk .model p span{font-weight:800;color:var(--c);margin-right:10px}
+.bk .timer{position:relative;width:200px;height:200px;align-self:flex-start;display:grid;place-items:center;margin-top:8px}
+.bk .timer svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.bk .timer .tr{fill:none;stroke:var(--tint);stroke-width:10}
+.bk .timer .tp{fill:none;stroke:var(--c);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .9s linear}
+.bk .timer b{font:800 44px/1 var(--body);font-variant-numeric:tabular-nums;color:var(--ink);margin-top:-30px}
+.bk .timer .mini{position:absolute;bottom:34px}
+.bk .timer.done b{color:#C92A2A}
 </style>
 
 </head>
@@ -342,7 +400,7 @@ function go(i,showAll){
   cur=(i+panels.length)%panels.length;overview=false;
   stepsOf(cur).forEach(el=>el.classList.toggle("hide",!showAll));
   panels.forEach((p,j)=>p.classList.toggle("active",j===cur));
-  dots.forEach((d,j)=>d.classList.toggle("on",j===cur));
+  markDots();
   fly(P[cur]);
 }
 function next(){if(overview)return go(cur);const h=stepsOf(cur).find(e=>e.classList.contains("hide"));h?h.classList.remove("hide"):go(cur+1);}
@@ -354,13 +412,19 @@ function showOverview(){
   fly({x:cx,y:cy,z:cz,rx:-8,ry:0,d:Math.max(4200,span*.85+1200),roll:0});
 }
 const dotsEl=document.getElementById("dots");let dots=[];
-function makeDots(){dotsEl.innerHTML=panels.map((_,i)=>`<button aria-label="Panel ${i+1}"></button>`).join("");
-  dots=[...dotsEl.children];dots.forEach((d,i)=>{d.onclick=()=>go(i,true);d.classList.toggle("on",i===cur);});}
+// one dot per exercise (its steps share it); the current step shows as "2/4" next to the dots
+const gid=p=>(p&&p.dataset.id||"").split(/[#.]/)[0];
+function makeDots(){const groups=[...new Set(panels.map(gid))];
+  dotsEl.innerHTML=groups.map((g,i)=>`<button aria-label="Exercise ${i+1}" data-g="${esc(g)}"></button>`).join("")+`<span class="stepct"></span>`;
+  dots=[...dotsEl.querySelectorAll("button")];dots.forEach(d=>d.onclick=()=>go(panels.findIndex(p=>gid(p)===d.dataset.g),true));markDots();}
+function markDots(){const g=gid(panels[cur]),same=panels.filter(p=>gid(p)===g);
+  dots.forEach(d=>d.classList.toggle("on",d.dataset.g===g));
+  const ct=dotsEl.querySelector(".stepct");if(ct)ct.textContent=same.length>1?`${same.indexOf(panels[cur])+1}/${same.length}`:"";}
 // touch: swipe to travel (camera follows the finger), tap = next step, pinch-in / swipe-up = overview
 const pts=new Map();let g=null;
 const pinchDist=()=>{const [a,b]=[...pts.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
 addEventListener("pointerdown",e=>{
-  if(document.body.classList.contains("wb-open")||e.target.closest(".hud,.wb,.wb-tab"))return;
+  if(document.body.classList.contains("wb-open")||e.target.closest(".hud,.wb,.wb-tab,.ia"))return;
   pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pts.size===1)g={x0:e.clientX,y0:e.clientY,t0:performance.now(),dx:0,dy:0,moved:false,target:e.target};
   else if(pts.size===2)g={pinch:pinchDist(),done:false};
@@ -460,30 +524,137 @@ function titlePanel(g,L,exs,B){
       ${secs.length?`<div class="secs">${secs.map(s=>`<span style="--k:${secColor(B,{sec:s})}">${esc(s)}</span>`).join("")}</div>`
         :`<p class="lead">${exs.length?`Today: ${exs.length} ${exs.length===1?"task":"tasks"}`:"Add exercises in the builder and they appear here."}</p>`}
     </div><div class="kindart"><img alt="" src="${IMG.globe}"></div></section>`;}
-// one exercise can fill several panels: a {"type":"break"} block starts the next one
+// One exercise becomes a run of student panels that follows the teacher's book procedure.
+// world.steps (in order): ask (lead-in / prediction questions), book (the exercise as printed: rubric + blocks),
+// drag, match, clock, choose (touch tasks students do at the board), pairs (task + model + timer).
+// With no steps, the exercise is just its book copy. A {"type":"break"} block splits a long book copy.
+// Teacher notes never appear: without a book copy the panel only points students to the page.
+const STEP_LABEL={ask:"Before we start",drag:"Your turn",match:"Your turn",clock:"Your turn",choose:"Quick check",pairs:"Your turn"};
 function exPanels(e,B){
   const c=secColor(B,e),k=KC[e.kind]||KC.Other,w=e.world||{},m=mins(e);
   const n=String(e.num||"").trim(),numeric=/^\d/.test(n)&&n.length<=4;
   const meta=[e.fromCarry&&"From last lesson",e.kind,WHO[e.who],m&&`${m} min`].filter(Boolean).join(" · ");
-  const rub=w.rubric||e.note||e.kind||"Task";
   const head=e.sec?`<div class="sechead hs-${B.head}">${esc(e.sec)}</div>`:(!numeric&&n?`<div class="sechead hs-text">${esc(n)}</div>`:"");
   const page=e.page?`<div class="pageref">p.<b>${esc(e.page)}</b></div>`:"";
   const badge=numeric?`<span class="num ns-${B.num}">${esc(n)}</span>`:"";
-  let parts=[[]];(w.blocks||[]).forEach(b=>b&&b.type==="break"?parts.push([]):parts[parts.length-1].push(b));
-  if(!w.blocks||!w.blocks.length){
-    if(e.kind==="Grammar"&&e.grammar)parts=[[{type:"_big",l:"Grammar",v:e.grammar}]];
-    else if(e.kind==="Listening"&&e.track)parts=[[{type:"_big",l:"Listen",v:"Track "+e.track}]];}
-  if(w.track&&e.kind!=="Listening")parts[0].unshift({type:"_big",l:"Listen",v:"Track "+w.track});
-  return parts.map((bl,pi)=>{
-    const main=bl.filter(b=>b.type!=="image"),side=bl.filter(b=>b.type==="image");
-    const html=b=>b.type==="_big"?`<div class="bigbox"><span>${esc(b.l)}</span><b>${esc(b.v)}</b></div>`:block(b);
-    const body=side.length?`<div class="body has-side"><div class="col">${main.map(html).join("")}</div><div class="col">${side.map(html).join("")}</div></div>`
-      :`<div class="body"><div class="col">${main.map(html).join("")}</div></div>`;
-    return `<section class="panel bk" data-id="${esc(e.id)}${pi?"#"+pi:""}" style="--c:${c};--tint:${tint(c)};--u:${B.has?B.u:c};--bf:${esc(B.font)}">
-      <div class="ptop">${head}${page}</div>
-      <div class="rubric">${badge}<span>${pi?`<span class="lbl">continued</span> `:""}${gaps(rub)}</span></div>
-      ${body}<div class="meta">${esc(meta)}</div>${bl.length?"":`<div class="kindart"><img alt="" src="${IMG[k[2]]}"></div>`}</section>`;});
+  const shell=(sfx,label,rub,body,art)=>`<section class="panel bk" data-id="${esc(e.id)}${sfx}" style="--c:${c};--tint:${tint(c)};--u:${B.has?B.u:c};--bf:${esc(B.font)}">
+      <div class="ptop">${head}${label?`<div class="steplbl">${esc(label)}</div>`:""}${page}</div>
+      <div class="rubric">${badge}<span>${rub}</span></div>
+      ${body}<div class="meta">${esc(meta)}</div>${art?`<div class="kindart"><img alt="" src="${IMG[k[2]]}"></div>`:""}</section>`;
+  const html=b=>b.type==="_big"?`<div class="bigbox"><span>${esc(b.l)}</span><b>${esc(b.v)}</b></div>`:block(b);
+  const layout=bl=>{const main=bl.filter(b=>b.type!=="image"),side=bl.filter(b=>b.type==="image");
+    return side.length?`<div class="body has-side"><div class="col">${main.map(html).join("")}</div><div class="col">${side.map(html).join("")}</div></div>`
+      :`<div class="body"><div class="col">${main.map(html).join("")}</div></div>`;};
+  // the exercise as printed in the book
+  const bookPanels=sfx=>{
+    let parts=[[]];(w.blocks||[]).forEach(b=>b&&b.type==="break"?parts.push([]):parts[parts.length-1].push(b));
+    if(w.track&&e.kind!=="Listening")parts[0].unshift({type:"_big",l:"Listen",v:"Track "+w.track});
+    if(e.kind==="Listening"&&e.track&&!w.track)parts[0].unshift({type:"_big",l:"Listen",v:"Track "+e.track});
+    return parts.map((bl,pi)=>shell(sfx+(pi?"."+pi:""),pi?"continued":"",gaps(w.rubric||""),layout(bl),!bl.length));};
+  if(!w.rubric&&!(w.steps||[]).length){ // no book copy yet: send students to the book, never show the teacher's note
+    const where=[e.page&&`page ${e.page}`,numeric&&`exercise ${n}`].filter(Boolean).join(", ");
+    const extra=e.kind==="Grammar"&&e.grammar?{l:"Grammar",v:e.grammar}:e.kind==="Listening"&&e.track?{l:"Listen",v:"Track "+e.track}:null;
+    return [shell("","",where?`Open your books at ${esc(where)}.`:"Look at your book.",
+      `<div class="body"><div class="col">${extra?html({type:"_big",...extra}):""}</div></div>`,true)];}
+  const steps=(w.steps&&w.steps.length)?w.steps:[{type:"book"}];
+  let out=[],seenBook=false;
+  steps.forEach((s,si)=>{const sfx=si?"#"+si:"";
+    if(s.type==="book"){out=out.concat(bookPanels(seenBook?sfx:sfx));seenBook=true;return;}
+    const rub=gaps(s.prompt||w.rubric||"");
+    out.push(shell(sfx,s.label||STEP_LABEL[s.type]||"",rub,stepBody(s),false));});
+  return out;
 }
+function stepBody(s){
+  const img=s.image?`<div class="col">${block({type:"image",src:s.image,alt:s.alt||"Book picture"})}</div>`:"";
+  const wrap=inner=>`<div class="body${img?" has-side":""}"><div class="col">${inner}</div>${img}</div>`;
+  switch(s.type){
+    case "ask":return wrap(`<ol class="asks">${(s.questions||[]).map(q=>{const [t,a]=Array.isArray(q)?q:[q,null];
+      return `<li data-step><span>${gaps(t)}</span>${a?`<em class="ans hide" data-step>${esc(a)}</em>`:""}</li>`;}).join("")}</ol>`);
+    case "drag":{const ans=s.answers||[];let g=0;
+      const items=(s.items||[]).map((it,i)=>`<li><i>${esc(mark(s.numbering,i))}</i><span>${esc(it).replace(/_{3,}/g,()=>`<span class="gap dz" data-a="${esc(ans[g++]||"")}"></span>`)}</span></li>`).join("");
+      const words=(s.words&&s.words.length?s.words:ans).map(x=>`<button class="chip" type="button">${esc(x)}</button>`).join("");
+      return wrap(`<div class="ia drag"><div class="pool">${words}</div><ol class="blk-list">${items}</ol><button class="mini reset" type="button">Start again</button></div>`);}
+    case "match":{const R=s.right||[];
+      return wrap(`<div class="ia mt" data-ans="${esc(JSON.stringify(s.answers||[]))}"><div class="mcol">${(s.left||[]).map((t,i)=>`<button class="mi L" type="button" data-i="${i}"><i>${i+1}</i>${gaps(t)}</button>`).join("")}</div>
+        <div class="mcol">${R.map((t,i)=>`<button class="mi R" type="button" data-i="${i}"><i>${String.fromCharCode(97+i)}</i>${gaps(t)}</button>`).join("")}</div></div>`);}
+    case "clock":return wrap(`<div class="ia clk" data-mode="${s.mode==="read"?"read":"set"}" data-items="${esc(JSON.stringify(s.items||[]))}">
+        <svg viewBox="-110 -110 220 220" class="face"><circle r="100" class="rim"/>${Array.from({length:12},(_,i)=>{const a=(i+1)*Math.PI/6;
+          return `<text x="${(78*Math.sin(a)).toFixed(1)}" y="${(-78*Math.cos(a)+8).toFixed(1)}">${i+1}</text>`;}).join("")}
+          ${Array.from({length:60},(_,i)=>{const a=i*Math.PI/30,r1=i%5?92:88;return `<line x1="${(r1*Math.sin(a)).toFixed(1)}" y1="${(-r1*Math.cos(a)).toFixed(1)}" x2="${(97*Math.sin(a)).toFixed(1)}" y2="${(-97*Math.cos(a)).toFixed(1)}"/>`;}).join("")}
+          <line class="hh" x1="0" y1="0" x2="0" y2="-48"/><line class="mh" x1="0" y1="0" x2="0" y2="-74"/><circle r="6" class="pin"/></svg>
+        <div class="cside"><p class="say"></p><p class="res"></p><div class="cbtns"><button class="mini go" type="button"></button><button class="mini nx" type="button">Next</button></div><p class="cnt"></p></div></div>`);
+    case "choose":return wrap(`<div class="ia ch">${(s.questions||[]).map(q=>`<div class="cq"><p>${gaps(q.q||"")}</p><div class="opts">${(q.options||[]).map((o,j)=>`<button class="mini opt" type="button" data-ok="${j===q.answer?1:0}">${esc(o)}</button>`).join("")}</div></div>`).join("")}</div>`);
+    case "pairs":{const sec=Math.max(30,Math.round((+s.minutes||3)*60));
+      return wrap(`${(s.model||[]).length?`<div class="model"><b>Example</b>${s.model.map(l=>{const [who,t]=Array.isArray(l)?l:["",l];return `<p>${who?`<span>${esc(who)}</span>`:""}${gaps(t)}</p>`;}).join("")}</div>`:""}
+        <div class="ia timer" data-sec="${sec}"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="tr"/><circle cx="60" cy="60" r="52" class="tp"/></svg><b>${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}</b><button class="mini go" type="button">Start</button></div>`);}
+    default:return wrap("");}
+}
+// touch tasks: these areas take their own taps and drags instead of moving the camera
+function wireTasks(root){
+  root.querySelectorAll(".ia.drag:not([data-w])").forEach(d=>{d.dataset.w=1;
+    d.querySelectorAll(".chip").forEach(ch=>ch._down=ev=>{if(ch.disabled)return;
+      const r=ch.getBoundingClientRect(),ghost=ch.cloneNode(true);ghost.classList.add("ghost");document.body.appendChild(ghost);
+      const mv=x=>{ghost.style.left=x.clientX-r.width/2+"px";ghost.style.top=x.clientY-r.height/2+"px";};mv(ev);
+      const up=x=>{removeEventListener("pointermove",mv);removeEventListener("pointerup",up);removeEventListener("pointercancel",up);ghost.remove();
+        const gz=[...d.querySelectorAll(".dz")].find(z=>{const r=z.getBoundingClientRect();return x.clientX>=r.left-8&&x.clientX<=r.right+8&&x.clientY>=r.top-14&&x.clientY<=r.bottom+10;});
+        if(!gz||gz.classList.contains("ok")||!d.contains(gz))return;
+        if(gz.dataset.a.trim().toLowerCase()===ch.textContent.trim().toLowerCase()){gz.textContent=ch.textContent;gz.classList.add("ok");ch.disabled=true;}
+        else{gz.classList.remove("no");void gz.offsetWidth;gz.classList.add("no");}};
+      addEventListener("pointermove",mv);addEventListener("pointerup",up);addEventListener("pointercancel",up);});
+    d.querySelector(".reset").onclick=()=>{d.querySelectorAll(".dz").forEach(z=>{z.textContent="";z.className="gap dz";});d.querySelectorAll(".chip").forEach(c=>c.disabled=false);};});
+  root.querySelectorAll(".ia.mt:not([data-w])").forEach(m=>{m.dataset.w=1;const ans=JSON.parse(m.dataset.ans||"[]");let sel=null,done=0;
+    const hue=["#1C7ED6","#E8590C","#2B8A3E","#C2255C","#7048E8","#0C8599","#F08C00","#5C940D"];
+    m.querySelectorAll(".mi").forEach(b=>b.onclick=()=>{if(b.disabled)return;
+      if(b.classList.contains("L")){m.querySelectorAll(".L.sel").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");sel=b;return;}
+      if(!sel)return;const i=+sel.dataset.i;
+      if(ans[i]===+b.dataset.i){const h=hue[done++%hue.length];[sel,b].forEach(x=>{x.disabled=true;x.classList.remove("sel");x.style.setProperty("--h",h);x.classList.add("ok");});sel=null;}
+      else{b.classList.remove("no");void b.offsetWidth;b.classList.add("no");}});});
+  root.querySelectorAll(".ia.ch:not([data-w])").forEach(q=>{q.dataset.w=1;
+    q.querySelectorAll(".opt").forEach(o=>o.onclick=()=>{const ok=o.dataset.ok==="1";o.classList.add(ok?"ok":"no");
+      if(ok)o.parentNode.querySelectorAll(".opt").forEach(x=>x.disabled=true);});});
+  root.querySelectorAll(".ia.timer:not([data-w])").forEach(t=>{t.dataset.w=1;const total=+t.dataset.sec,b=t.querySelector("b"),go=t.querySelector(".go"),arc=t.querySelector(".tp");
+    let left=total,iv=0;const L=2*Math.PI*52;arc.style.strokeDasharray=L;
+    const show=()=>{b.textContent=`${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`;arc.style.strokeDashoffset=L*(1-left/total);};show();
+    go.onclick=()=>{if(iv){clearInterval(iv);iv=0;go.textContent="Start";return;}if(!left){left=total;show();}
+      go.textContent="Pause";iv=setInterval(()=>{left--;show();if(left<=0){clearInterval(iv);iv=0;go.textContent="Again";t.classList.add("done");beep();}},1000);};});
+  root.querySelectorAll(".ia.clk:not([data-w])").forEach(cl=>{cl.dataset.w=1;
+    const items=JSON.parse(cl.dataset.items||"[]"),read=cl.dataset.mode==="read",svg=cl.querySelector("svg"),hh=cl.querySelector(".hh"),mh=cl.querySelector(".mh");
+    const say=cl.querySelector(".say"),res=cl.querySelector(".res"),go=cl.querySelector(".go"),nx=cl.querySelector(".nx"),cnt=cl.querySelector(".cnt");
+    let i=0,h=12,mm=0;
+    const draw=()=>{hh.setAttribute("transform",`rotate(${(h%12)*30+mm/2})`);mh.setAttribute("transform",`rotate(${mm*6})`);};
+    const parse=s=>{const [a,b]=String(s).split(/[:.]/).map(Number);return [a||12,b||0];};
+    const load=()=>{if(!items.length)return;const it=items[i];res.textContent="";res.className="res";cnt.textContent=`${i+1} / ${items.length}`;
+      if(read){[h,mm]=parse(it.time);say.textContent="What's the time?";go.textContent="Show";}
+      else{h=12;mm=0;say.textContent=it.say||"";go.textContent="Check";}draw();};
+    go.onclick=()=>{const it=items[i];if(!it)return;
+      if(read){res.textContent=it.say||"";res.className="res ok";return;}
+      const [th,tm]=parse(it.time),ok=tm===mm&&(th%12)===(h%12);res.textContent=ok?"Yes! ✓":"Not yet. Try again.";res.className="res "+(ok?"ok":"no");};
+    nx.onclick=()=>{i=(i+1)%items.length;load();};
+    if(!read){let hand=null;const ang=ev=>{const r=svg.getBoundingClientRect(),x=ev.clientX-(r.left+r.width/2),y=ev.clientY-(r.top+r.height/2);return (Math.atan2(x,-y)*180/Math.PI+360)%360;};
+      svg._down=ev=>{const a=ang(ev),dm=Math.abs(((a-mm*6)+540)%360-180),dh=Math.abs(((a-((h%12)*30+mm/2))+540)%360-180);
+        hand=dm<=dh?"m":"h";move(ev);const stop=()=>{hand=null;removeEventListener("pointermove",move);removeEventListener("pointerup",stop);removeEventListener("pointercancel",stop);};
+        addEventListener("pointermove",move);addEventListener("pointerup",stop);addEventListener("pointercancel",stop);};
+      const move=ev=>{if(!hand)return;const a=ang(ev);
+        if(hand==="m"){const nm=Math.round(a/30)*5%60;if(mm>=45&&nm<=15)h=h%12+1;else if(mm<=15&&nm>=45)h=(h+10)%12+1;mm=nm;}
+        else h=Math.round(((a-mm/2)+360)%360/30)%12||12;draw();res.textContent="";};
+}
+    load();});
+}
+// Touch routing for the tasks. In the 3D world the browser's own hit test sometimes misses elements on a
+// panel, depending on its angle, so taps on the current panel are matched by position instead.
+let tapT=null,tapXY=null,eatClick=0;
+function taskAt(x,y){const pn=panels[cur];if(!pn||overview||document.body.classList.contains("wb-open"))return null;
+  let best=null,area=1e12;pn.querySelectorAll(".ia button:not(:disabled), .ia .face").forEach(el=>{const r=el.getBoundingClientRect();
+    if(x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom&&r.width*r.height<area){best=el;area=r.width*r.height;}});return best;}
+addEventListener("pointerdown",ev=>{const t=taskAt(ev.clientX,ev.clientY);if(!t)return;
+  ev.stopImmediatePropagation();ev.preventDefault();
+  if(t._down)t._down(ev);else{tapT=t;tapXY=[ev.clientX,ev.clientY];}},true);
+addEventListener("pointerup",ev=>{if(!tapT)return;const t=tapT;tapT=null;ev.stopImmediatePropagation();
+  if(Math.hypot(ev.clientX-tapXY[0],ev.clientY-tapXY[1])<16){eatClick=Date.now();t.click();}},true);
+addEventListener("click",ev=>{if(Date.now()-eatClick<400&&ev.isTrusted){ev.stopImmediatePropagation();ev.preventDefault();}},true);
+let actx=null;function beep(){try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+  [0,.35,.7].forEach(t=>{const o=actx.createOscillator(),g=actx.createGain();o.frequency.value=880;o.connect(g);g.connect(actx.destination);
+    g.gain.setValueAtTime(.25,actx.currentTime+t);g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+t+.3);o.start(actx.currentTime+t);o.stop(actx.currentTime+t+.3);});}catch(e){}}
 
 // book pictures live in the private data repo (img/…); the GitHub sync key in this browser fetches them,
 // and a cache keeps them for class even without internet
@@ -526,17 +697,19 @@ function render(first){
       if(p.innerHTML!==n.innerHTML){const shown=new Set([...p.querySelectorAll("[data-step]")].map((x,j)=>x.classList.contains("hide")?-1:j));
         p.innerHTML=n.innerHTML;p.querySelectorAll("[data-step]").forEach((x,j)=>x.classList.toggle("hide",!shown.has(j)));}
       p.className=n.className;for(const v of ["--c","--tint","--u","--bf","--k"])p.style.setProperty(v,n.style.getPropertyValue(v));});
-    loadImages();panels.forEach(fitPanel);return;}
+    wireTasks(world);loadImages();panels.forEach(fitPanel);return;}
   const lessonChanged=key!==shownKey;shownKey=key;sig=ids;
   world.innerHTML=html.join("");
   panels=[...world.querySelectorAll(".panel")];
-  P=panels.map((el,i)=>{const p=place(i);el.style.transform=`translate3d(${p.x}px,${p.y}px,${p.z}px) rotateY(${p.ry}deg) rotateX(${p.rx}deg)`;return {...p,d:0,roll:0};});
+  // an exercise's steps stack in a short column (small hops); the next exercise is the big flight
+  const gi=[],si=[];panels.forEach((el,i)=>{const g=gid(el),pg=i?gid(panels[i-1]):null;gi.push(i?gi[i-1]+(g!==pg):0);si.push(i&&g===pg?si[i-1]+1:0);});
+  P=panels.map((el,i)=>{const b=place(gi[i]),p={...b,x:b.x+si[i]*90,y:b.y+si[i]*780,z:b.z-si[i]*120};el.style.transform=`translate3d(${p.x}px,${p.y}px,${p.z}px) rotateY(${p.ry}deg) rotateX(${p.rx}deg)`;return {...p,d:0,roll:0};});
   world.insertAdjacentHTML("afterbegin",scatter());
   panels.forEach((p,i)=>{if(i!==cur||lessonChanged)p.querySelectorAll("[data-step]").forEach(x=>x.classList.add("hide"));});
   let idx=lessonChanged?0:Math.max(0,panels.findIndex(p=>p.dataset.id===keepId));
   cur=Math.min(idx,panels.length-1);overview=false;makeDots();
   panels.forEach((p,j)=>p.classList.toggle("active",j===cur));
-  loadImages();(document.fonts?document.fonts.ready:Promise.resolve()).then(()=>panels.forEach(fitPanel));panels.forEach(fitPanel);
+  wireTasks(world);loadImages();(document.fonts?document.fonts.ready:Promise.resolve()).then(()=>panels.forEach(fitPanel));panels.forEach(fitPanel);
   if(first||lessonChanged){cam={...P[cur],d:3400,ry:P[cur].ry-18,rx:P[cur].rx-6};apply(cam);setTimeout(()=>fly(P[cur]),300);}
   else{cancelAnimationFrame(anim);cam={...P[cur]};apply(cam);}
 }

@@ -68,8 +68,9 @@ ask Java for pages for the rest, most urgent first.
 
 Every plan has **two layers**:
 1. **The teacher's plan** (note, self, who, min…): Java's voice, for Java only. This step and the field list below.
-2. **The book copy** (`book` + each row's `world`): what the **students** see on the interactive board in the app's
-   lesson world. Step 2b. It must look and read like the coursebook page they hold.
+2. **The board** (`book` + each row's `world`): what the **students** see on the interactive board in the app's
+   lesson world. Step 2b copies the page so it looks and reads like the book they hold; Step 2c turns the TB
+   procedure into student steps and touch tasks. Nothing from Java's notes ever appears on the board.
 
 That file is Java's own plan, built from CB + TB. It is the model for voice, density and choices. Rules:
 
@@ -239,7 +240,58 @@ work; a whole-page photo is too small to read on the board.
 
 If the plan is already in the app and Java edited it, add the book copy without touching his rows:
 `python3 scripts/lpb.py set-world GROUP world.json [--for SECTION]`, where `world.json` is
-`{"book": {…}, "exercises": [{"page": "16", "num": "1", "world": {…}}]}`. Rows are matched by page + num.
+`{"book": {…}, "exercises": [{"page": "16", "num": "1", "sec": "Grammar · …", "world": {…}}]}`. Rows are matched by
+page + num, and by `sec` when a page has two exercises with the same number (Grammar ex 1 and Speaking ex 1).
+
+## Step 2c: turn the TB procedure into student steps (always)
+
+A board that only copies the page is no better than the book. Java wants the board to **run the lesson**: every
+exercise becomes a short run of student panels that follows the **teacher's book procedure**, plus touch tasks
+students do at the interactive board. Write them in the row's `world.steps`, in teaching order. The book copy is
+one of the steps (`{"type": "book"}`).
+
+**How to read the TB into steps.** Go through the TB notes for the exercise move by move and turn every move
+students take part in into a step, phrased **for students**, never for the teacher:
+
+| TB says | Step |
+|---|---|
+| Books closed, lead-in, "ask the class…", "elicit…", look at the photo and predict | `ask`: the questions, one per tap, large. Add `[question, answer]` pairs when the answer should appear after the guess. Put the picture in `image`. |
+| Teach / revise language on the board (e.g. set the clock to 9.00, "It's nine o'clock") | `ask` with answers, or `clock` in `read` mode for times |
+| Concept check ("Check they understand that half past nine means 9.30") | `choose`: 2–3 quick taps with one right option |
+| Books open, do the exercise | `book` |
+| Check answers / "listen and check" | stays in the `book` step: answers are hidden there and appear on tap |
+| Gap-fill or word box exercise | after `book`, a `drag` at the board: the same sentences, with the box words as chips (add 1–2 likely wrong forms as distractors) |
+| Matching | `match` at the board |
+| Telling the time | `clock` in `set` mode: students move the hands |
+| True / false, multiple choice, "which is right?" | `choose` |
+| Pair work, ask and answer, mingle | `pairs`: the task, a model (from the book or TB example) and a timer in minutes |
+| Mixed ability / fast finishers | only if it gives students a task; otherwise it stays in `self` |
+
+Every exercise gets at least one step besides `book` when the TB gives you something to work with. Never put the
+teacher's moves on a panel ("Ask Ss…", "Board…"): turn them into what students read, answer or do.
+
+**Step formats** (all take an optional `label`, the small tag on the panel, and an optional `prompt`, the panel's
+instruction line; without a prompt the exercise rubric is shown):
+```json
+{"type": "ask", "label": "Before you read", "prompt": "Look at the photo. This is Christine.",
+ "image": "img:beginner/p48-ex3.png", "questions": ["How old is she?", ["Where is she from?", "Scotland"]]}
+{"type": "book"}
+{"type": "choose", "label": "Think!", "questions": [{"q": "It's half past nine.", "options": ["9.30", "8.30"], "answer": 0}]}
+{"type": "drag", "label": "Come to the board", "prompt": "Drag the words into the sentences.",
+ "items": ["She studies ___ and ___, and she ___ in the day."], "answers": ["in the evening", "at night", "sleeps"],
+ "words": ["at night", "in the evening", "sleeps", "goes"]}
+{"type": "match", "prompt": "Match the words and pictures.", "left": ["bus", "train"], "right": ["fast", "slow"], "answers": [1, 0]}
+{"type": "clock", "mode": "set", "prompt": "Move the hands. Show the time.",
+ "items": [{"time": "10:15", "say": "It's quarter past ten."}]}
+{"type": "pairs", "prompt": "Ask and answer with your partner.", "minutes": 3,
+ "model": [["A", "What time do you get up?"], ["B", "I get up at seven o'clock."]]}
+```
+- `drag`: one answer per `___`, in order; `words` must include every answer.
+- `match`: `answers[i]` is the index in `right` of the item that matches `left[i]`.
+- `clock`: `time` as `h:mm`, hours 1–12, minutes in fives (the hands snap to 5 minutes). `read` mode shows the time
+  and reveals `say` on tap; `set` mode shows `say` and students set the hands, then tap Check.
+- Labels used so far: Before we start, Before you read, Read and check, Guess!, New words, Think!, Come to the board,
+  Check at the board, Your turn. Keep them short.
 
 ## Telegram message for students (always write one)
 
@@ -354,7 +406,7 @@ tracks, "my key" rows, aims in one line each, the snips still needed for the boa
    ```
 2. Preview it: `python3 scripts/lpb.py write GROUP plan.json --dry-run`. Fix any errors or warnings
    (unknown kind or who, a Grammar row with no grammar point, total minutes far from 80, a missing book copy,
-   answers that don't match the gaps, a picture not stored yet). Rows with a book copy show `[book copy]`.
+   answers that don't match the gaps, a broken step, a picture not stored yet). Rows with a book copy show `[book copy]`.
 3. Before writing, tell Java in one line to make sure the app's dot says **"Saved to GitHub"** (green).
    Then save and push:
    ```
@@ -384,7 +436,8 @@ tracks, "my key" rows, aims in one line each, the snips still needed for the boa
 - Group, lesson ("Unit 4, Part 1 (2.2)"), date, how many exercises, and total minutes.
 - The 5 aims you wrote, in one short block.
 - Tracks you assigned, exercise by exercise.
-- The lesson world: the book look you captured (unit colour, number and heading style) in one line, and the
+- The lesson world: the book look you captured (unit colour, number and heading style) in one line, the student
+  steps in one line per section (e.g. "Ex 1: clock lead-in, CCQ quiz, book, set the clocks at the board"), and the
   **snips still needed** (page, exercise, what the picture shows). If none are missing, write: "Board copy complete.
   Open 🌌 Lesson world to check it against the book."
 - Assumptions you made (page numbers, missing TB pages, anything you simplified or suggest skipping).

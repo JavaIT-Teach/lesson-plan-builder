@@ -309,13 +309,16 @@ def cmd_show(db, gid, all_):
 BLOCKS = {'words': ['items'], 'list': ['items'], 'match': ['left', 'right'], 'table': ['rows'], 'rule': ['items'],
           'text': ['body'], 'dialogue': ['lines'], 'answers': ['items'], 'image': ['src'], 'break': []}
 HEX = re.compile(r'^#[0-9a-fA-F]{6}$')
+# student steps: the TB procedure as panels (see SKILL.md Step 2c)
+STEPS = {'book': [], 'ask': ['questions'], 'choose': ['questions'], 'drag': ['items', 'answers'], 'match': ['left', 'right', 'answers'],
+         'clock': ['items'], 'pairs': ['prompt']}
 DATA = None  # data repo folder, set in main(); used to check that pictures exist
 
 
 def check_world(w, n):
     if not isinstance(w, dict):
         die(f"exercise {n}: world must be an object with rubric and blocks")
-    if not str(w.get('rubric', '')).strip():
+    if not str(w.get('rubric', '')).strip() and not w.get('steps'):
         print(f"warning: exercise {n}: world has no rubric (the book's instruction line)", file=sys.stderr)
     for j, b in enumerate(w.get('blocks') or [], 1):
         t = b.get('type') if isinstance(b, dict) else None
@@ -329,8 +332,42 @@ def check_world(w, n):
             want = gaps or len(b['items'])
             if len(b['answers']) != want:
                 print(f"warning: exercise {n}, block {j}: {len(b['answers'])} answers for {want} {'gaps' if gaps else 'items'}", file=sys.stderr)
-        if t == 'image' and str(b['src']).startswith('img:') and DATA and not os.path.exists(os.path.join(DATA, 'img', b['src'][4:])):
-            print(f"warning: exercise {n}: picture {b['src']} is not in img/ yet; store it with add-img", file=sys.stderr)
+        if t == 'image':
+            check_img(b['src'], n)
+    steps = w.get('steps') or []
+    if steps and not any(s.get('type') == 'book' for s in steps if isinstance(s, dict)) and w.get('blocks'):
+        print(f"warning: exercise {n}: steps have no {{\"type\": \"book\"}} step, so the book copy is never shown", file=sys.stderr)
+    for j, st in enumerate(steps, 1):
+        t = st.get('type') if isinstance(st, dict) else None
+        if t not in STEPS:
+            die(f"exercise {n}, step {j}: type must be one of {sorted(STEPS)}, got {t!r}")
+        miss = [k for k in STEPS[t] if not st.get(k)]
+        if miss:
+            die(f"exercise {n}, step {j} ({t}): missing {', '.join(miss)}")
+        if t == 'drag':
+            gaps = sum(len(re.findall(r'_{3,}', str(i))) for i in st['items'])
+            if gaps != len(st['answers']):
+                die(f"exercise {n}, step {j} (drag): {len(st['answers'])} answers for {gaps} gaps")
+            if st.get('words') and not set(st['answers']) <= set(st['words']):
+                die(f"exercise {n}, step {j} (drag): every answer must be among the words")
+        if t == 'match' and sorted(st['answers']) != list(range(len(st['right']))):
+            die(f"exercise {n}, step {j} (match): answers must give each left item the index of its right item, using each once")
+        if t == 'clock':
+            for it in st['items']:
+                if not re.match(r'^(1[0-2]|[1-9])[:.][0-5]\d$', str(it.get('time', ''))) or not it.get('say'):
+                    die(f"exercise {n}, step {j} (clock): each item needs time like 9:30 (1-12 h, minutes a multiple of 5 to be settable) and say")
+        if t == 'choose':
+            for q in st['questions']:
+                if not q.get('q') or not q.get('options') or not isinstance(q.get('answer'), int) or not 0 <= q['answer'] < len(q['options']):
+                    die(f"exercise {n}, step {j} (choose): each question needs q, options and answer (index of the right option)")
+        if st.get('image'):
+            check_img(st['image'], n)
+
+
+def check_img(src, n):
+    src = str(src)
+    if src.startswith('img:') and DATA and not os.path.exists(os.path.join(DATA, 'img', src[4:])):
+        print(f"warning: exercise {n}: picture {src} is not in img/ yet; store it with add-img", file=sys.stderr)
 
 
 def check_book(bk):
@@ -561,9 +598,12 @@ def main():
         if wd.get('book'):
             L['book'] = check_book(wd['book'])
         key = lambda e: (str(e.get('page', '')).strip(), str(e.get('num', '')).strip().lower())
-        rows = {key(e): e for e in L['exercises']}
         for n, x in enumerate(wd.get('exercises', []), 1):
-            e = rows.get(key(x))
+            # page + num, and the section when given (a page can have Grammar ex 1 and Speaking ex 1)
+            hits = [e for e in L['exercises'] if key(e) == key(x) and (not x.get('sec') or e.get('sec', '') == x['sec'])]
+            if len(hits) > 1:
+                die(f"p.{x.get('page','')} ex.{x.get('num','')} matches {len(hits)} rows; add its \"sec\" to tell them apart")
+            e = hits[0] if hits else None
             if not e:
                 print(f"warning: no row p.{x.get('page','')} ex.{x.get('num','')} in the plan; skipped", file=sys.stderr)
                 continue
