@@ -40,7 +40,8 @@ another group already has it ("copy from …, no new pages needed") or whether J
 
 At the start of a chat (after Step 0), read it: `python3 scripts/lpb.py log` (add a number of days, e.g. `log 21`,
 to look further ahead). Use it to answer "what's next?" and to plan the week. Copy reusable plans first, then
-ask Java for pages for the rest, most urgent first.
+ask Java for pages for the rest **level by level** (see "Planning a whole week": Beginner, Elementary,
+Pre-Intermediate, Intermediate).
 
 ## Step 1: check the input and the group
 
@@ -357,7 +358,17 @@ and mark the gaps (see "my key" above).
 **Planning a whole week.** When asked to prepare the week:
 1. List every lesson Mon–Sat per group with its status (script below), then group the missing ones by
    **level + Unit N, Part X**: one set of pages covers every group on that level and part.
-2. Present the sets in date order (most urgent first) as a short table: set, pages to send, groups and days.
+2. **Java sends the week level by level** (his SOP, Nov 2026): all Beginner material for the week first, then all
+   Elementary, then all Pre-Intermediate, then all Intermediate. He does not switch levels until a level is done.
+   - Present the week as one short table per level, in that order: set (Unit N, Part X), pages to send (CB + TB),
+     groups and days. Within a level, list the sets in book order.
+   - Ask for one level at a time: "Beginner this week: Unit 8 Part 1 (CB p.50–51 + TB) and Part 2 (CB p.52–53 + TB).
+     Send all of it, then 'all done'." He may send several parts of one level in one go; sort the pages by part
+     yourself (check page numbers, see Step 1) and build every part of that level before asking for the next level.
+   - Urgency does not change the order. If a later level has a lesson today or tomorrow with no plan, say so
+     once in one line when presenting the week ("Intermediate teaches Unit 9 Part 1 today at 18:30, no plan yet"),
+     then keep to his order unless he changes it.
+   - After a level is built and pushed, report it, then ask for the next level's pages.
 3. Build one set at a time. Write the same plan to each group with `--for "Unit N, Part X"`, giving each its
    own date in the Telegram header and a different personal aim if that group's recent ones overlap.
    Include a group's lesson in the following week too when it uses the same pages.
