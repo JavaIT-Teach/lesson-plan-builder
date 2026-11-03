@@ -306,6 +306,30 @@ body.wb-open .wb-tab{visibility:hidden}
 .bk .timer b{font:800 44px/1 var(--body);font-variant-numeric:tabular-nums;color:var(--ink);margin-top:-30px}
 .bk .timer .mini{position:absolute;bottom:34px}
 .bk .timer.done b{color:#C92A2A}
+/* fitting: when an exercise is long, everything shrinks together with the text (--fs), not only the letters,
+   so buttons, gaps, pictures and timers never push the content off the slide */
+.bk .body{gap:calc(16px*var(--fs))}
+.bk .col{gap:calc(14px*var(--fs))}
+.bk .mini{padding:calc(12px*var(--fs)) calc(20px*var(--fs));min-height:calc(48px*var(--fs));border-radius:calc(12px*var(--fs))}
+.bk .ch{gap:calc(16px*var(--fs))}
+.bk .cq p{margin-bottom:calc(8px*var(--fs))}
+.bk .opts{gap:calc(10px*var(--fs))}
+.bk .pool{padding:calc(14px*var(--fs));gap:calc(10px*var(--fs))}
+.bk .chip{padding:calc(12px*var(--fs)) calc(18px*var(--fs));min-height:calc(48px*var(--fs))}
+.bk .mt{gap:calc(24px*var(--fs))}
+.bk .mcol{gap:calc(10px*var(--fs))}
+.bk .mi{padding:calc(12px*var(--fs)) calc(16px*var(--fs));min-height:calc(56px*var(--fs))}
+.bk .clk{gap:calc(28px*var(--fs))}
+.bk .model{padding:calc(16px*var(--fs)) calc(20px*var(--fs))}
+.bk .timer{width:calc(200px*var(--fs));height:calc(200px*var(--fs))}
+.bk .timer b{font-size:calc(44px*var(--fs))}
+.bk .timer .mini{bottom:calc(34px*var(--fs))}
+.bk .blk-words{padding:calc(14px*var(--fs)) calc(16px*var(--fs))}
+.bk .blk-rule{padding:calc(14px*var(--fs)) calc(18px*var(--fs))}
+.bk figure{min-height:calc(120px*var(--fs))}
+.bk figure img{max-height:calc(430px*var(--fs))}
+.bk .bigbox{padding:calc(18px*var(--fs)) calc(26px*var(--fs))}
+.bk .bigbox b{font-size:calc(48px*var(--fs))}
 </style>
 
 </head>
@@ -413,7 +437,7 @@ function setFit(){fit.style.transform=`translate(${slideView.x}px,${slideView.y}
 function setSlideView(x,y,z){slideView.x=x;slideView.y=y;slideView.z=z;setFit();}
 // a slide takes the screen's shape (640 high, as wide as the screen allows), so it fills the board edge to edge
 let PW=1040;
-function resize(){PW=Math.round(Math.min(1300,Math.max(820,640*innerWidth/Math.max(1,innerHeight))));
+function resize(){PW=Math.round(Math.min(1800,Math.max(820,640*innerWidth/Math.max(1,innerHeight))));
   document.documentElement.style.setProperty("--pw",PW+"px");
   fitScale=Math.min(innerWidth/PW,innerHeight/640);setFit();
   if(typeof layoutAll==="function"&&panels.length)layoutAll();}
@@ -751,9 +775,14 @@ function loadImages(){world.querySelectorAll("figure[data-img]").forEach(f=>{con
   if(!imgDone.has(src))imgDone.set(src,imgUrl(src));
   imgDone.get(src).then(show,err=>{imgDone.delete(src);miss(err.message==="nosync"?"turn on GitHub sync in the builder to load book pictures":"picture not found yet");});});}
 // shrink the text until the exercise fits its panel, like zooming out on the page
+// Last resort: if the smallest text size still doesn't fit, zoom the whole exercise out until it does.
+// Nothing is ever cut off; the slide's data-fit says how small it got (the board check reports < 0.6).
 function fitPanel(p){if(!p||!p.classList.contains("bk"))return;const b=p.querySelector(".body");if(!b)return;
-  let fs=1;p.style.setProperty("--fs",fs);
-  while(fs>.52&&(b.scrollHeight>b.clientHeight+2||p.scrollHeight>p.clientHeight+2)){fs-=.04;p.style.setProperty("--fs",fs.toFixed(2));}
+  const cols=[...b.children],over=()=>b.scrollHeight>b.clientHeight||b.scrollWidth>b.clientWidth||p.scrollHeight>p.clientHeight;
+  let fs=1,z=1;p.style.setProperty("--fs",fs);cols.forEach(c=>c.style.zoom="");
+  while(fs>.6&&over()){fs-=.04;p.style.setProperty("--fs",fs.toFixed(2));}
+  while(z>.3&&over()){z-=.05;cols.forEach(c=>c.style.zoom=z.toFixed(2));}
+  p.dataset.fit=(fs*z).toFixed(2);p.dataset.over=over()?"1":"";
   aimPieces(p);}
 // pieces: the parts of a slide that fly together. Tag them right after they are made (before any layout),
 // so pieces of slides you are not on start hidden instead of fading out.
