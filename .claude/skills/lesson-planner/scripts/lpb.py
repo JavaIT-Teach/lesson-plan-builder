@@ -428,7 +428,7 @@ def own_pages(L):
     return out
 
 
-def known_pages(db, level):
+def known_pages(db, level, skip=None):
     """Coursebook pages already used for each roadmap section of a level, from every group's lessons
     (taught, draft and planned ahead): {sec: (pages, where)}."""
     out = {}
@@ -443,6 +443,8 @@ def known_pages(db, level):
                 found.append((sl[j], hist[t['lessonId']], f"{label(g)}, taught {t.get('date', '')}"))
         done = done_of(g)
         for k in range(done, len(sl)):
+            if skip == (id(g), k):
+                continue  # the lesson being written: don't compare a plan with the copy it replaces
             L = plan_for(g, k)
             if has_own(L):
                 found.append((sl[k], L, f"{label(g)}, planned"))
@@ -462,7 +464,7 @@ def check_pages(db, g, k, exs):
     order = slots(g['level'])
     s = gslots(g)[k]
     pos = next((i for i, x in enumerate(order) if x['sec'] == s['sec']), None)
-    known = known_pages(db, g['level'])
+    known = known_pages(db, g['level'], skip=(id(g), k))
     pg = lambda p: 'p.' + '–'.join(str(x) for x in sorted({min(p), max(p)}))
     if s['sec'] in known and known[s['sec']][0] != new:
         p, where = known[s['sec']]
