@@ -416,6 +416,75 @@ def build_ex(x, n, presets):
     return e
 
 
+def own_pages(L):
+    out = set()
+    for e in (L or {}).get('exercises', []):
+        if e.get('fromCarry') or e.get('skipped'):
+            continue
+        try:
+            out.add(int(str(e.get('page', '')).strip()))
+        except ValueError:
+            pass
+    return out
+
+
+def known_pages(db, level, skip=None):
+    """Coursebook pages already used for each roadmap section of a level, from every group's lessons
+    (taught, draft and planned ahead): {sec: (pages, where)}."""
+    out = {}
+    for g in db['groups'].values():
+        if g['level'] != level:
+            continue
+        sl = gslots(g)
+        hist = {h['id']: h for h in g.get('history', [])}
+        found = []
+        for j, t in enumerate(t for t in g['taught'] if t.get('slot')):
+            if j < len(sl) and t.get('lessonId') in hist:
+                found.append((sl[j], hist[t['lessonId']], f"{label(g)}, taught {t.get('date', '')}"))
+        done = done_of(g)
+        for k in range(done, len(sl)):
+            if skip == (id(g), k):
+                continue  # the lesson being written: don't compare a plan with the copy it replaces
+            L = plan_for(g, k)
+            if has_own(L):
+                found.append((sl[k], L, f"{label(g)}, planned"))
+        for s, L, where in found:
+            p = own_pages(L)
+            if p and s['sec'] not in out:
+                out[s['sec']] = (p, where)
+    return out
+
+
+def check_pages(db, g, k, exs):
+    """Warn when the plan's pages don't fit the book: another group used other pages for the same lesson,
+    or the pages don't follow on from the lesson before / lead into the lesson after."""
+    new = own_pages({'exercises': exs})
+    if not new:
+        return
+    order = slots(g['level'])
+    s = gslots(g)[k]
+    pos = next((i for i, x in enumerate(order) if x['sec'] == s['sec']), None)
+    known = known_pages(db, g['level'], skip=(id(g), k))
+    pg = lambda p: 'p.' + '–'.join(str(x) for x in sorted({min(p), max(p)}))
+    if s['sec'] in known and known[s['sec']][0] != new:
+        p, where = known[s['sec']]
+        print(f"warning: PAGES: {sec_label(s)} is {pg(p)} in {where}, but this plan is {pg(new)}. "
+              f"Check the page numbers on the CB pages.", file=sys.stderr)
+    if pos is not None and pos > 0 and order[pos - 1]['sec'] in known:
+        p, where = known[order[pos - 1]['sec']]
+        # within a unit the next part starts on the very next page; a new unit may start later
+        # (review or exam pages can sit between units), but never on or before the last page used
+        same_unit = order[pos - 1]['u'] == s['u']
+        if min(new) <= max(p) or (same_unit and min(new) > max(p) + 1):
+            print(f"warning: PAGES: the lesson before ({sec_label(order[pos - 1])}) is {pg(p)} in {where}, "
+                  f"so {sec_label(s)} should start on p.{max(p) + 1}, but this plan starts on p.{min(new)}.", file=sys.stderr)
+    if pos is not None and pos + 1 < len(order) and order[pos + 1]['sec'] in known:
+        p, where = known[order[pos + 1]['sec']]
+        if max(new) >= min(p):
+            print(f"warning: PAGES: the lesson after ({sec_label(order[pos + 1])}) is {pg(p)} in {where}, "
+                  f"but this plan already uses p.{max(new)}.", file=sys.stderr)
+
+
 def cmd_write(db, gid, plan_path, dry, replace=False, sec=None):
     g = db['groups'].get(gid) or die(f'unknown group {gid}')
     with open(plan_path, encoding='utf-8') as f:
@@ -472,6 +541,7 @@ def cmd_write(db, gid, plan_path, dry, replace=False, sec=None):
     if not any((new.get('aims') or {}).values()):
         print('warning: aims are empty; the skill should fill main, sub, personal, prob1, prob2', file=sys.stderr)
     show_lesson('New plan', new)
+    check_pages(db, g, k, exs)
     if total + 7 > 82 or total + 5 < 70:
         print(f"warning: exercises add up to {total} min; with the 5-7 min warm-up the lesson is {total + 5}-{total + 7} of 80", file=sys.stderr)
     if dry:
