@@ -60,7 +60,12 @@ ask Java for pages for the rest, most urgent first.
 5. Sort the pages into **coursebook (CB)** and **teacher's book (TB)**, and match every CB exercise to its
    TB notes. If a TB page or a CB page is missing for a section, say so plainly. Plan that section from
    what you have, and mark it in the plan's `self` as "TB page missing".
-6. The CB page number of a section is often not visible in a cropped image. Use the visible page number
+6. **Check the pages follow on.** A lesson starts on the page after the previous lesson's last page, and
+   Part 2 starts after Part 1 ends (e.g. Unit 7 Part 2 = p.48–49, so Unit 8 Part 1 = p.50–51). If the pages
+   Java sent don't fit, stop and ask before building: in Oct 2026 a Part 2 (p.52–53) was planned and taught as
+   Part 1. The `write` preview prints `warning: PAGES: …` when the pages clash with the lesson before or
+   after, or with another group's copy of the same lesson. Never ignore it.
+7. The CB page number of a section is often not visible in a cropped image. Use the visible page number
    from the same spread, or the footer (for example "BEST FRIENDS FOREVER 17"). If you are not sure,
    **say which pages you assumed** in your summary.
 
