@@ -470,7 +470,10 @@ def check_pages(db, g, k, exs):
               f"Check the page numbers on the CB pages.", file=sys.stderr)
     if pos is not None and pos > 0 and order[pos - 1]['sec'] in known:
         p, where = known[order[pos - 1]['sec']]
-        if min(new) <= max(p) or min(new) > max(p) + 1:
+        # within a unit the next part starts on the very next page; a new unit may start later
+        # (review or exam pages can sit between units), but never on or before the last page used
+        same_unit = order[pos - 1]['u'] == s['u']
+        if min(new) <= max(p) or (same_unit and min(new) > max(p) + 1):
             print(f"warning: PAGES: the lesson before ({sec_label(order[pos - 1])}) is {pg(p)} in {where}, "
                   f"so {sec_label(s)} should start on p.{max(p) + 1}, but this plan starts on p.{min(new)}.", file=sys.stderr)
     if pos is not None and pos + 1 < len(order) and order[pos + 1]['sec'] in known:
