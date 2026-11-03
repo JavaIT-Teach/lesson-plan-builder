@@ -227,10 +227,12 @@ Blocks. Use the one that matches what's printed:
 | dialogue | `{"type": "dialogue", "lines": [["Amy", "What do you enjoy doing?"], ["Ben", "I love playing football."]]}` |
 | picture the task depends on | `{"type": "image", "src": "img:beginner/p16-ex1.png", "alt": "Pictures A–F"}` |
 | answer key to reveal at the end | `{"type": "answers", "items": ["1 b", "2 c", "3 a"]}` |
-| more than fits one board panel | `{"type": "break"}` starts a continuation panel ("continued") for the same exercise |
+| more than fits one column | `{"type": "break"}` starts a new column on the same slide (one exercise is always one slide) |
 
-**Size.** A panel holds about half a CB page. The board shrinks text to fit, but not below about 60%, so split long
-reading texts or long lists with `break`: roughly 150 words of text, or 8 list items, per panel.
+**Size.** One exercise is one full-screen slide; Java wants it that way, never split over two. The board shrinks
+text to fit, but not below about 50%, so put a `break` between a long reading text and its questions (or halfway
+through a very long text) to set them side by side in columns: roughly 150 words of text, or 8 list items, per column,
+at most 3 columns.
 
 **Pictures.** Book pictures are often made for one task (match the photos, find the differences), so never
 replace them with web images. Java snips each picture a task needs (Windows snip tool) and sends it as its own
@@ -255,6 +257,11 @@ A board that only copies the page is no better than the book. Java wants the boa
 exercise becomes a short run of student panels that follows the **teacher's book procedure**, plus touch tasks
 students do at the interactive board. Write them in the row's `world.steps`, in teaching order. The book copy is
 one of the steps (`{"type": "book"}`).
+
+The stages of one exercise share **one slide**: a strip at the top shows them all (done, now, still to come) and
+the content swaps in place. `ask`, `choose` and `pairs` stages also show the exercise's material (its `text`,
+`dialogue`, `table`, `rule` and `image` blocks) beside the task, so students can see what they work on. So put the
+reading text in the book copy's blocks, not only in a prompt.
 
 **How to read the TB into steps.** Go through the TB notes for the exercise move by move and turn every move
 students take part in into a step, phrased **for students**, never for the teacher:

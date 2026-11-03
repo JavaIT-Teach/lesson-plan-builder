@@ -32,10 +32,22 @@ body.lite .obj > div{animation:none}
 body.lite .obj.extra{display:none}
 @keyframes bob{from{transform:translateY(-18px) rotate(calc(var(--rot) * -1))}to{transform:translateY(18px) rotate(var(--rot))}}
 
-.panel{position:absolute;width:1040px;height:640px;left:-520px;top:-320px;box-sizing:border-box;padding:56px 64px;
-  background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:28px;
-  box-shadow:0 22px 40px -22px rgba(29,43,83,.32);
+.panel{position:absolute;width:var(--pw,1040px);height:640px;left:calc(var(--pw,1040px) / -2);top:-320px;box-sizing:border-box;padding:56px 64px 72px;
+  background:rgba(255,255,255,0);border:0;border-radius:0;box-shadow:none;transition:background-color .4s,box-shadow .4s,visibility 0s .4s;
   backface-visibility:hidden;display:flex;flex-direction:column;gap:22px}
+/* the slide you are on fills the screen with no frame; the others are only their (hidden) pieces in space */
+.panel.active{background:#fff;box-shadow:0 0 70px 40px #fff;transition:background-color .4s,box-shadow .4s,visibility 0s}
+/* a slide you are not on is hidden once its pieces have drifted off (lighter for the board, and stages that
+   share one spot never cover each other) */
+.panel:not(.active){pointer-events:none;visibility:hidden}
+body.ov .panel.active{border-radius:28px;box-shadow:0 22px 40px -22px rgba(29,43,83,.32);outline:1px solid var(--line)}
+/* pieces of a slide fly in from space and come together; on leaving they drift apart */
+.pc{opacity:0;transform:translate(var(--sx,0px),var(--sy,0px)) scale(var(--ss,.8)) rotate(var(--sr,0deg));transition:opacity .28s ease-in,transform .32s ease-in}
+.panel.active .pc{opacity:1;transform:none;transition:opacity .4s ease-out calc(var(--base,0ms) + var(--sd,0ms)),transform .55s cubic-bezier(.2,.9,.25,1) calc(var(--base,0ms) + var(--sd,0ms))}
+.panel.active .pc[data-step].hide{opacity:0;transform:translateY(14px)}
+body.stagehop .pc.keep{transition:none!important}
+body.lite .pc{transform:none!important}
+@media (prefers-reduced-motion: reduce){.pc,.panel.active .pc{transition:none!important;transform:none!important}}
 .eyebrow{font:600 15px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--orange)}
 h1,h2{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.02em}
 h1{font-size:104px;line-height:.92;font-weight:800}
@@ -80,7 +92,26 @@ p{margin:0}
 .ctrls button[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
 .ctrls button:hover{border-color:var(--orange)}
 button:focus-visible{outline:3px solid var(--orange);outline-offset:2px}
-.hint{position:fixed;top:calc(14px + env(safe-area-inset-top, 0px));left:max(16px, env(safe-area-inset-left, 0px));font-size:13px;color:var(--ink-2);letter-spacing:.02em}
+.hint{position:fixed;z-index:5;top:calc(9px + env(safe-area-inset-top, 0px));left:max(12px, env(safe-area-inset-left, 0px));font-size:12px;color:var(--ink-2);letter-spacing:.02em;
+  background:rgba(255,255,255,.72);border-radius:8px;padding:3px 8px;opacity:.75}
+/* ── lesson progress: a thin line along the top. Filled = exercises done, coloured = the one you are on,
+   the dark tick = the real time now. The label says how far ahead or behind the plan you are. ── */
+.prog{position:fixed;z-index:6;left:0;right:0;top:0;height:4px;background:rgba(199,211,230,.35);pointer-events:none}
+.prog i{position:absolute;top:0;bottom:0;border-right:1px solid rgba(255,255,255,.9);box-sizing:border-box}
+.prog i.done{background:rgba(90,102,133,.38)}
+.prog i.cur{background:var(--k,var(--orange))}
+.prog i.end{border-right:2px solid rgba(29,43,83,.45);background:none}
+.prog b{position:absolute;top:-2px;width:3px;height:8px;margin-left:-1px;border-radius:2px;background:var(--ink);transition:left .6s}
+.prog b.behind{background:#D9480F}
+.pglbl{position:fixed;z-index:6;top:calc(9px + env(safe-area-inset-top, 0px));right:max(12px, env(safe-area-inset-right, 0px));
+  font:600 12px/1 var(--body);color:var(--ink-2);background:rgba(255,255,255,.72);border-radius:8px;padding:5px 8px;opacity:.75;
+  font-variant-numeric:tabular-nums;cursor:pointer;border:0}
+.pglbl em{font-style:normal;color:#12806F}
+.pglbl em.behind{color:#D9480F}
+.ctrls #next{position:relative}
+.ctrls #next .more{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;border-radius:10px;
+  background:var(--orange);color:#fff;font:700 12px/20px var(--body);text-align:center;font-variant-numeric:tabular-nums}
+.ctrls #next .more:empty{display:none}
 @media (max-width:600px){.hint{display:none}.ctrls button{padding:10px 12px}}
 
 /* ── Whiteboard: pull-up sheet, touch drawing ── */
@@ -154,7 +185,7 @@ body.wb-open .wb-tab{visibility:hidden}
 .hint b{color:var(--ink)}
 /* ── book copy: panels styled like the coursebook page the students hold ── */
 .panel.bk,.panel.opener{background:#fff}
-.panel.bk{padding:40px 52px 34px;gap:14px;font-family:var(--bf, var(--body));--fs:1}
+.panel.bk{padding:48px 56px 66px;gap:14px;font-family:var(--bf, var(--body));--fs:1}
 .bk .ptop{display:flex;align-items:center;gap:16px;min-height:44px}
 .bk .sechead{font:800 calc(24px*var(--fs))/1.1 var(--bf, var(--body));letter-spacing:.01em;color:var(--c)}
 .bk .sechead.hs-band{background:var(--c);color:#fff;padding:9px 20px 9px 18px;border-radius:6px}
@@ -204,10 +235,10 @@ body.wb-open .wb-tab{visibility:hidden}
 .bk .bigbox b{font:700 48px/1.05 var(--display)}
 /* title panel as a unit opener */
 .panel.opener{padding:0;overflow:hidden;font-family:var(--bf, var(--body))}
-.opener .band{background:var(--u);color:#fff;padding:40px 56px 34px;display:flex;flex-direction:column;gap:10px}
+.opener .band{background:var(--u);color:#fff;padding:60px 56px 34px;display:flex;flex-direction:column;gap:10px}
 .opener .band small{font:700 18px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;opacity:.85}
 .opener .band h1{color:#fff;font-family:var(--bf, var(--display));font-size:92px}
-.opener .rest{padding:28px 56px;display:flex;flex-direction:column;gap:18px;flex:1}
+.opener .rest{padding:28px 56px 72px;display:flex;flex-direction:column;gap:18px;flex:1}
 .opener .pages{font:700 26px/1.2 var(--bf, var(--body));color:var(--ink)}
 .opener .secs{display:flex;flex-wrap:wrap;gap:10px}
 .opener .secs span{padding:10px 16px;border-radius:8px;background:var(--k);color:#fff;font:700 19px/1 var(--bf, var(--body))}
@@ -215,7 +246,14 @@ body.wb-open .wb-tab{visibility:hidden}
 .bk .steplbl{padding:7px 14px;border-radius:999px;background:var(--ink);color:#fff;font:700 15px/1 var(--body);letter-spacing:.06em;text-transform:uppercase}
 .bk ol.asks{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:calc(18px*var(--fs))}
 .bk ol.asks li{display:flex;flex-direction:column;gap:6px;font:700 calc(36px*var(--fs))/1.25 var(--bf, var(--body));color:var(--ink);transition:opacity .35s,transform .35s}
-.bk ol.asks li.hide{opacity:0;transform:translateY(10px)}
+.bk ol.asks li.hide{position:relative;opacity:1;transform:none}
+.bk ol.asks li.hide > *{visibility:hidden}
+.bk ol.asks li.hide::after{content:"";position:absolute;left:0;top:calc(50% - .18em);width:min(55%,12em);height:.36em;border-radius:1em;background:var(--tint)}
+/* stages of one exercise, shown on the same slide */
+.bk .stages{display:flex;gap:6px;flex-wrap:wrap}
+.bk .stages span{padding:6px 12px;border-radius:999px;border:1.5px solid #C7D3E6;color:var(--ink-2);font:700 13px/1 var(--body);letter-spacing:.05em;text-transform:uppercase}
+.bk .stages span.past{opacity:.55}
+.bk .stages span.on{background:var(--ink);border-color:var(--ink);color:#fff}
 .bk ol.asks li em{font-style:normal;font-weight:600;font-size:.8em;color:var(--c)}
 .bk ol.asks li em.hide{opacity:0}
 .bk .ia{touch-action:none}
@@ -275,7 +313,9 @@ body.wb-open .wb-tab{visibility:hidden}
 <!-- A lesson can also travel inside this file: put {"level": "beginner", "lesson": {…same shape as a builder lesson…}}
      in this script tag and the world shows it with no builder (the lesson-world skill publishes lessons this way). -->
 <script type="application/json" id="lesson-data"></script>
+<div class="prog" id="prog" aria-hidden="true"></div>
 <div class="hint"><b id="lessonLabel">Lesson world</b> · <span id="liveTag">live from the builder</span></div>
+<button class="pglbl" id="pglbl" title="Lesson progress. Tap to restart the clock from now." hidden></button>
 <!-- Panels are generated from the lesson (builder data or the lesson-data tag); nothing to edit here. -->
 <div id="fit"><div id="stage"><div id="world"></div></div></div>
 
@@ -310,7 +350,7 @@ body.wb-open .wb-tab{visibility:hidden}
     <button id="lite" aria-pressed="false" title="Fewer objects, no floating motion">Lite</button>
     <button id="prev" aria-label="Previous">←</button>
     <button id="ov">Overview</button>
-    <button id="next" aria-label="Next">→</button>
+    <button id="next" aria-label="Next">→<span class="more" id="more"></span></button>
   </div>
 </div>
 
@@ -371,14 +411,21 @@ function apply(c){world.style.transform=`translateZ(${-c.d}px) rotateZ(${c.roll}
 let fitScale=1;const slideView={x:0,y:0,z:1};
 function setFit(){fit.style.transform=`translate(${slideView.x}px,${slideView.y}px) scale(${fitScale*slideView.z})`;}
 function setSlideView(x,y,z){slideView.x=x;slideView.y=y;slideView.z=z;setFit();}
-function resize(){fitScale=Math.min(innerWidth/1140,innerHeight/740);setFit();}
+// a slide takes the screen's shape (640 high, as wide as the screen allows), so it fills the board edge to edge
+let PW=1040;
+function resize(){PW=Math.round(Math.min(1300,Math.max(820,640*innerWidth/Math.max(1,innerHeight))));
+  document.documentElement.style.setProperty("--pw",PW+"px");
+  fitScale=Math.min(innerWidth/PW,innerHeight/640);setFit();
+  if(typeof layoutAll==="function"&&panels.length)layoutAll();}
 addEventListener("resize",resize);resize();apply(cam);
 const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const distTo=to=>Math.hypot(to.x-cam.x,to.y-cam.y,to.z-cam.z);
+const durFor=to=>reduce?1:750+Math.min(distTo(to),3000)*.15;
 function fly(to){
   cancelAnimationFrame(anim);
-  const from={...cam},dist=Math.hypot(to.x-from.x,to.y-from.y,to.z-from.z);
-  const dur=reduce?1:1500+Math.min(dist,3000)*.35;
-  const pull=reduce?0:Math.min(900+dist*.55,2600);
+  const from={...cam},dist=distTo(to);
+  const dur=durFor(to);
+  const pull=reduce?0:Math.min(600+dist*.4,2000);
   const bank=Math.sign((to.x-from.x)||1)*-5;
   const t0=performance.now();let frames=0;
   document.body.classList.add("flying");
@@ -395,18 +442,26 @@ let lite=false,liteTouched=false;const liteBtn=document.getElementById("lite");
 function setLite(on){lite=on;document.body.classList.toggle("lite",on);liteBtn.setAttribute("aria-pressed",on);}
 liteBtn.onclick=()=>{liteTouched=true;setLite(!lite);};
 function stepsOf(i){return panels[i]?[...panels[i].querySelectorAll("[data-step]")]:[];}
+// The stages of one exercise share one slide: moving between them swaps the content in place (no flight).
+// The next exercise is a quick flight; its pieces come together as the camera arrives.
 function go(i,showAll){
   if(!panels.length)return;
-  cur=(i+panels.length)%panels.length;overview=false;
+  const was=cur,wasOv=overview;
+  cur=(i+panels.length)%panels.length;overview=false;document.body.classList.remove("ov");
   stepsOf(cur).forEach(el=>el.classList.toggle("hide",!showAll));
+  const hop=!wasOv&&was!==cur&&!!panels[was]&&gid(panels[was])===gid(panels[cur]);
+  document.body.classList.toggle("stagehop",hop);
+  panels[cur].style.setProperty("--base",(hop?40:Math.round(durFor(P[cur])*.4))+"ms");
   panels.forEach((p,j)=>p.classList.toggle("active",j===cur));
-  markDots();
-  fly(P[cur]);
+  markDots();updProg();
+  if(hop){cancelAnimationFrame(anim);document.body.classList.remove("flying");cam={...P[cur]};apply(cam);}
+  else fly(P[cur]);
 }
-function next(){if(overview)return go(cur);const h=stepsOf(cur).find(e=>e.classList.contains("hide"));h?h.classList.remove("hide"):go(cur+1);}
-function prev(){go(overview?cur:cur-1,true);}
+function next(){startClock();if(overview)return go(cur);const h=stepsOf(cur).find(e=>e.classList.contains("hide"));if(h){h.classList.remove("hide");markMore();}else go(cur+1);}
+function prev(){startClock();go(overview?cur:cur-1,true);}
 function showOverview(){
-  overview=true;panels.forEach(p=>p.classList.add("active"));
+  overview=true;document.body.classList.add("ov");document.body.classList.remove("stagehop");
+  panels.forEach((p,i)=>{p.style.setProperty("--base","150ms");p.classList.toggle("active",!SI[i]);});
   const cx=P.reduce((a,p)=>a+p.x,0)/P.length,cy=P.reduce((a,p)=>a+p.y,0)/P.length,cz=P.reduce((a,p)=>a+p.z,0)/P.length;
   const span=Math.max(...P.map(p=>p.x))-Math.min(...P.map(p=>p.x));
   fly({x:cx,y:cy,z:cz,rx:-8,ry:0,d:Math.max(4200,span*.85+1200),roll:0});
@@ -416,15 +471,22 @@ const dotsEl=document.getElementById("dots");let dots=[];
 const gid=p=>(p&&p.dataset.id||"").split(/[#.]/)[0];
 function makeDots(){const groups=[...new Set(panels.map(gid))];
   dotsEl.innerHTML=groups.map((g,i)=>`<button aria-label="Exercise ${i+1}" data-g="${esc(g)}"></button>`).join("")+`<span class="stepct"></span>`;
-  dots=[...dotsEl.querySelectorAll("button")];dots.forEach(d=>d.onclick=()=>go(panels.findIndex(p=>gid(p)===d.dataset.g),true));markDots();}
+  dots=[...dotsEl.querySelectorAll("button")];dots.forEach(d=>d.onclick=()=>{startClock();go(panels.findIndex(p=>gid(p)===d.dataset.g),true);});markDots();}
 function markDots(){const g=gid(panels[cur]),same=panels.filter(p=>gid(p)===g);
   dots.forEach(d=>d.classList.toggle("on",d.dataset.g===g));
-  const ct=dotsEl.querySelector(".stepct");if(ct)ct.textContent=same.length>1?`${same.indexOf(panels[cur])+1}/${same.length}`:"";}
+  const ct=dotsEl.querySelector(".stepct");if(ct)ct.textContent=same.length>1?`${same.indexOf(panels[cur])+1}/${same.length}`:"";markMore();}
+// the badge on → counts the taps left in this exercise (hidden lines, answers, later stages), so a slide that
+// still has more to show never looks finished
+const moreEl=document.getElementById("more");
+function markMore(){if(!moreEl)return;const p=panels[cur];if(!p||overview){moreEl.textContent="";return;}
+  const g=gid(p);let n=stepsOf(cur).filter(e=>e.classList.contains("hide")).length;
+  for(let j=cur+1;j<panels.length&&gid(panels[j])===g;j++)n+=1+stepsOf(j).length;
+  moreEl.textContent=n?String(n):"";document.getElementById("next").setAttribute("aria-label",n?`Next (${n} more on this exercise)`:"Next");}
 // touch: swipe to travel (camera follows the finger), tap = next step, pinch-in / swipe-up = overview
 const pts=new Map();let g=null;
 const pinchDist=()=>{const [a,b]=[...pts.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
 addEventListener("pointerdown",e=>{
-  if(document.body.classList.contains("wb-open")||e.target.closest(".hud,.wb,.wb-tab,.ia"))return;
+  if(document.body.classList.contains("wb-open")||e.target.closest(".hud,.wb,.wb-tab,.ia,.pglbl"))return;
   pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(pts.size===1)g={x0:e.clientX,y0:e.clientY,t0:performance.now(),dx:0,dy:0,moved:false,target:e.target};
   else if(pts.size===2)g={pinch:pinchDist(),done:false};
@@ -447,10 +509,10 @@ function endPointer(e){
   document.body.classList.remove("flying");
   if(G.pinch!==undefined)return;
   if(!G.moved){const p=G.target.closest&&G.target.closest(".panel");
-    if(overview){if(p)go(panels.indexOf(p),true);}else next();return;}
+    if(overview){if(p)go(panels.findIndex(x=>gid(x)===gid(p)),true);}else next();return;}
   if(overview)return;
   const v=G.dx/(performance.now()-G.t0);
-  if(Math.abs(G.dx)>Math.abs(G.dy)&&(Math.abs(G.dx)>90||Math.abs(v)>.45))G.dx<0?go(cur+1):go(cur-1,true);
+  if(Math.abs(G.dx)>Math.abs(G.dy)&&(Math.abs(G.dx)>90||Math.abs(v)>.45)){startClock();G.dx<0?go(cur+1):go(cur-1,true);}
   else if(G.dy<-120&&Math.abs(G.dy)>Math.abs(G.dx))showOverview();
   else fly(P[cur]);
 }
@@ -524,12 +586,15 @@ function titlePanel(g,L,exs,B){
       ${secs.length?`<div class="secs">${secs.map(s=>`<span style="--k:${secColor(B,{sec:s})}">${esc(s)}</span>`).join("")}</div>`
         :`<p class="lead">${exs.length?`Today: ${exs.length} ${exs.length===1?"task":"tasks"}`:"Add exercises in the builder and they appear here."}</p>`}
     </div><div class="kindart"><img alt="" src="${IMG.globe}"></div></section>`;}
-// One exercise becomes a run of student panels that follows the teacher's book procedure.
+// One exercise is one slide. Its stages follow the teacher's book procedure and swap in place on that slide.
 // world.steps (in order): ask (lead-in / prediction questions), book (the exercise as printed: rubric + blocks),
 // drag, match, clock, choose (touch tasks students do at the board), pairs (task + model + timer).
-// With no steps, the exercise is just its book copy. A {"type":"break"} block splits a long book copy.
+// With no steps, the exercise is just its book copy. A {"type":"break"} block starts a new column on the same slide.
+// Stages without their own material (ask, choose, pairs) also show what students work on: the exercise's text,
+// dialogue, table, grammar box and pictures.
 // Teacher notes never appear: without a book copy the panel only points students to the page.
-const STEP_LABEL={ask:"Before we start",drag:"Your turn",match:"Your turn",clock:"Your turn",choose:"Quick check",pairs:"Your turn"};
+const STEP_LABEL={ask:"Before we start",drag:"Your turn",match:"Your turn",clock:"Your turn",choose:"Quick check",pairs:"Your turn",book:"In the book"};
+const MAT=["text","dialogue","table","rule","image"];
 function exPanels(e,B){
   const c=secColor(B,e),k=KC[e.kind]||KC.Other,w=e.world||{},m=mins(e);
   const n=String(e.num||"").trim(),numeric=/^\d/.test(n)&&n.length<=4;
@@ -537,35 +602,41 @@ function exPanels(e,B){
   const head=e.sec?`<div class="sechead hs-${B.head}">${esc(e.sec)}</div>`:(!numeric&&n?`<div class="sechead hs-text">${esc(n)}</div>`:"");
   const page=e.page?`<div class="pageref">p.<b>${esc(e.page)}</b></div>`:"";
   const badge=numeric?`<span class="num ns-${B.num}">${esc(n)}</span>`:"";
-  const shell=(sfx,label,rub,body,art)=>`<section class="panel bk" data-id="${esc(e.id)}${sfx}" style="--c:${c};--tint:${tint(c)};--u:${B.has?B.u:c};--bf:${esc(B.font)}">
-      <div class="ptop">${head}${label?`<div class="steplbl">${esc(label)}</div>`:""}${page}</div>
+  const shell=(sfx,top,rub,body,art)=>`<section class="panel bk" data-id="${esc(e.id)}${sfx}" style="--c:${c};--tint:${tint(c)};--u:${B.has?B.u:c};--bf:${esc(B.font)}">
+      <div class="ptop">${head}${top}${page}</div>
       <div class="rubric">${badge}<span>${rub}</span></div>
       ${body}<div class="meta">${esc(meta)}</div>${art?`<div class="kindart"><img alt="" src="${IMG[k[2]]}"></div>`:""}</section>`;
   const html=b=>b.type==="_big"?`<div class="bigbox"><span>${esc(b.l)}</span><b>${esc(b.v)}</b></div>`:block(b);
   const layout=bl=>{const main=bl.filter(b=>b.type!=="image"),side=bl.filter(b=>b.type==="image");
     return side.length?`<div class="body has-side"><div class="col">${main.map(html).join("")}</div><div class="col">${side.map(html).join("")}</div></div>`
       :`<div class="body"><div class="col">${main.map(html).join("")}</div></div>`;};
-  // the exercise as printed in the book
-  const bookPanels=sfx=>{
+  // the exercise as printed in the book, all on one slide (a break starts a new column)
+  const bookPanel=(sfx,top)=>{
     let parts=[[]];(w.blocks||[]).forEach(b=>b&&b.type==="break"?parts.push([]):parts[parts.length-1].push(b));
+    parts=parts.filter((p,i)=>p.length||!i);
     if(w.track&&e.kind!=="Listening")parts[0].unshift({type:"_big",l:"Listen",v:"Track "+w.track});
     if(e.kind==="Listening"&&e.track&&!w.track)parts[0].unshift({type:"_big",l:"Listen",v:"Track "+e.track});
-    return parts.map((bl,pi)=>shell(sfx+(pi?"."+pi:""),pi?"continued":"",gaps(w.rubric||""),layout(bl),!bl.length));};
+    const body=parts.length===1?layout(parts[0])
+      :`<div class="body" style="grid-template-columns:repeat(${parts.length},minmax(0,1fr))">${parts.map(bl=>`<div class="col">${bl.map(html).join("")}</div>`).join("")}</div>`;
+    return shell(sfx,top,gaps(w.rubric||""),body,!parts.some(p=>p.length));};
   if(!w.rubric&&!(w.steps||[]).length){ // no book copy yet: send students to the book, never show the teacher's note
     const where=[e.page&&`page ${e.page}`,numeric&&`exercise ${n}`].filter(Boolean).join(", ");
     const extra=e.kind==="Grammar"&&e.grammar?{l:"Grammar",v:e.grammar}:e.kind==="Listening"&&e.track?{l:"Listen",v:"Track "+e.track}:null;
     return [shell("","",where?`Open your books at ${esc(where)}.`:"Look at your book.",
       `<div class="body"><div class="col">${extra?html({type:"_big",...extra}):""}</div></div>`,true)];}
   const steps=(w.steps&&w.steps.length)?w.steps:[{type:"book"}];
-  let out=[],seenBook=false;
-  steps.forEach((s,si)=>{const sfx=si?"#"+si:"";
-    if(s.type==="book"){out=out.concat(bookPanels(seenBook?sfx:sfx));seenBook=true;return;}
-    const rub=gaps(s.prompt||w.rubric||"");
-    out.push(shell(sfx,s.label||STEP_LABEL[s.type]||"",rub,stepBody(s),false));});
-  return out;
+  const labels=steps.map(s=>s.label||STEP_LABEL[s.type]||"Your turn");
+  // with several stages, a strip shows all of them: done, now, still to come
+  const top=si=>steps.length>1?`<div class="stages">${labels.map((l,j)=>`<span class="${j<si?"past":j===si?"on":""}">${j<si?"✓ ":""}${esc(l)}</span>`).join("")}</div>`
+    :(steps[0].label?`<div class="steplbl">${esc(steps[0].label)}</div>`:"");
+  const mat=(w.blocks||[]).filter(b=>b&&MAT.includes(b.type));
+  return steps.map((s,si)=>{const sfx=si?"#"+si:"";
+    if(s.type==="book")return bookPanel(sfx,top(si));
+    return shell(sfx,top(si),gaps(s.prompt||w.rubric||""),stepBody(s,["ask","choose","pairs"].includes(s.type)?mat:[]),false);});
 }
-function stepBody(s){
-  const img=s.image?`<div class="col">${block({type:"image",src:s.image,alt:s.alt||"Book picture"})}</div>`:"";
+function stepBody(s,mat){
+  const side=(s.image?[{type:"image",src:s.image,alt:s.alt||"Book picture"}]:[]).concat((mat||[]).filter(b=>!(b.type==="image"&&b.src===s.image)));
+  const img=side.length?`<div class="col">${side.map(block).join("")}</div>`:"";
   const wrap=inner=>`<div class="body${img?" has-side":""}"><div class="col">${inner}</div>${img}</div>`;
   switch(s.type){
     case "ask":return wrap(`<ol class="asks">${(s.questions||[]).map(q=>{const [t,a]=Array.isArray(q)?q:[q,null];
@@ -682,7 +753,20 @@ function loadImages(){world.querySelectorAll("figure[data-img]").forEach(f=>{con
 // shrink the text until the exercise fits its panel, like zooming out on the page
 function fitPanel(p){if(!p||!p.classList.contains("bk"))return;const b=p.querySelector(".body");if(!b)return;
   let fs=1;p.style.setProperty("--fs",fs);
-  while(fs>.58&&(b.scrollHeight>b.clientHeight+2||p.scrollHeight>p.clientHeight+2)){fs-=.06;p.style.setProperty("--fs",fs.toFixed(2));}}
+  while(fs>.52&&(b.scrollHeight>b.clientHeight+2||p.scrollHeight>p.clientHeight+2)){fs-=.04;p.style.setProperty("--fs",fs.toFixed(2));}
+  aimPieces(p);}
+// pieces: the parts of a slide that fly together. Tag them right after they are made (before any layout),
+// so pieces of slides you are not on start hidden instead of fading out.
+const PIECES=".ptop,.rubric,.col>*,.meta,.kindart,.band,.rest>*";
+function tagPieces(p){p.querySelectorAll(PIECES).forEach(x=>x.classList.add("pc"));const t=p.querySelector(".ptop");if(t)t.classList.add("keep");}
+// each piece starts further out from the middle of the slide than where it lands, so they converge
+function aimPieces(p){const W=p.offsetWidth,H=p.offsetHeight;if(!W)return;
+  p.querySelectorAll(".pc").forEach((x,i)=>{let l=0,t=0,el=x;while(el&&el!==p){l+=el.offsetLeft;t+=el.offsetTop;el=el.offsetParent;}
+    const dx=l+x.offsetWidth/2-W/2,dy=t+x.offsetHeight/2-H/2,r=Math.random;
+    x.style.setProperty("--sx",(dx*.7+(r()-.5)*180).toFixed(0)+"px");x.style.setProperty("--sy",(dy*.7+(r()-.5)*140+40).toFixed(0)+"px");
+    x.style.setProperty("--ss",(.72+r()*.12).toFixed(2));x.style.setProperty("--sr",((r()-.5)*7).toFixed(1)+"deg");
+    x.style.setProperty("--sd",Math.min(i*40,360)+"ms");});}
+function layoutAll(){panels.forEach(p=>p.classList.contains("bk")?fitPanel(p):aimPieces(p));}
 
 function render(first){
   const db=EMBED?null:readDb(),F=findLesson(db);
@@ -695,24 +779,59 @@ function render(first){
   if(key===shownKey&&ids===sig){ // same panels: only refresh their content, the camera stays put
     panels.forEach((p,i)=>{const t=document.createElement("template");t.innerHTML=html[i];const n=t.content.firstElementChild;
       if(p.innerHTML!==n.innerHTML){const shown=new Set([...p.querySelectorAll("[data-step]")].map((x,j)=>x.classList.contains("hide")?-1:j));
-        p.innerHTML=n.innerHTML;p.querySelectorAll("[data-step]").forEach((x,j)=>x.classList.toggle("hide",!shown.has(j)));}
-      p.className=n.className;for(const v of ["--c","--tint","--u","--bf","--k"])p.style.setProperty(v,n.style.getPropertyValue(v));});
-    wireTasks(world);loadImages();panels.forEach(fitPanel);return;}
-  const lessonChanged=key!==shownKey;shownKey=key;sig=ids;
+        p.innerHTML=n.innerHTML;tagPieces(p);p.querySelectorAll("[data-step]").forEach((x,j)=>x.classList.toggle("hide",!shown.has(j)));}
+      p.className=n.className+(p.classList.contains("active")?" active":"");for(const v of ["--c","--tint","--u","--bf","--k"])p.style.setProperty(v,n.style.getPropertyValue(v));});
+    curF=F;wireTasks(world);loadImages();layoutAll();markMore();updProg();return;}
+  const lessonChanged=key!==shownKey;shownKey=key;sig=ids;curF=F;
   world.innerHTML=html.join("");
-  panels=[...world.querySelectorAll(".panel")];
-  // an exercise's steps stack in a short column (small hops); the next exercise is the big flight
-  const gi=[],si=[];panels.forEach((el,i)=>{const g=gid(el),pg=i?gid(panels[i-1]):null;gi.push(i?gi[i-1]+(g!==pg):0);si.push(i&&g===pg?si[i-1]+1:0);});
-  P=panels.map((el,i)=>{const b=place(gi[i]),p={...b,x:b.x+si[i]*90,y:b.y+si[i]*780,z:b.z-si[i]*120};el.style.transform=`translate3d(${p.x}px,${p.y}px,${p.z}px) rotateY(${p.ry}deg) rotateX(${p.rx}deg)`;return {...p,d:0,roll:0};});
+  panels=[...world.querySelectorAll(".panel")];panels.forEach(tagPieces);
+  // an exercise's stages share one spot in space (one slide); the next exercise is the flight
+  const gi=[],si=[];panels.forEach((el,i)=>{const g=gid(el),pg=i?gid(panels[i-1]):null;gi.push(i?gi[i-1]+(g!==pg):0);si.push(i&&g===pg?si[i-1]+1:0);});SI=si;
+  P=panels.map((el,i)=>{const p=place(gi[i]);el.style.transform=`translate3d(${p.x}px,${p.y}px,${p.z}px) rotateY(${p.ry}deg) rotateX(${p.rx}deg)`;return {...p,d:0,roll:0};});
   world.insertAdjacentHTML("afterbegin",scatter());
   panels.forEach((p,i)=>{if(i!==cur||lessonChanged)p.querySelectorAll("[data-step]").forEach(x=>x.classList.add("hide"));});
   let idx=lessonChanged?0:Math.max(0,panels.findIndex(p=>p.dataset.id===keepId));
-  cur=Math.min(idx,panels.length-1);overview=false;makeDots();
-  panels.forEach((p,j)=>p.classList.toggle("active",j===cur));
-  wireTasks(world);loadImages();(document.fonts?document.fonts.ready:Promise.resolve()).then(()=>panels.forEach(fitPanel));panels.forEach(fitPanel);
-  if(first||lessonChanged){cam={...P[cur],d:3400,ry:P[cur].ry-18,rx:P[cur].rx-6};apply(cam);setTimeout(()=>fly(P[cur]),300);}
+  cur=Math.min(idx,panels.length-1);overview=false;document.body.classList.remove("ov","stagehop");makeDots();
+  const arrive=first||lessonChanged;
+  panels.forEach((p,j)=>p.classList.toggle("active",j===cur&&!arrive));
+  wireTasks(world);loadImages();(document.fonts?document.fonts.ready:Promise.resolve()).then(layoutAll);layoutAll();updProg();
+  if(arrive){cam={...P[cur],d:3400,ry:P[cur].ry-18,rx:P[cur].rx-6};apply(cam);
+    setTimeout(()=>{const p=panels[cur];if(!p)return;p.style.setProperty("--base",Math.round(durFor(P[cur])*.4)+"ms");p.classList.add("active");fly(P[cur]);},300);}
   else{cancelAnimationFrame(anim);cam={...P[cur]};apply(cam);}
 }
+// ── lesson progress (top line + label). The plan's minutes are laid out from the start: warm-up, then each exercise.
+// The clock is the real lesson time: the builder's "lesson started" time, else the class's start time when the
+// class is on now, else it starts the first time you move in the world (tap the label to restart it).
+let curF=null,SI=[],sessionStart=null,manual=false;const WARM=6;
+const progEl=document.getElementById("prog"),pgLbl=document.getElementById("pglbl");
+const tmin=t=>{const m=/^(\d{1,2}):(\d{2})/.exec(t||"");return m?+m[1]*60+ +m[2]:null;};
+const fmtM=n=>`${Math.floor(n/60)}:${String(Math.round(n%60)).padStart(2,"0")}`;
+function startClock(){if(!sessionStart&&clockFrom().src!=="run"&&clockFrom().src!=="class"){sessionStart=Date.now();updProg();}}
+function lessonLen(){const g=curF&&curF.g,a=tmin(g&&g.start),b=tmin(g&&g.end);return a!=null&&b!=null&&b>a?b-a:80;}
+function clockFrom(){const g=curF&&curF.g,L=curF&&curF.L,now=Date.now(),R=L&&L.run;
+  if(manual)return {t:sessionStart,src:"world"};
+  if(R&&R.lessonStart&&now-R.lessonStart>=0&&now-R.lessonStart<4*3600e3)return {t:R.lessonStart,src:"run"};
+  const a=tmin(g&&g.start);if(a!=null){const d=new Date();d.setHours(Math.floor(a/60),a%60,0,0);const t=d.getTime();
+    if(now>=t-10*60000&&now<=t+(lessonLen()+10)*60000)return {t,src:"class"};}
+  return sessionStart?{t:sessionStart,src:"world"}:{t:null,src:""};}
+function updProg(){if(!progEl)return;
+  if(!curF||!panels.length){progEl.innerHTML="";pgLbl.hidden=true;return;}
+  const exs=curF.L.exercises.filter(e=>!e.skipped),len=lessonLen();
+  const segs=[{id:"title",a:0,b:WARM,c:"#FFB020"}];let t=WARM;
+  exs.forEach(e=>{const m=Math.max(mins(e),1);segs.push({id:e.id,a:t,b:t+m,c:secColor(look(curF.L),e)});t+=m;});
+  const span=Math.max(len,t),pc=v=>(v/span*100).toFixed(2)+"%";
+  const g=gid(panels[cur]),ci=Math.max(0,segs.findIndex(s=>s.id===g)),S=segs[ci];
+  const ck=clockFrom(),el=ck.t?Math.max(0,(Date.now()-ck.t)/60000):null;
+  let st="";if(el!=null){const late=el-S.b,early=S.a-el;
+    st=late>=1?`<em class="behind">${Math.round(late)} min behind</em>`:early>=2?`<em>${Math.round(early)} min ahead</em>`:`<em>on time</em>`;}
+  progEl.innerHTML=segs.map((s,i)=>`<i class="${i<ci?"done":i===ci?"cur":""}" style="left:${pc(s.a)};width:${pc(s.b-s.a)};--k:${s.c}"></i>`).join("")
+    +(t!==len?`<i class="end" style="left:0;width:${pc(len)}"></i>`:"")
+    +(el!=null?`<b class="${st.includes("behind")?"behind":""}" style="left:${pc(Math.min(el,span))}"></b>`:"");
+  const where=ci?`Ex ${ci} of ${exs.length}`:"Start";
+  pgLbl.hidden=false;
+  pgLbl.innerHTML=`${where} · plan ${fmtM(S.a)}–${fmtM(S.b)}${el!=null?` · now ${fmtM(el)} · ${st}`:` · of ${fmtM(len)}`}`;}
+pgLbl.onclick=()=>{sessionStart=Date.now();manual=true;updProg();};
+setInterval(updProg,15000);
 render(true);
 let rt=0;if(!EMBED)addEventListener("storage",e=>{if(e.key===DBKEY){clearTimeout(rt);rt=setTimeout(()=>render(false),250);}});
 if(!EMBED)try{new BroadcastChannel("lpb-world").onmessage=({data:m})=>{if(!m)return;
