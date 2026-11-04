@@ -43,6 +43,8 @@ Open the live page on a laptop. Then work through these steps:
 
 **Progress line:** a thin line along the top of the world. Grey = exercises done, coloured = the one you are on, the dark tick = the real time now. The label at the top right says where you are, the planned minutes for this exercise, the time so far and whether you are ahead, on time or behind. The clock uses the lesson start from Lesson starts in the builder, else the class's start time while the class is on, else it starts when you first move in the world. Tap the label to restart the clock from now.
 
+**Long exercises:** when an exercise has a lot on it, the whole slide shrinks together (text, buttons, gaps, pictures, timers) until it fits, so nothing is cut off at the bottom. The lesson-planner skill runs a board check (`.claude/skills/lesson-planner/scripts/board_check.js`) after building a lesson. It flags any slide that would get too small to read, so the plan can be split before class.
+
 **Book copy on the board:** plans made with Claude (the `lesson-planner` skill) include a copy of each coursebook exercise: the book's instruction, word boxes, items with gaps, tables, grammar boxes, texts, dialogues and pictures, in the book's own colours, section headings, exercise numbers and page numbers. Students can match the board to the page in their books. Answers stay hidden: tap to fill in the gaps one at a time. Book pictures are the snips you send Claude; they are saved in your private `lesson-plan-data` repo (folder `img/`) and loaded with your GitHub sync key, so turn on GitHub sync on the computer that runs the board. After a picture has loaded once, it also shows without internet.
 
 ## Your data

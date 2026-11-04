@@ -234,6 +234,14 @@ text to fit, but not below about 50%, so put a `break` between a long reading te
 through a very long text) to set them side by side in columns: roughly 150 words of text, or 8 list items, per column,
 at most 3 columns.
 
+**Board check (always, after `write` or `set-world`).** Run
+`node scripts/board_check.js GROUP` (add `--data DIR` if the data clone is elsewhere). It opens every slide of the
+group's planned lessons at board and laptop sizes. `CUT` means content runs off the slide; `SMALL` means the board had
+to shrink it below 60%, too small to read from the back. Fix every flagged slide before reporting: put a `break` between
+a text and its questions so they sit side by side, drop a picture the stage doesn't need, or move part of a long
+`choose` / `ask` into a second stage. Run it again until it says 0 slides to fix, and mention the result in the report.
+If Playwright is missing, say so in the report instead of skipping silently.
+
 **Pictures.** Book pictures are often made for one task (match the photos, find the differences), so never
 replace them with web images. Java snips each picture a task needs (Windows snip tool) and sends it as its own
 image. For each one:

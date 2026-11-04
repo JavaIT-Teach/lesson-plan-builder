@@ -8,7 +8,7 @@
 
 // ---------- tiny view helpers ----------
 // bump when world.html changes, so the Lesson world button never opens a cached old copy
-const WORLD_V = '4';
+const WORLD_V = '5';
 const esc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const IF = (c, html) => (c ? html() : '');
 const FOR = (list, fn) => (list || []).map(fn).join('');
