@@ -545,13 +545,14 @@ function markMore(){if(!moreEl)return;const p=panels[cur];if(!p||overview){moreE
   const g=gid(p);let n=stepsOf(cur).filter(e=>e.classList.contains("hide")).length;
   for(let j=cur+1;j<panels.length&&gid(panels[j])===g;j++)n+=1+stepsOf(j).length;
   moreEl.textContent=n?String(n):"";document.getElementById("next").setAttribute("aria-label",n?`Next (${n} more on this exercise)`:"Next");}
-// touch: swipe to travel (camera follows the finger), tap = next step, swipe-up = overview, pinch = zoom the content
+// touch: tap = next step, pinch = zoom the content, drag = scroll a zoomed slide. No swipe travel: buttons do that.
 const pts=new Map();let g=null;
 const pinchDist=()=>{const [a,b]=[...pts.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
 addEventListener("pointerdown",e=>{
   if(document.body.classList.contains("wb-open")||e.target.closest(".hud,.wb,.wb-tab,.ia,.pglbl,.side"))return;
   pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pts.size===1){const sc=e.target.closest&&e.target.closest(".panel.active .body.scroll");
+  // a zoomed slide that is taller than the screen scrolls from a drag anywhere on the screen
+  if(pts.size===1){const a=!overview&&panels[cur],sc=a&&a.querySelector(".body.scroll");
     g={x0:e.clientX,y0:e.clientY,t0:performance.now(),dx:0,dy:0,moved:false,target:e.target,sc,st0:sc?sc.scrollTop:0};}
   else if(pts.size===2){const zp=curBk();if(zp){cancelAnimationFrame(zAnim);fly(P[cur]);}
     g={pinch:pinchDist(),done:false,zp,z0:zp?sizeOf(zp):1};}
@@ -566,25 +567,16 @@ addEventListener("pointermove",e=>{
     else if(r>1.4&&overview){g.done=true;go(cur);}
     return;}
   g.dx=e.clientX-g.x0;g.dy=e.clientY-g.y0;
-  // a zoomed slide that is taller than the screen: drag up / down scrolls it
-  if(g.sc&&(g.scrolling||(Math.abs(g.dy)>14&&Math.abs(g.dy)>Math.abs(g.dx)))){g.scrolling=true;g.moved=true;g.sc.scrollTop=g.st0-g.dy;return;}
-  if(!g.moved&&Math.hypot(g.dx,g.dy)>14){g.moved=true;cancelAnimationFrame(anim);document.body.classList.add("flying");}
-  if(g.moved&&!overview&&Math.abs(g.dx)>Math.abs(g.dy)){
-    const b=P[cur];cam={...b,ry:b.ry+g.dx*.012,d:Math.min(Math.abs(g.dx)*.6,700),roll:0};apply(cam);}
+  // Swiping does not travel (Java's choice: the side buttons and ← → do that). A drag only scrolls a tall slide.
+  if(!g.moved&&Math.hypot(g.dx,g.dy)>14)g.moved=true;
+  if(g.moved&&g.sc){g.sc.scrollTop=g.st0-g.dy;}
 });
 function endPointer(e){
   if(!pts.has(e.pointerId))return;pts.delete(e.pointerId);
   if(!g||pts.size>0)return;const G=g;g=null;
-  document.body.classList.remove("flying");
   if(G.pinch!==undefined){if(G.zp){sameEx(G.zp).forEach(x=>fitPanel(x));saveZoom();updZoomUI();zBadge(Math.round(sizeOf(G.zp)*100)+"%");}return;}
-  if(G.scrolling)return;
   if(!G.moved){const p=G.target.closest&&G.target.closest(".panel");
-    if(overview){if(p)go(panels.findIndex(x=>gid(x)===gid(p)),true);}else next();return;}
-  if(overview)return;
-  const v=G.dx/(performance.now()-G.t0);
-  if(Math.abs(G.dx)>Math.abs(G.dy)&&(Math.abs(G.dx)>90||Math.abs(v)>.45)){startClock();G.dx<0?go(cur+1):go(cur-1,true);}
-  else if(G.dy<-120&&Math.abs(G.dy)>Math.abs(G.dx))showOverview();
-  else fly(P[cur]);
+    if(overview){if(p)go(panels.findIndex(x=>gid(x)===gid(p)),true);}else next();}
 }
 addEventListener("pointerup",endPointer);addEventListener("pointercancel",endPointer);
 document.getElementById("next").onclick=next;
