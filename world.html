@@ -47,6 +47,7 @@ body.ov .panel.active{border-radius:28px;box-shadow:0 22px 40px -22px rgba(29,43
 .panel.active .pc[data-step].hide{opacity:0;transform:translateY(14px)}
 body.stagehop .pc.keep{transition:none!important}
 body.lite .pc{transform:none!important}
+.panel.measuring .pc{transform:none!important;transition:none!important}
 @media (prefers-reduced-motion: reduce){.pc,.panel.active .pc{transition:none!important;transform:none!important}}
 .eyebrow{font:600 15px/1 var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--orange)}
 h1,h2{font-family:var(--display);margin:0;text-wrap:balance;letter-spacing:-.02em}
@@ -330,6 +331,36 @@ body.wb-open .wb-tab{visibility:hidden}
 .bk figure img{max-height:calc(430px*var(--fs))}
 .bk .bigbox{padding:calc(18px*var(--fs)) calc(26px*var(--fs))}
 .bk .bigbox b{font-size:calc(48px*var(--fs))}
+/* ── content zoom: the teacher picks the size of an exercise (A− / A+ / pinch). The text gets bigger or smaller and
+   everything re-flows inside the slide's margins. If it no longer fits, the slide scrolls (drag up / down). ── */
+.bk .body.scroll{overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain}
+.bk .body.scroll::-webkit-scrollbar{display:none}
+.bk .morebelow{position:absolute;right:56px;bottom:104px;transform:translateY(8px);opacity:0;pointer-events:none;
+  padding:8px 16px;border-radius:999px;background:var(--ink);color:#fff;font:700 15px/1 var(--body);letter-spacing:.04em;
+  transition:opacity .25s,transform .35s cubic-bezier(.2,.9,.25,1)}
+.bk.can-scroll .morebelow{opacity:.85;transform:none}
+.zoomctl{display:flex;align-items:center;background:#fff;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.zoomctl button{font:700 18px/1 var(--body);color:var(--ink);background:none;border:0;padding:16px 18px;min-width:60px;min-height:52px;cursor:pointer}
+.zoomctl button+button{border-left:1px solid var(--line)}
+.zoomctl #zfit{font-size:15px;min-width:76px;font-variant-numeric:tabular-nums}
+.zoomctl #zfit[aria-pressed="false"]{color:var(--orange)}
+.zoomctl button:disabled{opacity:.35;cursor:default}
+.zbadge{position:fixed;z-index:8;left:50%;bottom:120px;transform:translateX(-50%) scale(.8);opacity:0;pointer-events:none;
+  padding:14px 26px;border-radius:999px;background:rgba(20,33,61,.88);color:#fff;font:800 34px/1 var(--body);font-variant-numeric:tabular-nums;
+  transition:opacity .3s,transform .45s cubic-bezier(.2,1.4,.3,1)}
+.zbadge.on{opacity:1;transform:translateX(-50%) scale(1)}
+body.ov .zoomctl{visibility:hidden}
+/* ── side buttons: big Back / Next targets on both edges of the board, so Java never has to swipe ── */
+.side{position:fixed;z-index:7;top:50%;transform:translateY(-50%);width:76px;height:220px;border:0;padding:0;cursor:pointer;
+  display:grid;place-items:center;background:rgba(255,255,255,.55);color:var(--ink);border:1px solid rgba(199,211,230,.9);
+  font:800 64px/1 var(--body);box-shadow:0 6px 18px rgba(20,33,61,.08);touch-action:manipulation;
+  transition:background .2s,transform .18s cubic-bezier(.2,.9,.25,1),opacity .2s}
+.side.l{left:0;border-radius:0 28px 28px 0;border-left:0}
+.side.r{right:0;border-radius:28px 0 0 28px;border-right:0}
+.side:active{background:rgba(255,255,255,.95);transform:translateY(-50%) scale(.94)}
+.side.r:active{transform:translateY(-50%) translateX(4px) scale(.94)}
+.side.l:active{transform:translateY(-50%) translateX(-4px) scale(.94)}
+body.ov .side,body.wb-open .side{opacity:0;pointer-events:none}
 </style>
 
 </head>
@@ -368,9 +399,17 @@ body.wb-open .wb-tab{visibility:hidden}
 </div>
 
 <div class="empty" id="empty" hidden><div><b>No lesson found</b>Open the lesson world from the Lesson Plan Builder, in the same browser where your lessons are saved.</div></div>
+<div class="zbadge" id="zbadge" aria-live="polite"></div>
+<button class="side l" id="sidePrev" aria-label="Back">‹</button>
+<button class="side r" id="sideNext" aria-label="Next">›</button>
 <div class="hud">
   <div class="dots" id="dots"></div>
   <div class="ctrls">
+    <div class="zoomctl" role="group" aria-label="Size of this exercise">
+      <button id="zout" aria-label="Smaller">A−</button>
+      <button id="zfit" aria-pressed="true" title="Back to automatic fit">Fit</button>
+      <button id="zin" aria-label="Bigger">A+</button>
+    </div>
     <button id="lite" aria-pressed="false" title="Fewer objects, no floating motion">Lite</button>
     <button id="prev" aria-label="Previous">←</button>
     <button id="ov">Overview</button>
@@ -477,7 +516,7 @@ function go(i,showAll){
   document.body.classList.toggle("stagehop",hop);
   panels[cur].style.setProperty("--base",(hop?40:Math.round(durFor(P[cur])*.4))+"ms");
   panels.forEach((p,j)=>p.classList.toggle("active",j===cur));
-  markDots();updProg();
+  markDots();updProg();updZoomUI();
   if(hop){cancelAnimationFrame(anim);document.body.classList.remove("flying");cam={...P[cur]};apply(cam);}
   else fly(P[cur]);
 }
@@ -506,23 +545,29 @@ function markMore(){if(!moreEl)return;const p=panels[cur];if(!p||overview){moreE
   const g=gid(p);let n=stepsOf(cur).filter(e=>e.classList.contains("hide")).length;
   for(let j=cur+1;j<panels.length&&gid(panels[j])===g;j++)n+=1+stepsOf(j).length;
   moreEl.textContent=n?String(n):"";document.getElementById("next").setAttribute("aria-label",n?`Next (${n} more on this exercise)`:"Next");}
-// touch: swipe to travel (camera follows the finger), tap = next step, pinch-in / swipe-up = overview
+// touch: swipe to travel (camera follows the finger), tap = next step, swipe-up = overview, pinch = zoom the content
 const pts=new Map();let g=null;
 const pinchDist=()=>{const [a,b]=[...pts.values()];return Math.hypot(a.x-b.x,a.y-b.y);};
 addEventListener("pointerdown",e=>{
-  if(document.body.classList.contains("wb-open")||e.target.closest(".hud,.wb,.wb-tab,.ia,.pglbl"))return;
+  if(document.body.classList.contains("wb-open")||e.target.closest(".hud,.wb,.wb-tab,.ia,.pglbl,.side"))return;
   pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pts.size===1)g={x0:e.clientX,y0:e.clientY,t0:performance.now(),dx:0,dy:0,moved:false,target:e.target};
-  else if(pts.size===2)g={pinch:pinchDist(),done:false};
+  if(pts.size===1){const sc=e.target.closest&&e.target.closest(".panel.active .body.scroll");
+    g={x0:e.clientX,y0:e.clientY,t0:performance.now(),dx:0,dy:0,moved:false,target:e.target,sc,st0:sc?sc.scrollTop:0};}
+  else if(pts.size===2){const zp=curBk();if(zp){cancelAnimationFrame(zAnim);fly(P[cur]);}
+    g={pinch:pinchDist(),done:false,zp,z0:zp?sizeOf(zp):1};}
 });
 addEventListener("pointermove",e=>{
   if(!pts.has(e.pointerId)||!g)return;
   pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(g.pinch!==undefined){
     if(g.done||pts.size<2)return;const r=pinchDist()/g.pinch;
-    if(r<.7&&!overview){g.done=true;showOverview();}else if(r>1.4&&overview){g.done=true;go(cur);}
+    // on a slide, two fingers zoom the content (it re-flows live under the fingers); in the overview, spread = fly in
+    if(g.zp){if(!g.raf)g.raf=requestAnimationFrame(()=>{g&&g.zp&&(g.raf=0,zoomLive(g.zp,g.z0*Math.pow(r,1.1)));});}
+    else if(r>1.4&&overview){g.done=true;go(cur);}
     return;}
   g.dx=e.clientX-g.x0;g.dy=e.clientY-g.y0;
+  // a zoomed slide that is taller than the screen: drag up / down scrolls it
+  if(g.sc&&(g.scrolling||(Math.abs(g.dy)>14&&Math.abs(g.dy)>Math.abs(g.dx)))){g.scrolling=true;g.moved=true;g.sc.scrollTop=g.st0-g.dy;return;}
   if(!g.moved&&Math.hypot(g.dx,g.dy)>14){g.moved=true;cancelAnimationFrame(anim);document.body.classList.add("flying");}
   if(g.moved&&!overview&&Math.abs(g.dx)>Math.abs(g.dy)){
     const b=P[cur];cam={...b,ry:b.ry+g.dx*.012,d:Math.min(Math.abs(g.dx)*.6,700),roll:0};apply(cam);}
@@ -531,7 +576,8 @@ function endPointer(e){
   if(!pts.has(e.pointerId))return;pts.delete(e.pointerId);
   if(!g||pts.size>0)return;const G=g;g=null;
   document.body.classList.remove("flying");
-  if(G.pinch!==undefined)return;
+  if(G.pinch!==undefined){if(G.zp){sameEx(G.zp).forEach(x=>fitPanel(x));saveZoom();updZoomUI();zBadge(Math.round(sizeOf(G.zp)*100)+"%");}return;}
+  if(G.scrolling)return;
   if(!G.moved){const p=G.target.closest&&G.target.closest(".panel");
     if(overview){if(p)go(panels.findIndex(x=>gid(x)===gid(p)),true);}else next();return;}
   if(overview)return;
@@ -543,12 +589,17 @@ function endPointer(e){
 addEventListener("pointerup",endPointer);addEventListener("pointercancel",endPointer);
 document.getElementById("next").onclick=next;
 document.getElementById("prev").onclick=prev;
+document.getElementById("sideNext").onclick=next;
+document.getElementById("sidePrev").onclick=prev;
 document.getElementById("ov").onclick=()=>overview?go(cur):showOverview();
 addEventListener("keydown",e=>{
   if(document.body.classList.contains("wb-open"))return;
   if(["ArrowRight","PageDown"," "].includes(e.key)){e.preventDefault();next();}
   else if(["ArrowLeft","PageUp"].includes(e.key)){e.preventDefault();prev();}
   else if(e.key==="o"||e.key==="O"||e.key==="Escape"){overview?go(cur):showOverview();}
+  else if(e.key==="+"||e.key==="="){e.preventDefault();zoomBy(ZSTEP);}
+  else if(e.key==="-"||e.key==="_"){e.preventDefault();zoomBy(1/ZSTEP);}
+  else if(e.key==="0"){const p=curBk();if(p&&zoomOf.has(gid(p)))zoomTo(p,null);}
 });
 // ═══ BUILDER LINK: panels come from the Lesson Plan Builder's saved lessons (same browser). ═══
 // The builder saves to localStorage on every change, and the "storage" event tells this window, so the world rebuilds live.
@@ -777,13 +828,74 @@ function loadImages(){world.querySelectorAll("figure[data-img]").forEach(f=>{con
 // shrink the text until the exercise fits its panel, like zooming out on the page
 // Last resort: if the smallest text size still doesn't fit, zoom the whole exercise out until it does.
 // Nothing is ever cut off; the slide's data-fit says how small it got (the board check reports < 0.6).
-function fitPanel(p){if(!p||!p.classList.contains("bk"))return;const b=p.querySelector(".body");if(!b)return;
-  const cols=[...b.children],over=()=>b.scrollHeight>b.clientHeight||b.scrollWidth>b.clientWidth||p.scrollHeight>p.clientHeight;
-  let fs=1,z=1;p.style.setProperty("--fs",fs);cols.forEach(c=>c.style.zoom="");
+// If the teacher has zoomed this exercise (A− / A+ / pinch), that size wins: no automatic shrinking, and if the
+// content is taller than the slide, the slide scrolls instead of anything being cut off.
+function fitPanel(p,quick){if(!p||!p.classList.contains("bk"))return;const b=p.querySelector(".body");if(!b)return;
+  // Measure real layout only: offsetTop / offsetHeight ignore transforms. (p.scrollHeight also counted the fly-in
+  // offsets of the pieces, so every slide looked too tall and was shrunk to the minimum.)
+  const flow=[...p.children].filter(c=>getComputedStyle(c).position!=="absolute"),
+    pb=parseFloat(getComputedStyle(p).paddingBottom)||0,
+    spill=()=>Math.max(0,...flow.map(c=>c.offsetTop+c.offsetHeight))>p.clientHeight-pb+1;
+  const cols=[...b.children],over=()=>b.scrollHeight>b.clientHeight+1||b.scrollWidth>b.clientWidth+1||spill();
+  const uz=zoomOf.get(gid(p));cols.forEach(c=>c.style.zoom="");p.classList.add("measuring");
+  try{fitInner(p,b,cols,over,uz,quick);}finally{p.classList.remove("measuring");}}
+function fitInner(p,b,cols,over,uz,quick){
+  if(uz){p.style.setProperty("--fs",uz.toFixed(3));b.classList.remove("scroll");
+    const tall=over();b.classList.toggle("scroll",tall);p.dataset.fit=uz.toFixed(2);p.dataset.over="";markScroll(p);
+    if(!quick)aimPieces(p);return;}
+  b.classList.remove("scroll");p.classList.remove("can-scroll");
+  let fs=1,z=1;p.style.setProperty("--fs",fs);
   while(fs>.6&&over()){fs-=.04;p.style.setProperty("--fs",fs.toFixed(2));}
   while(z>.3&&over()){z-=.05;cols.forEach(c=>c.style.zoom=z.toFixed(2));}
   p.dataset.fit=(fs*z).toFixed(2);p.dataset.over=over()?"1":"";
-  aimPieces(p);}
+  if(!quick)aimPieces(p);}
+// "More ↓" chip while there is content below the bottom edge
+function markScroll(p){const b=p.querySelector(".body");if(!b)return;
+  let m=p.querySelector(".morebelow");if(!m){m=document.createElement("div");m.className="morebelow";m.textContent="More ↓";p.appendChild(m);}
+  if(!b.dataset.sl){b.dataset.sl="1";b.addEventListener("scroll",()=>markScroll(p),{passive:true});}
+  p.classList.toggle("can-scroll",b.classList.contains("scroll")&&b.scrollTop+b.clientHeight<b.scrollHeight-6);}
+
+// ═══ CONTENT ZOOM ═══ The teacher sets the size of each exercise: A− / A+ buttons, a two-finger pinch on the slide,
+// Ctrl + wheel / trackpad pinch, or the + − 0 keys. The size is the text size (--fs), so lines re-wrap and boxes,
+// chips and pictures resize with it: the content always re-packs itself inside the slide's margins. "Fit" (or 0)
+// goes back to the automatic fit. Sizes are remembered per exercise on this board (browser storage).
+const ZMIN=.45,ZMAX=2.2,ZSTEP=1.15,ZKEY="lesson-world-zoom",zoomOf=new Map();
+try{const s=JSON.parse(localStorage.getItem(ZKEY)||"{}");for(const k in s)if(+s[k]>0)zoomOf.set(k,+s[k]);}catch(e){}
+function saveZoom(){try{const o=Object.fromEntries([...zoomOf].slice(-300));localStorage.setItem(ZKEY,JSON.stringify(o));}catch(e){}}
+const clampZ=v=>Math.min(ZMAX,Math.max(ZMIN,v));
+const curBk=()=>{const p=panels[cur];return !overview&&p&&p.classList.contains("bk")?p:null;};
+const sameEx=p=>panels.filter(x=>gid(x)===gid(p)&&x.classList.contains("bk"));
+const sizeOf=p=>+(p.dataset.fit||1);
+// what the automatic fit would give, measured without painting
+function autoSize(p){const k=gid(p),had=zoomOf.get(k);zoomOf.delete(k);fitPanel(p,true);const v=sizeOf(p);if(had)zoomOf.set(k,had);return v;}
+let zAnim=0,zBadgeT=0;
+function zBadge(txt){const el=document.getElementById("zbadge");el.textContent=txt;el.classList.add("on");
+  clearTimeout(zBadgeT);zBadgeT=setTimeout(()=>el.classList.remove("on"),900);}
+function updZoomUI(){const p=curBk(),fitB=document.getElementById("zfit");if(!fitB)return;
+  ["zout","zfit","zin"].forEach(id=>document.getElementById(id).disabled=!p);
+  const uz=p&&zoomOf.get(gid(p));fitB.textContent=uz?Math.round(uz*100)+"%":"Fit";fitB.setAttribute("aria-pressed",String(!uz));}
+// live: set the size straight away (used while the fingers move)
+function zoomLive(p,v){zoomOf.set(gid(p),clampZ(v));fitPanel(p,true);updZoomUI();}
+// animated: the content glides to the new size, with a soft overshoot, re-flowing as it goes
+function zoomTo(p,target){if(!p)return;cancelAnimationFrame(zAnim);
+  const k=gid(p),from=sizeOf(p),reset=target===null,to=reset?autoSize(p):clampZ(target);
+  zoomOf.set(k,from);fitPanel(p,true);
+  const t0=performance.now(),dur=reduce?1:460,back=t=>{const c=1.1;return 1+(c+1)*Math.pow(t-1,3)+c*Math.pow(t-1,2);};
+  zBadge(reset?"Fit":Math.round(to*100)+"%");
+  const step=now=>{const t=Math.min(1,(now-t0)/dur);zoomOf.set(k,Math.max(.2,from+(to-from)*back(t)));fitPanel(p,true);
+    if(t<1){zAnim=requestAnimationFrame(step);return;}
+    if(reset)zoomOf.delete(k);else zoomOf.set(k,to);
+    sameEx(p).forEach(x=>fitPanel(x));saveZoom();updZoomUI();};
+  zAnim=requestAnimationFrame(step);}
+function zoomBy(f){const p=curBk();if(p)zoomTo(p,sizeOf(p)*f);}
+document.getElementById("zin").onclick=()=>zoomBy(ZSTEP);
+document.getElementById("zout").onclick=()=>zoomBy(1/ZSTEP);
+document.getElementById("zfit").onclick=()=>{const p=curBk();if(p&&zoomOf.has(gid(p)))zoomTo(p,null);};
+// laptops: Ctrl + wheel and trackpad pinch arrive as wheel events with ctrlKey
+let wheelEnd=0;
+addEventListener("wheel",e=>{if(!e.ctrlKey)return;e.preventDefault();const p=curBk();if(!p)return;
+  cancelAnimationFrame(zAnim);zoomLive(p,sizeOf(p)*Math.exp(-Math.max(-60,Math.min(60,e.deltaY))*.004));
+  clearTimeout(wheelEnd);wheelEnd=setTimeout(()=>{sameEx(p).forEach(x=>fitPanel(x));saveZoom();zBadge(Math.round(sizeOf(p)*100)+"%");},180);},{passive:false});
 // pieces: the parts of a slide that fly together. Tag them right after they are made (before any layout),
 // so pieces of slides you are not on start hidden instead of fading out.
 const PIECES=".ptop,.rubric,.col>*,.meta,.kindart,.band,.rest>*";

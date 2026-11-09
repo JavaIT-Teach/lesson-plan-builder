@@ -232,7 +232,9 @@ Blocks. Use the one that matches what's printed:
 **Size.** One exercise is one full-screen slide; Java wants it that way, never split over two. The board shrinks
 text to fit, but not below about 50%, so put a `break` between a long reading text and its questions (or halfway
 through a very long text) to set them side by side in columns: roughly 150 words of text, or 8 list items, per column,
-at most 3 columns.
+at most 3 columns. On the board Java can also resize any exercise himself (A− / Fit / A+ buttons, two-finger
+pinch, Ctrl + wheel, or the + − 0 keys): the text re-flows inside the slide, and if it gets taller than the slide the
+slide scrolls with a "More ↓" chip. So aim for a good automatic fit; he fine-tunes on the day.
 
 **Board check (always, after `write` or `set-world`).** Run
 `node scripts/board_check.js GROUP` (add `--data DIR` if the data clone is elsewhere). It opens every slide of the
