@@ -1,0 +1,103 @@
+/* Lesson artifacts: one shared look for every artifact page.
+   Layout: a fixed 1600×900 stage scaled to fit the board; solid colour blocks, strong type, lots of air.
+   Single light look on purpose (classroom board), every colour set explicitly. */
+:root{
+  color-scheme:light;
+  --paper:#F3F5FA;      /* stage ground: cool, clean */
+  --card:#FFFFFF;
+  --ink:#141833;        /* text, deep navy */
+  --ink2:#565D7E;       /* secondary text */
+  --line:#DCE1EE;
+  --cobalt:#2F54EB;
+  --tomato:#FF5A36;
+  --sun:#FFC21A;
+  --green:#00A878;
+  --violet:#8A4DFF;
+  --pink:#F2367E;
+  --sky:#E3EAFF;
+  /* grammar roles: the same colour means the same job in every formula */
+  --r-subj:var(--cobalt);
+  --r-aux:var(--tomato);
+  --r-verb:var(--sun);
+  --r-neg:var(--ink);
+  --r-q:var(--violet);
+  --r-rest:#8790B0;
+  --r-mark:var(--ink);
+  --display:"Bricolage Grotesque","Figtree","Segoe UI",system-ui,sans-serif;
+  --body:"Figtree","Segoe UI",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--ink);color:var(--ink);font-family:var(--body);overflow:hidden;-webkit-font-smoothing:antialiased;
+  user-select:none;-webkit-user-select:none;touch-action:manipulation}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--cobalt);outline-offset:3px}
+
+/* stage: designed at 1600×900, scaled to the screen */
+.vp{position:fixed;inset:0;display:grid;place-items:center;overflow:hidden}
+.stage{width:1600px;height:900px;flex:none;background:var(--paper);position:relative;transform-origin:center center;
+  display:flex;flex-direction:column;padding:44px 56px 40px;gap:26px;overflow:hidden}
+
+/* header: where in the book, then the artifact's name */
+.hd{display:flex;align-items:flex-end;gap:28px}
+.hd .tt{flex:1;min-width:0}
+.eyebrow{display:flex;gap:10px;align-items:center;font:700 19px/1 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--ink2)}
+.eyebrow b{background:var(--ink);color:#fff;padding:7px 11px;border-radius:8px;letter-spacing:.04em}
+h1.title{font:800 64px/1.02 var(--display);letter-spacing:-.025em;margin:12px 0 0;text-wrap:balance}
+.task{font:500 27px/1.3 var(--body);color:var(--ink2);margin:10px 0 0;max-width:1100px}
+
+/* generic pieces */
+.chipbtn{border:0;border-radius:14px;background:var(--card);box-shadow:0 0 0 2px var(--line) inset;padding:14px 22px;font:700 22px/1 var(--body)}
+.chipbtn:active{transform:scale(.97)}
+.chipbtn.dark{background:var(--ink);color:#fff;box-shadow:none}
+.shake{animation:shake .38s}
+@keyframes shake{20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+.pop{animation:pop .32s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{from{transform:scale(.6);opacity:0}}
+
+/* timer */
+.timer{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:20px;padding:10px 12px 10px 22px;box-shadow:0 0 0 2px var(--line) inset}
+.timer .t{font:800 46px/1 var(--display);font-variant-numeric:tabular-nums;min-width:118px;letter-spacing:-.02em}
+.timer button{width:56px;height:56px;border-radius:14px;border:0;background:var(--ink);color:#fff;display:grid;place-items:center}
+.timer button.rs{background:var(--paper);color:var(--ink)}
+.timer button svg{width:24px;height:24px}
+.timer.run .t{color:var(--cobalt)}
+.timer.low .t{color:var(--tomato)}
+.timer.end{animation:flash .5s 4 alternate;background:var(--tomato)}
+.timer.end .t{color:#fff}
+@keyframes flash{to{background:var(--sun)}}
+
+/* team scoreboard */
+.teams{display:flex;gap:16px}
+.team{flex:1;display:flex;align-items:center;gap:14px;border-radius:20px;padding:12px 14px 12px 24px;background:var(--tc);color:#fff;min-width:0}
+.team .nm{font:800 26px/1.1 var(--display);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.team .sc{font:800 54px/1 var(--display);font-variant-numeric:tabular-nums;min-width:70px;text-align:center}
+.team button{width:54px;height:54px;border-radius:14px;border:0;background:rgba(255,255,255,.2);color:#fff;font:800 32px/1 var(--display)}
+.team button.plus{background:#fff;color:var(--tc)}
+.team.bump .sc{animation:pop .32s cubic-bezier(.3,1.6,.5,1)}
+
+/* tool dock: pen on the content, blank board, full screen */
+.dock{position:fixed;right:calc(12px + env(safe-area-inset-right,0px));top:calc(12px + env(safe-area-inset-top,0px));z-index:60;
+  display:flex;gap:8px;align-items:center;background:rgba(20,24,51,.92);padding:8px;border-radius:18px;box-shadow:0 18px 40px -16px rgba(20,24,51,.6)}
+.dock button{height:46px;min-width:46px;padding:0 12px;border:0;border-radius:12px;background:transparent;color:#fff;display:flex;align-items:center;gap:8px;font:700 17px/1 var(--body)}
+.dock button svg{width:22px;height:22px;flex:none}
+.dock button[aria-pressed="true"]{background:#fff;color:var(--ink)}
+.dock .sep{width:1px;height:30px;background:rgba(255,255,255,.2)}
+.dock .tools{display:none;gap:6px;align-items:center}
+.dock.drawing .tools{display:flex}
+.dock .sw{min-width:40px;width:40px;height:40px;padding:0;border-radius:50%;justify-content:center}
+.dock .sw i{width:24px;height:24px;border-radius:50%;background:var(--c);box-shadow:0 0 0 2px rgba(255,255,255,.35)}
+.dock .sw[aria-pressed="true"]{background:#fff}
+.dock .sw[aria-pressed="true"] i{box-shadow:none}
+
+/* drawing layers */
+canvas.ink{position:fixed;inset:0;width:100%;height:100%;z-index:40;pointer-events:none;touch-action:none}
+body.pen canvas.ink.over{pointer-events:auto;cursor:crosshair}
+.board{position:fixed;inset:0;z-index:50;background:#FCFCFE;display:none}
+.board::before{content:"";position:absolute;inset:0;background-image:radial-gradient(#D5DAEA 1.6px,transparent 1.6px);background-size:36px 36px}
+body.boarding .board{display:block}
+.board canvas.ink{position:absolute;pointer-events:auto;cursor:crosshair;z-index:1}
+.board .lbl{position:absolute;left:24px;top:20px;z-index:2;font:700 18px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+
+.missing{display:grid;place-items:center;height:100%;font:600 28px/1.4 var(--body);color:#fff;text-align:center;padding:40px}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}

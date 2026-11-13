@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Grammar formula</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="kit.css">
+<style>
+/* Grammar formula: the structure as coloured bricks (one colour per job), then practice the teacher models. */
+.fx{display:flex;gap:22px;align-items:stretch}
+.forms{display:flex;flex-direction:column;gap:10px}
+.forms button{width:78px;flex:1;border:0;border-radius:16px;background:var(--card);box-shadow:0 0 0 2px var(--line) inset;font:800 40px/1 var(--display);display:grid;place-items:center}
+.forms button[aria-pressed="true"]{background:var(--ink);color:#fff;box-shadow:none}
+.formula{flex:1;background:var(--card);border-radius:26px;padding:22px 30px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.formula .lb{font:700 18px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.bricks{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.plus{font:800 44px/1 var(--display);color:#B8BFD6}
+.brick.r-mark{min-width:0;justify-content:center}
+.brick{--k:var(--r-rest);border-radius:18px;background:var(--k);color:#fff;padding:14px 24px 16px;display:flex;flex-direction:column;gap:6px;min-width:120px}
+.brick small{font:800 15px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;opacity:.85}
+.brick b{font:800 46px/1 var(--display);letter-spacing:-.02em;white-space:nowrap}
+.r-subj{--k:var(--r-subj)}.r-aux{--k:var(--r-aux)}.r-verb{--k:var(--r-verb);color:var(--ink)}.r-neg{--k:var(--r-neg)}.r-q{--k:var(--r-q)}.r-mark{--k:var(--r-mark)}
+.brick.r-rest{--k:#fff;color:var(--ink2);box-shadow:0 0 0 3px #CDD3E6 inset}
+.ex{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;font:700 38px/1.2 var(--display)}
+.ex .w{border-bottom:6px solid var(--k);padding:0 2px}
+.ex .w.r-rest{border-bottom-color:#CDD3E6;box-shadow:none;color:var(--ink)}
+.ex .w.r-verb{color:var(--ink)}
+.ex .lbl{font:700 18px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);margin-right:6px}
+
+.low{flex:1;min-height:0;display:grid;grid-template-columns:420px 1fr;gap:22px}
+.notes{background:var(--ink);color:#fff;border-radius:26px;padding:26px 28px;display:flex;flex-direction:column;gap:12px;overflow:auto}
+.notes h3{margin:0 0 4px;font:800 18px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--sun)}
+.notes p{margin:0;font:600 27px/1.3 var(--body)}
+.notes p em{font-style:normal;color:#9FB2FF}
+
+.prac{background:var(--card);border-radius:26px;padding:22px 28px;display:flex;flex-direction:column;gap:14px;min-width:0;min-height:0;overflow:auto}
+.ph{display:flex;align-items:center;gap:14px}
+.ph h3{margin:0;font:800 18px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);flex:1}
+.ph .ct{font:800 22px/1 var(--display);font-variant-numeric:tabular-nums}
+.ph .gap{width:12px}
+.ph .pv,.ph .nx{width:52px;height:52px;border-radius:14px;border:0;background:var(--paper);font:800 26px/1 var(--display)}
+.ask{margin:0;font:700 30px/1.25 var(--body)}
+.ask .w{font:800 34px/1.2 var(--display);border-bottom:6px solid var(--k);margin-right:10px}
+.ask .w.r-rest{border-bottom-color:#CDD3E6}
+.ask .to{display:inline-block;background:var(--ink);color:#fff;border-radius:10px;padding:4px 12px;margin-left:8px;font-size:24px;vertical-align:middle}
+.slots{display:flex;gap:12px;flex-wrap:wrap;min-height:78px;align-items:center}
+.slot{min-width:120px;height:72px;border-radius:14px;border:3px dashed var(--k);display:grid;place-items:center;padding:0 18px;font:800 34px/1 var(--display);color:transparent}
+.slot.r-rest{border-color:#BFC6DC}
+.slot.on{border-style:solid;background:var(--k);color:#fff}
+.slot.on.r-verb{color:var(--ink)}.slot.on.r-rest{background:#fff;color:var(--ink)}
+.pool{display:flex;gap:12px;flex-wrap:wrap;min-height:72px}
+.wd{border:0;height:68px;padding:0 22px;border-radius:14px;font:800 32px/1 var(--display);background:var(--k);color:#fff}
+.wd.r-verb{color:var(--ink)}.wd.r-rest{background:#fff;color:var(--ink);box-shadow:0 0 0 3px #CDD3E6 inset}
+.wd[disabled]{display:none}
+.src{display:flex;gap:12px;flex-wrap:wrap;font:700 36px/1.2 var(--display)}
+.fixw{border:0;background:transparent;font:800 44px/1.2 var(--display);padding:4px 8px;border-radius:12px;border-bottom:6px solid var(--k)}
+.fixw.r-rest{border-bottom-color:#CDD3E6}
+.fixw .old{text-decoration:line-through;text-decoration-thickness:5px;text-decoration-color:var(--tomato);color:var(--ink2);margin-right:10px;font-size:.7em}
+.fixw.ok{background:color-mix(in srgb,var(--green) 16%,#fff)}
+.done{font:800 26px/1 var(--display);color:var(--green);min-height:26px}
+</style>
+</head>
+<body>
+<script src="kit.js"></script>
+<script>
+// Settings (from the lesson, or this demo when opened on its own). Roles: subj, aux, verb, neg, q, rest, mark.
+// {tpl:"formula", page, sec, num, title, task (when we use it),
+//  forms:{pos:{parts:[[label, role, example], …]}, neg:{…}, q:{…}},   any of the three
+//  notes:["I → am", …],
+//  practice:[ {type:"build", ask, words:[[word, role], …]}
+//           | {type:"transform", from:[[word, role], …], to:"neg"|"q"|"pos", words:[[word, role], …]}
+//           | {type:"fix", ask, words:[[word, role, correction?], …]} ]}
+const DEMO={tpl:"formula",page:"44",sec:"Grammar · Present Continuous",num:"1",title:"Present Continuous",
+  task:"For actions happening now, at the moment of speaking.",
+  forms:{
+    pos:{parts:[["Subject","subj","She"],["am / is / are","aux","is"],["verb + ing","verb","reading"],["…","rest","a book"]]},
+    neg:{parts:[["Subject","subj","She"],["am / is / are","aux","is"],["not","neg","not"],["verb + ing","verb","reading"],["…","rest","a book"]]},
+    q:{parts:[["Am / Is / Are","aux","Is"],["subject","subj","she"],["verb + ing","verb","reading"],["…","rest","a book"],["?","mark","?"]]}},
+  notes:["I → <em>am</em>","he / she / it → <em>is</em>","you / we / they → <em>are</em>","make → mak<em>ing</em>","run → run<em>ning</em>"],
+  practice:[
+    {type:"build",ask:"Make a sentence.",words:[["They","subj"],["are","aux"],["playing","verb"],["football","rest"]]},
+    {type:"transform",from:[["He","subj"],["is","aux"],["cooking","verb"],["dinner","rest"]],to:"neg",
+      words:[["He","subj"],["is","aux"],["not","neg"],["cooking","verb"],["dinner","rest"]]},
+    {type:"transform",from:[["You","subj"],["are","aux"],["watching","verb"],["TV","rest"]],to:"q",
+      words:[["Are","aux"],["you","subj"],["watching","verb"],["TV","rest"],["?","mark"]]},
+    {type:"fix",ask:"One part is wrong. Find it.",words:[["We","subj"],["is","aux","are"],["studying","verb"],["English","rest"]]},
+    {type:"fix",ask:"One part is wrong. Find it.",words:[["I","subj"],["am","aux"],["writeing","verb","writing"],["an email","rest"]]}
+  ]};
+const {esc,el,$}=Kit;
+const c=Kit.load(DEMO);
+const F=Kit.frame(c);
+const FORMS=[["pos","+","Positive"],["neg","−","Negative"],["q","?","Question"]].filter(f=>c.forms&&c.forms[f[0]]);
+const rc=r=>"r-"+(["subj","aux","verb","neg","q","rest","mark"].includes(r)?r:"rest");
+
+// formula band
+const fx=el(`<div class="fx">${FORMS.length>1?`<div class="forms">${FORMS.map((f,i)=>`<button aria-pressed="${!i}" data-f="${f[0]}" aria-label="${f[2]}">${f[1]}</button>`).join("")}</div>`:""}
+  <div class="formula"><span class="lb"></span><div class="bricks"></div><div class="ex"></div></div></div>`);
+F.stage.appendChild(fx);
+const showForm=k=>{const f=c.forms[k],parts=f.parts||[];
+  $(".lb",fx).textContent=(FORMS.find(x=>x[0]===k)||[,,""])[2];
+  $(".bricks",fx).innerHTML=parts.map(([t,r],i)=>`${i?'<span class="plus" aria-hidden="true">+</span>':""}<div class="brick ${rc(r)} pop" style="animation-delay:${i*60}ms"><small>${esc(r==="rest"?"the rest":r==="subj"?"who":r==="aux"?"be":r==="verb"?"action":r==="neg"?"no":r==="q"?"question":"")}</small><b>${esc(t)}</b></div>`).join("");
+  const ex=parts.filter(p=>p[2]);
+  $(".ex",fx).innerHTML=ex.length?`<span class="lbl">Example</span>`+ex.map(([, r,w])=>`<span class="w ${rc(r)}" style="--k:var(--r-${r})">${esc(w)}</span>`).join(""):"";
+  fx.querySelectorAll(".forms button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.f===k));};
+if(FORMS.length)showForm(FORMS[0][0]);
+fx.addEventListener("click",e=>{const b=e.target.closest(".forms button");if(b)showForm(b.dataset.f);});
+
+// notes + practice
+const low=el(`<div class="low"><div class="notes"><h3>Remember</h3>${(c.notes||[]).map(n=>`<p>${n.replace(/<(?!\/?em>)/g,"&lt;")}</p>`).join("")}</div>
+  <div class="prac"><div class="ph"><h3>Practice</h3><button class="chipbtn" data-x="again">Again</button><button class="chipbtn dark" data-x="answer">Show answer</button><span class="gap"></span><button class="pv" aria-label="Previous">‹</button><span class="ct"></span><button class="nx" aria-label="Next">›</button></div>
+  <div class="item"></div></div></div>`);
+if(!(c.notes||[]).length)low.style.gridTemplateColumns="1fr",$(".notes",low).remove();
+F.stage.appendChild(low);
+const P=c.practice||[];let pi=0,item=null;
+const TO={neg:"Negative −",q:"Question ?",pos:"Positive +"};
+const word=(w,r)=>`<span class="w ${rc(r)}" style="--k:var(--r-${r})">${esc(w)}</span>`;
+const shuffle=a=>{const o=a.map((x,i)=>[x,i]);for(let k=0;k<6;k++){for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}if(o.some((x,i)=>x[1]!==i)||o.length<2)break;}return o;};
+function render(){
+  const box=$(".item",low);$(".ct",low).textContent=P.length?`${pi+1} / ${P.length}`:"";
+  const p=P[pi];if(!p){box.innerHTML="";return;}
+  if(p.type==="fix"){
+    box.innerHTML=`<p class="ask">${esc(p.ask||"One part is wrong. Find it.")}</p><div class="src">${p.words.map(([w,r,fix],i)=>`<button class="fixw ${rc(r)}" style="--k:var(--r-${r})" data-i="${i}">${esc(w)}</button>`).join("")}</div><p class="done"></p>`;
+    item={answer(){box.querySelectorAll(".fixw").forEach(b=>{const [w,,fix]=p.words[+b.dataset.i];if(fix&&!b.classList.contains("ok")){b.innerHTML=`<span class="old">${esc(w)}</span>${esc(fix)}`;b.classList.add("ok","pop");}});$(".done",box).textContent="✓ Fixed";}};
+    box.onclick=e=>{const b=e.target.closest(".fixw");if(!b)return;const [,,fix]=p.words[+b.dataset.i];if(fix)item.answer();else{b.classList.remove("shake");void b.offsetWidth;b.classList.add("shake");}};
+    return;}
+  // build / transform: tap the words in order into the coloured slots
+  const W=p.words||[];
+  box.innerHTML=(p.type==="transform"?`<p class="ask">${p.from.map(([w,r])=>word(w,r)).join(" ")}<span class="to">→ ${esc(TO[p.to]||p.to||"")}</span></p>`:`<p class="ask">${esc(p.ask||"Make a sentence.")}</p>`)
+    +`<div class="slots">${W.map(([,r])=>`<span class="slot ${rc(r)}" style="--k:var(--r-${r})"></span>`).join("")}</div>
+      <div class="pool">${shuffle(W).map(([[w,r],i])=>`<button class="wd ${rc(r)}" style="--k:var(--r-${r})" data-i="${i}">${esc(w)}</button>`).join("")}</div><p class="done"></p>`;
+  let next=0;const slots=[...box.querySelectorAll(".slot")];
+  const put=i=>{slots[next].textContent=W[i][0];slots[next].classList.add("on","pop");box.querySelector(`.wd[data-i="${i}"]`).disabled=true;next++;if(next===W.length)$(".done",box).textContent="✓ Correct";};
+  box.onclick=e=>{const b=e.target.closest(".wd");if(!b||next>=W.length)return;const i=+b.dataset.i;
+    if(W[i][0]===W[next][0])put(i);
+    else{b.classList.remove("shake");void b.offsetWidth;b.classList.add("shake");}};
+  item={answer(){while(next<W.length){const k=[...box.querySelectorAll(".wd:not([disabled])")].find(b=>W[+b.dataset.i][0]===W[next][0]);put(k?+k.dataset.i:next);}}};
+}
+render();
+low.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  if(b.classList.contains("pv")&&pi>0){pi--;render();}
+  else if(b.classList.contains("nx")&&pi<P.length-1){pi++;render();}
+  else if(b.dataset.x==="again")render();
+  else if(b.dataset.x==="answer"&&item)item.answer();});
+</script>
+</body>
+</html>

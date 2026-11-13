@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Warmer board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="kit.css">
+<style>
+/* Warmer: the things the teacher's book says to write on the board, ready-made, as a team game. */
+.rounds{display:flex;gap:10px}
+.rounds button{border:0;border-radius:14px;padding:12px 20px;background:var(--card);box-shadow:0 0 0 2px var(--line) inset;font:700 21px/1 var(--body);display:flex;gap:10px;align-items:center}
+.rounds button i{font-style:normal;width:30px;height:30px;border-radius:9px;background:var(--paper);display:grid;place-items:center;font:800 17px/1 var(--display)}
+.rounds button[aria-pressed="true"]{background:var(--ink);color:#fff;box-shadow:none}
+.rounds button[aria-pressed="true"] i{background:var(--sun);color:var(--ink)}
+.round{flex:1;min-height:0;display:flex;flex-direction:column;gap:16px}
+.area{flex:1;min-height:0;overflow:auto}
+
+/* categories: one column per group, answers hidden until tapped */
+.cats{display:grid;gap:18px;height:100%;align-content:start}
+.cat{background:var(--card);border-radius:22px;overflow:hidden;display:flex;flex-direction:column}
+.cat h3{margin:0;padding:18px 22px;background:var(--k);color:#fff;font:800 32px/1.05 var(--display);letter-spacing:-.01em;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.cat h3 small{font:700 17px/1 var(--body);background:rgba(255,255,255,.22);padding:7px 10px;border-radius:8px;font-variant-numeric:tabular-nums}
+.cat ul{list-style:none;margin:0;padding:16px;display:flex;flex-direction:column;gap:10px}
+.tile{width:100%;border:0;border-radius:14px;min-height:64px;padding:0 18px;text-align:left;font:700 29px/1.1 var(--body);display:flex;align-items:center;gap:14px;
+  background:repeating-linear-gradient(-45deg,var(--paper) 0 10px,#EBEEF6 10px 20px);color:transparent;position:relative}
+.tile::before{content:attr(data-n);color:var(--ink2);font:800 19px/1 var(--display);opacity:.55}
+.tile.on{background:color-mix(in srgb,var(--k) 12%,#fff);color:var(--ink)}
+.tile.on::before{color:var(--k);opacity:1}
+
+/* clue cards: read the clue, guess, tap for the answer */
+.clues{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.clue{border:0;border-radius:22px;background:var(--card);padding:26px 28px;text-align:left;display:flex;flex-direction:column;gap:16px;min-height:150px}
+.clue p{margin:0;font:600 30px/1.3 var(--body)}
+.clue .n{font:800 18px/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+.clue .a{margin-top:auto;align-self:flex-start;font:800 34px/1 var(--display);padding:12px 18px;border-radius:12px;background:var(--paper);color:transparent;min-width:220px;
+  background-image:repeating-linear-gradient(-45deg,var(--paper) 0 10px,#EBEEF6 10px 20px)}
+.clue.on .a{background:var(--sun);color:var(--ink);background-image:none}
+
+/* plain word tiles */
+.words{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.words .tile{--k:var(--cobalt)}
+.bar{display:flex;gap:10px;align-items:center}
+.bar .sp{flex:1}
+</style>
+</head>
+<body>
+<script src="kit.js"></script>
+<script>
+// Settings (from the lesson, or this demo when opened on its own):
+// {tpl:"warmer", page, sec, num:"Warmer", title, task, timer: seconds, teams: 2 | ["Team A", …] (leave out if no teams),
+//  rounds:[ {name, type:"categories", columns:[{name, items:[…]}]}
+//         | {name, type:"clues", items:[[clue, answer], …]}
+//         | {name, type:"words", items:[…]} ]}
+const DEMO={tpl:"warmer",page:"38",sec:"Vocabulary · Jobs",num:"Warmer",title:"Who works where?",
+  task:"In teams, say a job for each place. One point for each job.",timer:120,teams:2,
+  rounds:[
+    {name:"Places",type:"categories",columns:[
+      {name:"Hospital",items:["doctor","nurse","receptionist"]},
+      {name:"School",items:["teacher","cleaner","cook"]},
+      {name:"Restaurant",items:["chef","waiter","cashier"]},
+      {name:"Office",items:["manager","secretary","accountant"]}]},
+    {name:"Who am I?",type:"clues",items:[
+      ["I work in a hospital. I help the doctor.","nurse"],
+      ["I wear a uniform. I catch criminals.","police officer"],
+      ["I work in the sky. I fly planes.","pilot"],
+      ["I cut hair. I work in a salon.","hairdresser"]]}
+  ]};
+const {esc,el,$}=Kit;
+const c=Kit.load(DEMO);
+const F=Kit.frame(c);
+if(c.timer)F.extra.appendChild(Kit.timer(c.timer));
+const rounds=(c.rounds&&c.rounds.length)?c.rounds:[{type:"words",items:c.items||[]}];
+const KC=["var(--cobalt)","var(--tomato)","var(--green)","var(--violet)","var(--pink)","#E08A00"];
+const wrap=el(`<div class="round"></div>`);
+let tabs=null;
+if(rounds.length>1){tabs=el(`<div class="rounds">${rounds.map((r,i)=>`<button aria-pressed="${!i}" data-i="${i}"><i>${i+1}</i>${esc(r.name||"Round "+(i+1))}</button>`).join("")}</div>`);wrap.appendChild(tabs);}
+const area=el(`<div class="area"></div>`);wrap.appendChild(area);
+const bar=el(`<div class="bar"><span class="sp"></span><button class="chipbtn" data-x="hide">Hide all</button><button class="chipbtn dark" data-x="show">Show all</button></div>`);
+wrap.appendChild(bar);
+F.stage.appendChild(wrap);
+if(c.teams)F.stage.appendChild(Kit.teams(c.teams));
+
+const views=rounds.map(r=>{
+  if(r.type==="categories"){const cols=r.columns||[];
+    return el(`<div class="cats" style="grid-template-columns:repeat(${Math.min(cols.length,5)},minmax(0,1fr))">${cols.map((col,i)=>`<section class="cat" style="--k:${KC[i%KC.length]}">
+      <h3>${esc(col.name)}<small>${(col.items||[]).length}</small></h3><ul>${(col.items||[]).map((w,j)=>`<li><button class="tile" data-n="${j+1}">${esc(w)}</button></li>`).join("")}</ul></section>`).join("")}</div>`);}
+  if(r.type==="clues")return el(`<div class="clues">${(r.items||[]).map((it,i)=>{const [q,a]=Array.isArray(it)?it:[it,""];
+      return `<button class="clue"><span class="n">Clue ${i+1}</span><p>${esc(q)}</p>${a?`<span class="a">${esc(a)}</span>`:""}</button>`;}).join("")}</div>`);
+  return el(`<div class="words">${(r.items||[]).map((w,j)=>`<button class="tile" data-n="${j+1}">${esc(w)}</button>`).join("")}</div>`);
+});
+let cur=0;
+const show=i=>{cur=i;area.replaceChildren(views[i]);tabs&&tabs.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.i===i));};
+show(0);
+tabs&&tabs.addEventListener("click",e=>{const b=e.target.closest("button");if(b)show(+b.dataset.i);});
+area.addEventListener("click",e=>{const t=e.target.closest(".tile,.clue");if(!t)return;t.classList.toggle("on");if(t.classList.contains("on")){t.classList.remove("pop");void t.offsetWidth;t.classList.add("pop");}});
+bar.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;views[cur].querySelectorAll(".tile,.clue").forEach(t=>t.classList.toggle("on",b.dataset.x==="show"));});
+</script>
+</body>
+</html>
