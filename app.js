@@ -66,12 +66,23 @@ class App {
     if (!this.validDb(db)) { db = this.seed(); this.save(db); }
     let mini = false; try { const m = localStorage.getItem('lpb-side-mini'); mini = m === '1' || (m == null && window.innerWidth < 760); } catch (e) {}
     return { sideMini: mini, db, screen: 'week', gid: 'b-odd', rmGid: null, sel: null, del: null, noteEdit: null, toast: '', aimsOpen: false, confirmReset: false, restore: null, now: Date.now(),
-      sync: { status: this.cfg() ? 'pending' : 'off', msg: '' }, syncConflict: null, syncBusy: false, confirmDisconnect: false,
+      sync: { status: this.cfg() ? 'pending' : 'off', msg: '' }, syncConflict: null, syncBusy: false, confirmDisconnect: false, syncDamaged: null, confirmOverwrite: false,
       syncForm: { owner: 'JavaIT-Teach', repo: 'lesson-plan-data', token: '' } };
   }
-  validDb(db) {
+  validDb(db) { return !this.whyBad(db); }
+  // plain reason a lessons file can't be used, or '' if it is fine
+  whyBad(db) {
+    if (!db || typeof db !== 'object') return 'it is not readable lesson data';
+    if (!db.groups || typeof db.groups !== 'object') return 'the list of groups is missing';
+    if (!Array.isArray(db.carry)) return 'the carry-over list is missing';
     const ids = ['b-odd', 'e-odd', 'b30-odd', 'b-even', 'e-even', 'p-even', 'i-even'];
-    return !!(db && db.groups && Array.isArray(db.carry) && ids.every(id => db.groups[id] && db.groups[id].draft && Array.isArray(db.groups[id].taught)));
+    for (const id of ids) {
+      const g = db.groups[id];
+      if (!g) return `group "${id}" is missing`;
+      if (!g.draft) return `group "${id}" has no next lesson`;
+      if (!Array.isArray(g.taught)) return `group "${id}" has no list of taught lessons`;
+    }
+    return '';
   }
 
   // ---------- state plumbing (React-style) ----------
@@ -650,9 +661,10 @@ class App {
       if (!r2.ok) throw this.httpErr(r2.status);
       text = await r2.text();
     }
-    let db = null;
-    try { db = JSON.parse(text); } catch (e) {}
-    if (!this.validDb(db)) { const e = new Error('bad file'); e.plain = 'The lessons file on GitHub is damaged. Nothing was changed.'; throw e; }
+    let db = null, why = '';
+    try { db = JSON.parse(text); } catch (e) { why = /<<<<<<<|>>>>>>>/.test(text) ? 'it has unfinished git merge marks (<<<<<<< / >>>>>>>) in it' : 'it is not valid JSON (' + e.message + ')'; }
+    why = why || this.whyBad(db);
+    if (why) { const e = new Error('bad file'); e.badSha = meta.sha; e.plain = `The lessons file on GitHub is damaged: ${why}. Nothing was changed. Your lessons in this browser are safe.`; throw e; }
     return { sha: meta.sha, db };
   }
   async syncNow() {
@@ -670,6 +682,7 @@ class App {
     let c = this.cfg(); if (!c) return;
     const remote = await this.ghRead(c);
     this.lastPull = Date.now();
+    if (this.state.syncDamaged) this.setState({ syncDamaged: null, confirmOverwrite: false });
     c = this.cfg(); if (!c) return;
     if (remote && remote.sha !== c.sha) {
       // GitHub has a version this browser has not seen
@@ -693,14 +706,35 @@ class App {
     this.setSync(still ? 'pending' : 'ok');
     if (still) this.queuePush();
   }
+  // the GitHub file is damaged: replace it with this browser's lessons (the damaged one stays in GitHub history)
+  async overwriteRemote() {
+    const c = this.cfg(), bad = this.state.syncDamaged;
+    if (!c || !bad || this.syncing) return;
+    this.syncing = true; clearTimeout(this.pushT);
+    this.setState({ confirmOverwrite: false }); this.setSync('saving');
+    try {
+      const db = this.state.db;
+      const r = await this.gh(c, 'PUT', this.filePath(c), { message: `Replace damaged lessons file with browser copy ${this.fmtS(new Date())} ${this.clock()}`, content: this.b64enc(JSON.stringify(db)), sha: bad.sha });
+      if (!r.ok) throw this.httpErr(r.status);
+      const j = await r.json();
+      this.patchCfg({ sha: j.content.sha, dirty: this.state.db.updatedAt !== db.updatedAt });
+      this.setState({ syncDamaged: null });
+      this.setSync('ok', "GitHub now has this browser's lessons. The damaged file is still in GitHub's history.");
+    } catch (e) {
+      if (e.status === 409 || e.status === 422) { this.setState({ syncDamaged: null }); this.setSync('error', 'The GitHub file changed a moment ago. Tap Sync now to check it again.'); }
+      else this.syncFail(e);
+    } finally { this.syncing = false; }
+  }
   applyRemote(remote) {
     this.save(remote.db);
     this.patchCfg({ sha: remote.sha, dirty: false });
     const gid = remote.db.groups[this.state.gid] ? this.state.gid : 'b-odd';
     this.setState({ db: remote.db, gid, syncConflict: null, del: null, delEx: null, delLesson: null });
+    this.setState({ syncDamaged: null });
     this.setSync('ok');
   }
   syncFail(e) {
+    this.setState({ syncDamaged: e.badSha ? { sha: e.badSha } : null, confirmOverwrite: false });
     let msg;
     if (e.plain) msg = e.plain;
     else if (!e.status) msg = 'No internet. Saved in this browser. Will send to GitHub when back online.';
@@ -788,6 +822,11 @@ class App {
     v.confirmDisconnect = s.confirmDisconnect;
     v.yesDisconnect = () => this.disconnect();
     v.keepConnect = () => this.setState({ confirmDisconnect: false });
+    v.damaged = !!(c && s.syncDamaged);
+    v.askOverwrite = () => this.setState({ confirmOverwrite: true });
+    v.confirmOverwrite = s.confirmOverwrite;
+    v.yesOverwrite = () => this.overwriteRemote();
+    v.noOverwrite = () => this.setState({ confirmOverwrite: false });
   }
 
   // ---------- render values ----------
@@ -1671,7 +1710,7 @@ function tSidebar(v) {
       </div>`)}
     </div>
     <span>Course started Tue 6 Oct (even days) and Wed 7 Oct (odd days).</span>
-    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 26 Oct c</span>
+    <span style="font-family:'DM Mono';font-size:11.5px;color:#8E97B5">Version: 16 Nov</span>
     <button${click(v.askReset)} style="align-self:flex-start;border:none;background:transparent;color:#8E97B5;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">${esc(v.resetLabel)}</button>
   </div>
 </aside>`;
@@ -2461,6 +2500,15 @@ function tSync(v) {
           <div style="flex:1;min-width:220px;display:flex;flex-direction:column"><span style="font-weight:700;font-size:15px">Disconnect from GitHub?</span><span style="font-size:12.5px;color:#8A2A2A">Lessons stay in this browser and on GitHub. New changes will not be sent.</span></div>
           <button${click(v.yesDisconnect)} style="border:none;background:#D63A3A;color:#fff;font-weight:700;font-size:13px;padding:8px 12px;border-radius:8px;cursor:pointer">Yes, disconnect</button>
           <button${click(v.keepConnect)} style="border:1.5px solid #8E97B5;background:#fff;font-weight:700;font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer">Keep it</button>
+        </div>`)}
+      ${IF(v.damaged, () => `<div style="background:#FFF6E0;border:1.5px solid #E0A800;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px">
+          <span style="font-weight:700;font-size:15px">Fix it with this browser's lessons</span>
+          <span style="font-size:13.5px;color:#5A4A10">Check the Week screen first: if your lessons here are right, put them on GitHub in place of the damaged file. GitHub keeps the damaged one in its history, so nothing is lost.</span>
+          ${v.confirmOverwrite
+            ? `<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><span style="font-weight:700;font-size:14px">Replace the GitHub file?</span>
+                <button${click(v.yesOverwrite)} style="border:none;background:#B37A00;color:#fff;font-weight:700;font-size:13px;padding:8px 12px;border-radius:8px;cursor:pointer">Yes, replace it</button>
+                <button${click(v.noOverwrite)} style="border:1.5px solid #8E97B5;background:#fff;font-weight:700;font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer">Not now</button></div>`
+            : `<div><button${click(v.askOverwrite)} style="border:none;background:#B37A00;color:#fff;font-weight:700;font-size:14px;padding:9px 14px;border-radius:9px;cursor:pointer">Use this browser's copy on GitHub</button></div>`}
         </div>`)}
       <span style="font-size:13px;color:#5A6482">Your GitHub key is kept in this browser only. It is never in backups or on GitHub.</span>
     </div>`)}
