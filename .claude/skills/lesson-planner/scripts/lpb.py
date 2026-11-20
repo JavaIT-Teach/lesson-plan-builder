@@ -370,9 +370,9 @@ def check_world(w, n):
 
 # ---------- lesson artifacts (artifacts/*.html in the app): reusable pages, one button each in the builder ----------
 # template: required fields. See reference/artifacts.md for the full formats.
-ARTS = {'warmer': ['rounds'], 'formula': ['forms'], 'clock': ['items'], 'drag': ['items', 'answers'],
+ARTS = {'warmer': ['rounds'], 'energizer': ['rounds'], 'formula': ['forms'], 'clock': ['items'], 'drag': ['items', 'answers'],
         'match': ['left', 'right', 'answers'], 'sort': ['groups'], 'timeline': ['items'], 'scene': ['spots']}
-ART_NAMES = {'warmer': 'Warmer game', 'formula': 'Formula', 'clock': 'Clock', 'drag': 'Drag into gaps', 'match': 'Match',
+ART_NAMES = {'warmer': 'Warmer game', 'energizer': 'Energizer', 'formula': 'Formula', 'clock': 'Clock', 'drag': 'Drag into gaps', 'match': 'Match',
              'sort': 'Sort', 'timeline': 'Timeline', 'scene': 'Picture'}
 ROLES = {'subj', 'aux', 'verb', 'neg', 'q', 'rest', 'mark'}
 
@@ -382,7 +382,7 @@ def art_label(a):
     n, sec = str(a.get('num', '')).strip(), str(a.get('sec', '')).split('·')[0].strip()
     parts = [f"p.{a['page']}" if a.get('page') else '', sec, ('Ex ' + n if re.match(r'^\d', n) else n) if n else '']
     parts = [x for x in parts if x]
-    if not (a.get('tpl') == 'warmer' and 'warmer' in n.lower()):
+    if not ((a.get('tpl') == 'warmer' and 'warmer' in n.lower()) or (a.get('tpl') == 'energizer' and re.search(r'energi[sz]er', n.lower()))):
         parts.append(ART_NAMES.get(a.get('tpl'), a.get('tpl') or 'Artifact'))
     return ' · '.join(parts)
 
@@ -399,7 +399,7 @@ def check_artifacts(arts):
         miss = [k for k in ['title'] + ARTS[t] if not a.get(k)]
         if miss:
             die(f"{w}: missing {', '.join(miss)}")
-        if not a.get('page') or not a.get('num'):
+        if t != 'energizer' and (not a.get('page') or not a.get('num')):
             print(f"warning: {w}: give page and num so the button says where it is in the book", file=sys.stderr)
         lab = art_label(a)
         if lab in seen:
@@ -441,6 +441,19 @@ def check_artifacts(arts):
             for j, r in enumerate(a['rounds'], 1):
                 if r.get('type') not in ('categories', 'clues', 'words'):
                     die(f"{w}, round {j}: type must be categories, clues or words")
+        if t == 'energizer':
+            for j, r in enumerate(a['rounds'], 1):
+                rt = r.get('type')
+                if rt not in ('wheel', 'race', 'oddone', 'unscramble', 'mystery'):
+                    die(f"{w}, round {j}: type must be wheel, race, oddone, unscramble or mystery")
+                if rt == 'race' and not r.get('category'):
+                    die(f"{w}, round {j} (race): needs category")
+                if rt != 'race' and not r.get('items'):
+                    die(f"{w}, round {j} ({rt}): needs items")
+                if rt == 'oddone' and any(not isinstance(x.get('odd'), int) or not 0 <= x['odd'] < len(x.get('words') or []) for x in r['items']):
+                    die(f"{w}, round {j} (oddone): each item needs words and odd = index of the odd word")
+                if rt == 'mystery' and any(not x.get('word') for x in r['items']):
+                    die(f"{w}, round {j} (mystery): each item needs word (and a clue)")
         if t == 'scene':
             if any(not (0 <= float(sp.get('x', -1)) <= 100 and 0 <= float(sp.get('y', -1)) <= 100) or not sp.get('label') for sp in a['spots']):
                 die(f"{w}: each spot needs x and y (0-100, % of the picture) and label")
@@ -617,7 +630,11 @@ def cmd_write(db, gid, plan_path, dry, replace=False, sec=None):
     if plan.get('artifacts') is not None:
         new['artifacts'] = check_artifacts(plan['artifacts'])
     if not new.get('artifacts'):
-        print('warning: no artifacts; plans from Nov 2026 on get 1-3 artifacts (see reference/artifacts.md)', file=sys.stderr)
+        print('warning: no artifacts; plans from Nov 2026 on get 1-3 artifacts plus the energizer (see reference/artifacts.md)', file=sys.stderr)
+    elif not any(a.get('tpl') == 'energizer' for a in new['artifacts']):
+        print('warning: no energizer artifact; every lesson gets one mid-lesson (see reference/artifacts.md)', file=sys.stderr)
+    if not any(re.search(r'energi[sz]er', str(e.get('num', '')).lower()) for e in exs):
+        print('warning: no Energizer row; add one mid-lesson (num "Energizer", 3-5 min) so the minutes count', file=sys.stderr)
     if plan.get('telegram'):
         new['tg'] = plan['telegram'].strip()
     elif not new.get('tg'):

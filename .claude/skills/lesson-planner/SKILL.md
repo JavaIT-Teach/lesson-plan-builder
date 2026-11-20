@@ -185,10 +185,13 @@ for new plans. Older plans keep theirs, and the 🌌 Lesson world button stays f
    **Warmer** as a `warmer` game (it replaces what the TB says to write on the board), a `formula` when the grammar is
    a pattern, then at most one more that clearly earns its place. Skip anything the book already does well. Don't make
    one per exercise: that rebuilds the slides that failed.
+   **Plus the energizer, every lesson:** a 3–5 min seated team game mid-lesson (minute 35–45) that recycles this
+   lesson's language, as an `energizer` artifact **and** its own plan row (`num` "Energizer"). Take the minutes from
+   the longest practice row and say which. Details in `reference/artifacts.md`.
 2. **Reuse a template.** Fill it with this lesson's words, sentences and answers, taken from the CB and TB pages, in
    the level's language. Each artifact's `page`, `sec` and `num` are copied from its plan row, so its button points
    at the right place in the book. Never two artifacts with the same button name (`lpb.py` refuses it).
-3. **Need something new?** If none of the 8 templates can carry an idea, don't force it. In the report, propose a new
+3. **Need something new?** If none of the 9 templates can carry an idea, don't force it. In the report, propose a new
    template in one or two lines (what it shows, what students do). Build it in the app only when Java agrees.
 4. **Pictures.** A `scene` (and optionally `drag` / `match`) uses a book picture. Java snips the picture and sends it
    as its own image. Store it with `python3 scripts/lpb.py add-img snip.png <level>/p<page>-ex<num>.png` (same book =
@@ -371,6 +374,7 @@ tracks, "my key" rows, aims in one line each, the snips still needed for the boa
   through the script). Never touch taught lessons, other groups or carry-over unless Java asks.
 - Don't push while Java says a lesson is in progress.
 - Don't put Java's notes, "Ss" or answers outside answer fields in an artifact: students read it.
-- Don't make an artifact for every exercise. 1–3 per lesson, where the board beats the book.
+- Don't make an artifact for every exercise. 1–3 per lesson, where the board beats the book, plus the energizer.
+- Don't make students stand up or move in the energizer: it is always seated.
 - Don't use the words PW, TTT, GW, OCFB, Frontal or "stage" in `note` or `self`. The app uses plain
   words. "Ss" is fine, because Java uses it himself.

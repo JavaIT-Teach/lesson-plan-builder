@@ -11,6 +11,17 @@ Every artifact automatically has: the book place and title on top, **Pen** (writ
 
 Look at any template with its demo: open `artifacts/index.html`, or run `node scripts/artifact_check.js --demo --shots DIR`.
 
+## The energizer (every lesson, required)
+
+Every lesson gets one `energizer`: a 3–5 minute **seated** game in the middle of the lesson (around minute 35–45, between
+two sections, ideally after the heaviest part) so students don't sit through 80 minutes of exercises. No movement:
+everything happens from the seats, in teams. It **recycles the lesson's own language** (this lesson's words, grammar
+and questions, plus last lesson's when useful), so it is revision, not lost time. It does not count toward the 1–3.
+
+In the plan it is also a **row**: `num` "Energizer", `page` empty, kind Speaking (or Vocabulary / Grammar, matching what
+it recycles), `who` "All together, I lead", `min` 4 (3–5), a one-line `note`. Place the row where it happens. The
+3–5 minutes come out of the longest practice row; say which one in the report.
+
 ## Choosing artifacts (the rule that matters)
 
 The book stays the main tool. Make an artifact only where seeing it or doing it at the board teaches **better than
@@ -29,7 +40,7 @@ leave it alone. Good reasons:
 - **A gap-fill or matching that is better done together at the board** (the TB says "check as a class", or the
   practice needs the class to see the pattern): `drag` or `match`. Not for every gap-fill.
 
-**Reuse before you build.** The eight templates below cover most needs: change the content, not the code. If a
+**Reuse before you build.** The nine templates below cover most needs: change the content, not the code. If a
 lesson needs something none of them can carry, say so in the report and propose a new template (what it shows,
 what students do). Build it only when Java agrees; it then joins this library for every later lesson.
 
@@ -37,7 +48,7 @@ what students do). Build it only when Java agrees; it then joins this library fo
 
 | field | |
 |---|---|
-| `tpl` | the template: warmer, formula, clock, drag, match, sort, timeline, scene |
+| `tpl` | the template: warmer, energizer, formula, clock, drag, match, sort, timeline, scene |
 | `page`, `sec`, `num` | where in the book, exactly as the plan's row (`sec` = the section heading, `num` = exercise number or "Warmer"). The button is made from them, so two "Ex 6" on different pages or sections never look the same. |
 | `title` | big heading on the board, student-facing ("Who works where?") |
 | `task` | one line telling students what to do, in simple English for the level |
@@ -60,6 +71,25 @@ The TB warmer, ready-made, as a game. `rounds`: one or more, each shown as a tab
 ```
 `categories`: hidden answers under each heading (2–5 columns, up to ~6 items each). `clues`: clue cards, the answer
 is revealed on tap (up to 6). `words`: a grid of hidden words (brainstorms, "how many can you remember?").
+
+### energizer
+Seated team game, 1–3 rounds (2 is usual for 4 minutes). Teams default to 2; give names with `teams` if the class has
+its own. No `page` / `sec` needed; the button reads **Energizer**.
+```json
+{"tpl": "energizer", "num": "Energizer", "title": "Quick fire", "task": "Teams answer fast. One point for each right answer.",
+ "rounds": [
+   {"name": "Spin", "type": "wheel", "items": ["What time do you get up?", "How do you go to school?"]},
+   {"name": "Race", "type": "race", "category": "Things you do every morning", "seconds": 30, "ideas": ["get up", "have a shower"]},
+   {"name": "Odd one out", "type": "oddone", "items": [{"words": ["gets", "goes", "has", "play"], "odd": 3, "why": "play has no -s"}]},
+   {"name": "Unscramble", "type": "unscramble", "items": ["breakfast", "He goes to bed at ten."]},
+   {"name": "Mystery word", "type": "mystery", "items": [{"word": "shower", "clue": "You have one in the bathroom."}]}]}
+```
+`wheel`: 4–10 questions with the lesson's grammar; spin, it lands on one, a student or team answers. `race`: a
+category; teams list words before the timer ends (`seconds`, default 30); `ideas` are revealed after. `oddone`: 4
+words, `odd` = index of the different one, `why` in a few words. `unscramble`: a word (letters shuffled) or a
+sentence (words shuffled). `mystery`: letters appear one by one; fewer letters = more points; give a `clue`.
+Pick rounds that fit the lesson: grammar lessons → wheel / unscramble sentences / oddone with forms; vocabulary
+lessons → race / mystery / oddone with meanings.
 
 ### formula
 Grammar as colour bricks. Roles keep one colour everywhere: `subj` who (blue), `aux` be / do / have / will (red),

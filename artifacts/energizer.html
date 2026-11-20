@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Energizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="kit.css">
+<style>
+/* Energizer: a 3–5 minute seated game in the middle of the lesson, recycling the lesson's own language. */
+.rounds{display:flex;gap:10px}
+.rounds button{border:0;border-radius:14px;padding:12px 20px;background:var(--card);box-shadow:0 0 0 2px var(--line) inset;font:700 21px/1 var(--body);display:flex;gap:10px;align-items:center}
+.rounds button i{font-style:normal;width:30px;height:30px;border-radius:9px;background:var(--paper);display:grid;place-items:center;font:800 17px/1 var(--display)}
+.rounds button[aria-pressed="true"]{background:var(--ink);color:#fff;box-shadow:none}
+.rounds button[aria-pressed="true"] i{background:var(--sun);color:var(--ink)}
+.round{flex:1;min-height:0;display:flex;flex-direction:column;gap:16px}
+.area{flex:1;min-height:0;display:flex;flex-direction:column;gap:18px}
+.big{background:var(--ink);color:#fff;border-radius:26px;padding:26px 34px;display:flex;flex-direction:column;gap:10px}
+.big small{font:800 17px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--sun)}
+.big b{font:800 52px/1.1 var(--display);letter-spacing:-.02em;text-wrap:balance}
+.hid{color:transparent!important;background:repeating-linear-gradient(-45deg,var(--paper) 0 12px,#EBEEF6 12px 24px)!important;border-radius:12px}
+
+/* wheel: spin, it lands on a question */
+.wheelw{flex:1;min-height:0;display:grid;grid-template-columns:520px 1fr;gap:28px;align-items:center}
+.wheel{position:relative;width:500px;height:500px;justify-self:center}
+.wheel svg{width:100%;height:100%;transition:transform 3.2s cubic-bezier(.15,.85,.25,1)}
+.wheel svg text{font:800 34px var(--display);fill:#fff;text-anchor:middle;dominant-baseline:central}
+.wheel::after{content:"";position:absolute;left:50%;top:-14px;margin-left:-22px;border-left:22px solid transparent;border-right:22px solid transparent;border-top:40px solid var(--ink)}
+.wheel .hub{position:absolute;inset:50% auto auto 50%;width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;border:0;background:var(--ink);color:#fff;font:800 26px/1 var(--display);box-shadow:0 0 0 8px #fff}
+.wq{display:flex;flex-direction:column;gap:16px}
+.used{font:700 20px/1.3 var(--body);color:var(--ink2)}
+
+/* race: a category against the clock */
+.race{flex:1;min-height:0;display:grid;grid-template-columns:1fr 360px;gap:24px}
+.ideas{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;align-content:start}
+.ideas span{background:var(--card);border-radius:14px;min-height:64px;display:flex;align-items:center;padding:0 20px;font:700 28px/1.1 var(--body)}
+.clock{background:var(--card);border-radius:26px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px}
+.clock .t{font:800 140px/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+.clock.low .t{color:var(--tomato)}
+.clock.end{background:var(--tomato)}.clock.end .t{color:#fff}
+
+/* odd one out */
+.odd{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.odd button{border:0;border-radius:22px;background:var(--card);box-shadow:0 0 0 2px var(--line) inset;min-height:150px;font:800 40px/1.1 var(--display);padding:16px}
+.odd button.ok{background:var(--green);color:#fff;box-shadow:none}
+.odd button.fade{opacity:.4}
+.why{font:700 30px/1.3 var(--body);min-height:40px}
+
+/* unscramble and mystery word: letter / word tiles */
+.tiles{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+.tiles span{min-width:84px;height:96px;padding:0 18px;border-radius:18px;background:var(--card);box-shadow:0 0 0 3px var(--line) inset;display:grid;place-items:center;font:800 56px/1 var(--display);text-transform:none}
+.tiles.words span{font-size:40px;height:84px}
+.tiles span.on{background:var(--cobalt);color:#fff;box-shadow:none}
+.tiles span.blank{color:transparent}
+.pts{font:800 30px/1 var(--display);color:var(--tomato)}
+.center{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:28px}
+</style>
+</head>
+<body>
+<script src="kit.js"></script>
+<script>
+// Settings: {tpl:"energizer", num:"Energizer", title, task, teams: 2 (default), rounds:[ … ] (1–3 rounds), all seated, lesson language
+//   {name, type:"wheel", items:["What time do you get up?", …]}        spin → a question; one student or team answers
+//   {name, type:"race", category:"Jobs that start with T", seconds:30, ideas:["teacher", …]}   teams list words before time is up
+//   {name, type:"oddone", items:[{words:["doctor","nurse","pilot","hospital"], odd:3, why:"hospital is a place"}]}
+//   {name, type:"unscramble", items:["breakfast", "She gets up at seven."]}   a word → letters; a sentence → words
+//   {name, type:"mystery", items:[{word:"receptionist", clue:"works at the front desk"}]}   letters appear one by one
+const DEMO={tpl:"energizer",num:"Energizer",title:"Quick fire",task:"Teams answer fast. One point for each right answer.",teams:2,
+  rounds:[
+    {name:"Spin",type:"wheel",items:["What time do you get up?","What do you have for breakfast?","How do you go to school?","What do you do in the evening?","When do you go to bed?","What do you do at the weekend?"]},
+    {name:"Race",type:"race",category:"Things you do every morning",seconds:30,ideas:["get up","have a shower","brush my teeth","get dressed","have breakfast","go to school"]},
+    {name:"Odd one out",type:"oddone",items:[{words:["breakfast","lunch","dinner","morning"],odd:3,why:"morning is a time, the others are meals"},{words:["gets","goes","has","play"],odd:3,why:"play has no -s"}]},
+    {name:"Unscramble",type:"unscramble",items:["breakfast","He goes to bed at ten."]},
+    {name:"Mystery word",type:"mystery",items:[{word:"shower",clue:"You have one in the bathroom."}]}
+  ]};
+const {esc,el,$}=Kit;
+const c=Kit.load(DEMO);
+if(c.teams==null)c.teams=2;
+const F=Kit.frame(c);
+const rounds=c.rounds||[];
+const wrap=el(`<div class="round"></div>`);
+let tabs=null;
+if(rounds.length>1){tabs=el(`<div class="rounds">${rounds.map((r,i)=>`<button aria-pressed="${!i}" data-i="${i}"><i>${i+1}</i>${esc(r.name||"Round "+(i+1))}</button>`).join("")}</div>`);wrap.appendChild(tabs);}
+const area=el(`<div class="area"></div>`);wrap.appendChild(area);
+F.stage.appendChild(wrap);Kit.extras(F,c);
+const COL=["#2F54EB","#FF5A36","#00A878","#8A4DFF","#F2367E","#E08A00","#0C8599","#141833"];
+const acts=(extra)=>`<div class="acts"><span class="ct"></span>${extra||""}<span class="sp"></span><button class="navb pv" aria-label="Previous">‹</button><button class="navb nx" aria-label="Next">›</button></div>`;
+const stepper=(box,n,draw)=>{let i=0;const go=k=>{i=Math.max(0,Math.min(n-1,k));$(".ct",box).textContent=n>1?`${i+1} / ${n}`:"";draw(i);};
+  $(".pv",box).onclick=()=>go(i-1);$(".nx",box).onclick=()=>go(i+1);go(0);};
+
+const build={
+  wheel(r){const Q=r.items||[],n=Math.max(Q.length,1),a=360/n;
+    const seg=Q.map((q,i)=>{const s=(i*a-90)*Math.PI/180,e=((i+1)*a-90)*Math.PI/180,m=((i+.5)*a-90)*Math.PI/180;
+      return `<path d="M0 0 L${(200*Math.cos(s)).toFixed(1)} ${(200*Math.sin(s)).toFixed(1)} A200 200 0 ${a>180?1:0} 1 ${(200*Math.cos(e)).toFixed(1)} ${(200*Math.sin(e)).toFixed(1)}Z" fill="${COL[i%COL.length]}" stroke="#fff" stroke-width="4"/>
+        <text x="${(140*Math.cos(m)).toFixed(1)}" y="${(140*Math.sin(m)).toFixed(1)}" transform="rotate(${((i+.5)*a).toFixed(1)} ${(140*Math.cos(m)).toFixed(1)} ${(140*Math.sin(m)).toFixed(1)})">${i+1}</text>`;}).join("");
+    const box=el(`<div class="wheelw"><div class="wheel"><svg viewBox="-205 -205 410 410">${seg}</svg><button class="hub">Spin</button></div>
+      <div class="wq"><div class="big"><small>Question</small><b>Spin the wheel</b></div><p class="used"></p></div></div>`);
+    let rot=0;const used=new Set();
+    $(".hub",box).onclick=()=>{const left=Q.map((_,i)=>i).filter(i=>!used.has(i));const pool=left.length?left:Q.map((_,i)=>i);if(!left.length)used.clear();
+      const k=pool[Math.floor(Math.random()*pool.length)];used.add(k);
+      rot+=360*4+((360-(k+.5)*a-rot%360)+360)%360;$("svg",box).style.transform=`rotate(${rot}deg)`;
+      const b=$(".big b",box);b.textContent="…";setTimeout(()=>{b.textContent=Q[k];Kit.bounce($(".big",box));$(".used",box).textContent=`${used.size} of ${Q.length} asked`;},3200);};
+    return box;},
+  race(r){const sec=Math.max(10,+r.seconds||30);
+    const box=el(`<div class="race"><div class="area"><div class="big"><small>Say as many as you can</small><b>${esc(r.category||"")}</b></div>
+      <div class="ideas">${(r.ideas||[]).map(x=>`<span class="hid">${esc(x)}</span>`).join("")}</div>
+      <div class="acts"><span class="sp"></span><button class="chipbtn dark" data-x="ideas">Show ideas</button></div></div>
+      <div class="clock"><span class="t"></span><button class="chipbtn dark" data-x="go">Start</button></div></div>`);
+    let left=sec,iv=0;const t=$(".t",box),ck=$(".clock",box),go=$('[data-x="go"]',box);
+    const show=()=>{t.textContent=`${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`;ck.classList.toggle("low",!!iv&&left<=5);};show();
+    go.onclick=()=>{if(iv){clearInterval(iv);iv=0;go.textContent="Start";return;}if(!left){left=sec;ck.classList.remove("end");}go.textContent="Pause";
+      iv=setInterval(()=>{left--;show();if(left<=0){clearInterval(iv);iv=0;go.textContent="Again";ck.classList.add("end");Kit.beep();}},1000);show();};
+    $('[data-x="ideas"]',box).onclick=()=>box.querySelectorAll(".ideas span").forEach(s=>s.classList.remove("hid"));
+    box.querySelector(".ideas").onclick=e=>{const s=e.target.closest("span");if(s)s.classList.remove("hid");};
+    return box;},
+  oddone(r){const S=r.items||[];
+    const box=el(`<div class="center"><div class="big"><small>Which one is different?</small><b>Find the odd one out</b></div><div class="odd"></div><p class="why"></p>${acts()}</div>`);
+    stepper(box,S.length,i=>{const s=S[i]||{words:[]};$(".why",box).textContent="";
+      $(".odd",box).innerHTML=(s.words||[]).map((w,j)=>`<button data-j="${j}">${esc(w)}</button>`).join("");
+      $(".odd",box).onclick=e=>{const b=e.target.closest("button");if(!b)return;if(+b.dataset.j===s.odd){box.querySelectorAll(".odd button").forEach(x=>x.classList.add(x===b?"ok":"fade"));$(".why",box).textContent=s.why?"✓ "+s.why:"✓";}else Kit.nudge(b);};});
+    return box;},
+  unscramble(r){const S=r.items||[];
+    const box=el(`<div class="center"><div class="big"><small>Put it in order</small><b class="ans hid"></b></div><div class="tiles"></div>${acts('<button class="chipbtn dark" data-x="show">Show answer</button>')}</div>`);
+    stepper(box,S.length,i=>{const s=String(S[i]||""),words=/\s/.test(s.trim());
+      const parts=words?s.trim().split(/\s+/):[...s.replace(/\s/g,"")];
+      const T=$(".tiles",box);T.className="tiles"+(words?" words":"");T.innerHTML=Kit.shuffle(parts).map(p=>`<span>${esc(words?p.replace(/[.?!,]$/,""):p)}</span>`).join("");
+      const b=$(".ans",box);b.textContent=s;b.classList.add("hid");});
+    $('[data-x="show"]',box).onclick=()=>{$(".ans",box).classList.remove("hid");Kit.bounce($(".big",box));};
+    return box;},
+  mystery(r){const S=r.items||[];
+    const box=el(`<div class="center"><div class="big"><small>Clue</small><b></b></div><div class="tiles"></div><p class="pts"></p>
+      ${acts('<button class="chipbtn" data-x="letter">Next letter</button><button class="chipbtn dark" data-x="show">Show word</button>')}</div>`);
+    let s=null,order=[],k=0;
+    const draw=()=>{const L=[...s.word];const sh=new Set(order.slice(0,k));
+      $(".tiles",box).innerHTML=L.map((ch,j)=>ch===" "?`<span style="visibility:hidden">·</span>`:`<span class="${sh.has(j)?"on":"blank"}">${esc(sh.has(j)?ch:"_")}</span>`).join("");
+      const left=L.filter(ch=>ch!==" ").length-k;$(".pts",box).textContent=left>0?`Guess now: ${Math.max(1,left)} point${left>1?"s":""}`:"";};
+    stepper(box,S.length,i=>{s=S[i]||{word:""};$(".big b",box).textContent=s.clue||"Guess the word";
+      order=Kit.shuffle([...s.word].map((ch,j)=>ch===" "?-1:j).filter(j=>j>=0));k=0;draw();});
+    $('[data-x="letter"]',box).onclick=()=>{if(k<order.length){k++;draw();}};
+    $('[data-x="show"]',box).onclick=()=>{k=order.length;draw();Kit.bounce($(".tiles",box));};
+    return box;}
+};
+const views=rounds.map(r=>(build[r.type]||build.wheel)(r));
+const show=i=>{area.replaceChildren(views[i]);tabs&&tabs.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",+b.dataset.i===i));};
+if(views.length)show(0);
+tabs&&tabs.addEventListener("click",e=>{const b=e.target.closest("button");if(b)show(+b.dataset.i);});
+</script>
+</body>
+</html>

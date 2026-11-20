@@ -10,14 +10,14 @@
 // bump when world.html changes, so the Lesson world button never opens a cached old copy
 const WORLD_V = '5';
 // bump when anything in artifacts/ changes, so artifact buttons never open a cached old copy
-const ART_V = '1';
+const ART_V = '2';
 // lesson artifacts (artifacts/*.html): the button names the book place and the type, e.g. "p.42 · Grammar · Ex 6 · Clock"
-const ART_NAMES = { warmer: 'Warmer game', formula: 'Formula', clock: 'Clock', drag: 'Drag into gaps', match: 'Match', sort: 'Sort', timeline: 'Timeline', scene: 'Picture' };
+const ART_NAMES = { warmer: 'Warmer game', energizer: 'Energizer', formula: 'Formula', clock: 'Clock', drag: 'Drag into gaps', match: 'Match', sort: 'Sort', timeline: 'Timeline', scene: 'Picture' };
 function artLabel(a) {
   const n = String(a.num || '').trim(), sec = String(a.sec || '').split('·')[0].trim();
   const parts = [a.page && 'p.' + a.page, sec, n && (/^\d/.test(n) ? 'Ex ' + n : n)].filter(Boolean);
   const type = ART_NAMES[a.tpl] || a.tpl || 'Artifact';
-  if (!(a.tpl === 'warmer' && /warmer/i.test(n))) parts.push(type);
+  if (!((a.tpl === 'warmer' && /warmer/i.test(n)) || (a.tpl === 'energizer' && /energi[sz]er/i.test(n)))) parts.push(type);
   return parts.join(' · ');
 }
 const esc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
