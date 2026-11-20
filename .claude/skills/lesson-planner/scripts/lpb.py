@@ -17,6 +17,8 @@ Commands
                               for a lesson already taught)
   set-world GROUP WORLD.json  add the lesson-world book copy (lesson "book" look + each exercise's "world") to the next
                               lesson (or --for SECTION) without touching anything else; rows matched by page + num
+  set-artifacts GROUP ART.json  replace the lesson artifacts ({"artifacts": [...]}) of the next lesson (or --for SECTION)
+                              without touching anything else; see reference/artifacts.md for the templates
   add-img FILE NAME           store a book picture as img/NAME in the data repo (shrunk to 1400 px wide when Pillow
                               is installed); use it in a world block as {"type": "image", "src": "img:NAME"}
   log [DAYS]                  write PLANS.md (the plan log: per group, what was taught, what is planned and
@@ -260,6 +262,8 @@ def show_lesson(title, L):
     print(f"{title}: Unit {L.get('unit') or '?'}{' · ' + L['name'] if L.get('name') else ''}  ({len(L['exercises'])} exercises, {total} min + 5-7 warm-up)")
     for i, e in enumerate(L['exercises'], 1):
         print(ex_line(i, e))
+    for a in L.get('artifacts') or []:
+        print(f"  [artifact] {art_label(a)}  ({a.get('title', '')})")
 
 
 def cmd_status(db):
@@ -362,6 +366,88 @@ def check_world(w, n):
                     die(f"exercise {n}, step {j} (choose): each question needs q, options and answer (index of the right option)")
         if st.get('image'):
             check_img(st['image'], n)
+
+
+# ---------- lesson artifacts (artifacts/*.html in the app): reusable pages, one button each in the builder ----------
+# template: required fields. See reference/artifacts.md for the full formats.
+ARTS = {'warmer': ['rounds'], 'formula': ['forms'], 'clock': ['items'], 'drag': ['items', 'answers'],
+        'match': ['left', 'right', 'answers'], 'sort': ['groups'], 'timeline': ['items'], 'scene': ['spots']}
+ART_NAMES = {'warmer': 'Warmer game', 'formula': 'Formula', 'clock': 'Clock', 'drag': 'Drag into gaps', 'match': 'Match',
+             'sort': 'Sort', 'timeline': 'Timeline', 'scene': 'Picture'}
+ROLES = {'subj', 'aux', 'verb', 'neg', 'q', 'rest', 'mark'}
+
+
+def art_label(a):
+    """The builder's button text: p.42 · Grammar · Ex 6 · Clock (same rule as artLabel in app.js)."""
+    n, sec = str(a.get('num', '')).strip(), str(a.get('sec', '')).split('·')[0].strip()
+    parts = [f"p.{a['page']}" if a.get('page') else '', sec, ('Ex ' + n if re.match(r'^\d', n) else n) if n else '']
+    parts = [x for x in parts if x]
+    if not (a.get('tpl') == 'warmer' and 'warmer' in n.lower()):
+        parts.append(ART_NAMES.get(a.get('tpl'), a.get('tpl') or 'Artifact'))
+    return ' · '.join(parts)
+
+
+def check_artifacts(arts):
+    if not isinstance(arts, list):
+        die('artifacts must be a list')
+    seen = {}
+    for n, a in enumerate(arts, 1):
+        t = a.get('tpl') if isinstance(a, dict) else None
+        w = f"artifact {n} ({t})"
+        if t not in ARTS:
+            die(f"artifact {n}: tpl must be one of {sorted(ARTS)}, got {t!r}")
+        miss = [k for k in ['title'] + ARTS[t] if not a.get(k)]
+        if miss:
+            die(f"{w}: missing {', '.join(miss)}")
+        if not a.get('page') or not a.get('num'):
+            print(f"warning: {w}: give page and num so the button says where it is in the book", file=sys.stderr)
+        lab = art_label(a)
+        if lab in seen:
+            die(f"artifacts {seen[lab]} and {n} get the same button \"{lab}\"; add sec, or merge them")
+        seen[lab] = n
+        if t == 'drag':
+            gaps = sum(len(re.findall(r'_{3,}', str(i))) for i in a['items'])
+            if gaps != len(a['answers']):
+                die(f"{w}: {len(a['answers'])} answers for {gaps} gaps")
+            if a.get('words') and not all(a['words'].count(x) >= a['answers'].count(x) for x in set(a['answers'])):
+                die(f"{w}: words must hold every answer (as many times as it is used)")
+        if t == 'match' and sorted(a['answers']) != list(range(len(a['right']))):
+            die(f"{w}: answers must give each left item the index of its right item, using each once")
+        if t == 'clock':
+            for it in a['items']:
+                if not re.match(r'^(1[0-2]|[1-9]):[0-5][05]$', str(it.get('time', ''))):
+                    die(f"{w}: each item needs time like 9:30 (hours 1-12, minutes in fives), got {it.get('time')!r}")
+        if t == 'formula':
+            for k, f in a['forms'].items():
+                if k not in ('pos', 'neg', 'q') or not f.get('parts'):
+                    die(f"{w}: forms are pos / neg / q, each with parts")
+                for part in f['parts']:
+                    if len(part) < 2 or part[1] not in ROLES:
+                        die(f"{w}: each part is [label, role, example] with role in {sorted(ROLES)}, got {part!r}")
+            for j, pr in enumerate(a.get('practice') or [], 1):
+                if pr.get('type') not in ('build', 'transform', 'fix') or not pr.get('words'):
+                    die(f"{w}, practice {j}: type build / transform / fix with words")
+                if any(len(x) < 2 or x[1] not in ROLES for x in pr['words']):
+                    die(f"{w}, practice {j}: each word is [word, role] (fix: [word, role, correction])")
+                if pr['type'] == 'transform' and not pr.get('from'):
+                    die(f"{w}, practice {j}: transform needs from (the sentence to change) and to")
+                if pr['type'] == 'fix' and not any(len(x) > 2 and x[2] for x in pr['words']):
+                    die(f"{w}, practice {j}: fix needs one word with a correction: [word, role, correction]")
+        if t == 'timeline' and a.get('mode', 'place') == 'place':
+            nz = len(a.get('zones') or ['Past', 'Now', 'Future'])
+            if any(not isinstance(it.get('zone'), int) or not 0 <= it['zone'] < nz for it in a['items']):
+                die(f"{w}: each item needs zone = index into zones (0-{nz - 1})")
+        if t == 'warmer':
+            for j, r in enumerate(a['rounds'], 1):
+                if r.get('type') not in ('categories', 'clues', 'words'):
+                    die(f"{w}, round {j}: type must be categories, clues or words")
+        if t == 'scene':
+            if any(not (0 <= float(sp.get('x', -1)) <= 100 and 0 <= float(sp.get('y', -1)) <= 100) or not sp.get('label') for sp in a['spots']):
+                die(f"{w}: each spot needs x and y (0-100, % of the picture) and label")
+        for k in ('image',):
+            if a.get(k):
+                check_img(a[k], f"artifact {n}")
+    return arts
 
 
 def check_img(src, n):
@@ -528,8 +614,10 @@ def cmd_write(db, gid, plan_path, dry, replace=False, sec=None):
     new.update({'unit': unit, 'name': plan.get('name', dr.get('name', '')), 'exercises': keep_carry + exs})
     if plan.get('book'):
         new['book'] = check_book(plan['book'])
-    if not new.get('book') or not any(e.get('world') for e in exs if not e['skipped']):
-        print('warning: no lesson-world copy (book + world); the skill should write one so the board matches the book', file=sys.stderr)
+    if plan.get('artifacts') is not None:
+        new['artifacts'] = check_artifacts(plan['artifacts'])
+    if not new.get('artifacts'):
+        print('warning: no artifacts; plans from Nov 2026 on get 1-3 artifacts (see reference/artifacts.md)', file=sys.stderr)
     if plan.get('telegram'):
         new['tg'] = plan['telegram'].strip()
     elif not new.get('tg'):
@@ -681,6 +769,21 @@ def main():
             e['world'] = x['world']
         save(d, db)
         show_lesson('Lesson world copy added', L)
+    elif c == 'set-artifacts':
+        sec = None
+        if '--for' in args:
+            i = args.index('--for'); sec = args[i + 1]; del args[i:i + 2]
+        g = db['groups'].get(args[1]) or die(f'unknown group {args[1]}')
+        sl, done = gslots(g), done_of(g)
+        k = done if not sec else next((i for i in range(done, len(sl)) if sec in (sl[i]['sec'], sec_label(sl[i]))), None)
+        L = plan_for(g, k) if k is not None else None
+        if not L:
+            die('no plan for that lesson yet; write the plan first')
+        with open(args[2], encoding='utf-8') as f:
+            ad = json.load(f)
+        L['artifacts'] = check_artifacts(ad.get('artifacts') if isinstance(ad, dict) else ad)
+        save(d, db)
+        show_lesson('Artifacts set', L)
     elif c == 'write':
         dry, replace = '--dry-run' in args, '--replace' in args
         sec = None

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Picture scene</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="kit.css">
+<style>
+/* Picture scene: a book picture with numbered spots. Students say the word, tap the spot to check. */
+.wrap{flex:1;min-height:0;display:grid;grid-template-columns:1fr 380px;gap:24px}
+.pic{position:relative;background:var(--card);border-radius:26px;display:grid;place-items:center;overflow:hidden;min-height:0}
+.frame{position:relative;max-width:100%;max-height:100%;display:inline-block;line-height:0}
+.frame img{max-width:100%;max-height:640px;display:block;border-radius:18px}
+.frame.none{width:880px;height:600px;border-radius:18px;background:repeating-linear-gradient(-45deg,var(--paper) 0 14px,#EBEEF6 14px 28px)}
+.frame .why{position:absolute;inset:auto 20px 20px;line-height:1.4;font:600 20px/1.4 var(--body);color:var(--ink2)}
+.spot{position:absolute;transform:translate(-50%,-50%);border:0;padding:0;background:none;display:flex;align-items:center;gap:8px;line-height:1}
+.spot i{font-style:normal;width:54px;height:54px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font:800 24px/1 var(--display);box-shadow:0 0 0 5px #fff,0 10px 20px -8px rgba(20,24,51,.5)}
+.spot b{display:none;background:var(--sun);color:var(--ink);padding:10px 14px;border-radius:12px;font:800 28px/1 var(--display);white-space:nowrap;box-shadow:0 10px 20px -8px rgba(20,24,51,.4)}
+.spot.on i{background:var(--cobalt)}
+.spot.on b{display:block}
+.keyl{background:var(--card);border-radius:26px;padding:22px 24px;display:flex;flex-direction:column;gap:10px;overflow:auto;min-height:0}
+.keyl h3{margin:0 0 4px;font:800 17px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--ink2)}
+.keyl button{border:0;border-radius:14px;background:var(--paper);min-height:58px;padding:0 16px;display:flex;align-items:center;gap:14px;text-align:left;font:700 26px/1.2 var(--body)}
+.keyl button i{font-style:normal;flex:none;width:38px;height:38px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font:800 18px/1 var(--display)}
+.keyl button span{color:transparent;background:repeating-linear-gradient(-45deg,#E4E8F2 0 8px,#F0F2F8 8px 16px);border-radius:8px;padding:2px 8px;min-width:150px}
+.keyl button.on span{color:var(--ink);background:none;padding:2px 0}
+.keyl button.on i{background:var(--cobalt)}
+.keyl .acts{margin-top:auto;padding-top:10px}
+</style>
+</head>
+<body>
+<script src="kit.js"></script>
+<script>
+// Settings: {tpl:"scene", page, sec, num, title, task, image:"img:elementary/p20-ex1.png",
+//   spots:[{x:32, y:58, label:"on the table"}, …]}   x, y = % across and down the picture
+const DEMO={tpl:"scene",page:"20",sec:"Vocabulary · My room",num:"1",title:"Where is it?",
+  task:"Look at the picture. Say where each thing is. Tap the number to check.",image:"",
+  spots:[{x:22,y:30,label:"lamp"},{x:50,y:62,label:"desk"},{x:78,y:40,label:"window"},{x:35,y:80,label:"rug"},{x:66,y:76,label:"chair"}]};
+const {esc,el,$}=Kit;
+const c=Kit.load(DEMO);const F=Kit.frame(c);
+const S=c.spots||[];
+const W=el(`<div class="wrap"><div class="pic"><div class="frame${c.image?"":" none"}">${c.image?`<img alt="Book picture">`:`<span class="why">No picture yet. Send Claude a snip of this picture.</span>`}
+  ${S.map((s,i)=>`<button class="spot" data-i="${i}" style="left:${+s.x||0}%;top:${+s.y||0}%"><i>${i+1}</i><b>${esc(s.label)}</b></button>`).join("")}</div></div>
+  <div class="keyl"><h3>Answers</h3>${S.map((s,i)=>`<button data-k="${i}"><i>${i+1}</i><span>${esc(s.label)}</span></button>`).join("")}
+  <div class="acts"><button class="chipbtn" data-x="hide">Hide all</button><button class="chipbtn dark" data-x="show">Show all</button></div></div></div>`);
+F.stage.appendChild(W);Kit.extras(F,c);
+if(c.image)Kit.picture($(".frame img",W),c.image,msg=>{const f=$(".frame",W);f.classList.add("none");$("img",f).remove();f.insertAdjacentHTML("afterbegin",`<span class="why">${esc(msg)}</span>`);});
+const flip=(i,on)=>{[W.querySelector(`.spot[data-i="${i}"]`),W.querySelector(`[data-k="${i}"]`)].forEach(x=>{x.classList.toggle("on",on);if(on)Kit.bounce(x);});};
+W.addEventListener("click",e=>{if(document.body.classList.contains("pen"))return;const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.x)return S.forEach((_,i)=>flip(i,b.dataset.x==="show"));
+  const i=b.dataset.i??b.dataset.k;flip(i,!b.classList.contains("on"));});
+</script>
+</body>
+</html>

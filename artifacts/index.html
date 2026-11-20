@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Artifact Library</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=Figtree:wght@500;700&display=swap">
+<style>
+/* The artifact library: every template, opened with its built-in demo. */
+:root{color-scheme:light;--paper:#F3F5FA;--ink:#141833;--ink2:#565D7E}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Figtree","Segoe UI",system-ui,sans-serif;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:44px}
+main{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+small{font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);font-size:14px}
+h1{font:800 clamp(36px,6vw,60px)/1.02 "Bricolage Grotesque","Figtree",system-ui,sans-serif;letter-spacing:-.025em;margin:8px 0 0}
+p{font-size:18px;line-height:1.5;color:var(--ink2);margin:0;max-width:64ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+a{display:flex;flex-direction:column;gap:8px;text-decoration:none;color:#fff;background:var(--k);border-radius:20px;padding:22px 24px;min-height:140px}
+a:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+a b{font:800 28px/1.05 "Bricolage Grotesque","Figtree",system-ui,sans-serif}
+a span{font-size:16px;line-height:1.4;opacity:.92}
+</style>
+</head>
+<body>
+<main>
+  <div><small>Lesson Plan Builder</small><h1>Artifact library</h1></div>
+  <p>Each template opens with a demo. In lessons, the planner fills a template with that lesson's content, and the builder shows one button per artifact.</p>
+  <div class="grid">
+    <a href="warmer.html" style="--k:#2F54EB"><b>Warmer</b><span>The TB warmer, ready on the board: hidden answers, clue cards, timer, team scores.</span></a>
+    <a href="formula.html" style="--k:#FF5A36"><b>Formula</b><span>Grammar as colour bricks for +, − and ?, with practice to model.</span></a>
+    <a href="clock.html" style="--k:#00A878"><b>Clock</b><span>Set the hands or read the time.</span></a>
+    <a href="drag.html" style="--k:#8A4DFF"><b>Drag into gaps</b><span>Word chips into sentences.</span></a>
+    <a href="match.html" style="--k:#F2367E"><b>Match</b><span>Two columns, coloured pairs.</span></a>
+    <a href="sort.html" style="--k:#141833"><b>Sort</b><span>Words into 2–4 groups.</span></a>
+    <a href="timeline.html" style="--k:#0C8599"><b>Timeline</b><span>Place sentences in past / now / future, or put events in order.</span></a>
+    <a href="scene.html" style="--k:#E08A00"><b>Picture scene</b><span>A book picture with numbered spots to reveal.</span></a>
+  </div>
+</main>
+</body>
+</html>

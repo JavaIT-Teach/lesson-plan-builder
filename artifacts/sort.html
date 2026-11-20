@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sort into groups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="kit.css">
+<style>
+/* Sort: words in a pool, students move each one into its group. */
+.wrap{flex:1;min-height:0;display:flex;flex-direction:column;gap:20px}
+.wrap .pool{background:var(--card);border-radius:24px;padding:20px 22px;min-height:104px}
+.groups{flex:1;min-height:0;display:grid;gap:18px}
+.grp{border-radius:24px;background:color-mix(in srgb,var(--k) 9%,#fff);box-shadow:0 0 0 3px color-mix(in srgb,var(--k) 30%,#fff) inset;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.grp h3{margin:0;padding:18px 24px;background:var(--k);color:#fff;font:800 34px/1.05 var(--display);display:flex;justify-content:space-between;align-items:center}
+.grp h3 small{font:700 18px/1 var(--body);background:rgba(255,255,255,.22);padding:7px 10px;border-radius:8px;font-variant-numeric:tabular-nums}
+.grp .in{flex:1;padding:16px;display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start;overflow:auto}
+.grp .in span{height:56px;padding:0 18px;border-radius:12px;background:#fff;display:inline-flex;align-items:center;font:700 28px/1 var(--body);color:var(--ink);box-shadow:0 0 0 2px color-mix(in srgb,var(--k) 35%,#fff) inset}
+</style>
+</head>
+<body>
+<script src="kit.js"></script>
+<script>
+// Settings: {tpl:"sort", page, sec, num, title, task, groups:[{name, items:[…]}, …]}   2–4 groups
+const DEMO={tpl:"sort",page:"40",sec:"Grammar · Countable and uncountable",num:"2",title:"Can you count it?",
+  task:"Put each word in the right group.",
+  groups:[{name:"Countable",items:["apple","egg","banana","sandwich","tomato"]},{name:"Uncountable",items:["milk","bread","water","cheese","rice"]}]};
+const {esc,el,$}=Kit;
+const c=Kit.load(DEMO);const F=Kit.frame(c);
+const G=c.groups||[],K=["var(--cobalt)","var(--tomato)","var(--green)","var(--violet)"];
+const all=Kit.shuffle(G.flatMap((g,gi)=>(g.items||[]).map(w=>[w,gi])));
+const W=el(`<div class="wrap"><div class="pool">${all.map(([w,gi])=>`<button class="wchip" data-g="${gi}">${esc(w)}</button>`).join("")}</div>
+  <div class="groups" style="grid-template-columns:repeat(${Math.max(1,Math.min(G.length,4))},minmax(0,1fr))">${G.map((g,i)=>`<section class="grp" data-g="${i}" style="--k:${K[i%4]}"><h3>${esc(g.name)}<small>0 / ${(g.items||[]).length}</small></h3><div class="in"></div></section>`).join("")}</div>
+  <div class="acts"><span class="state"></span><span class="sp"></span><button class="chipbtn" data-x="reset">Start again</button><button class="chipbtn dark" data-x="show">Show answers</button></div></div>`);
+F.stage.appendChild(W);Kit.extras(F,c);
+const put=(ch,gr)=>{$(".in",gr).appendChild(el(`<span class="pop">${esc(ch.textContent)}</span>`));ch.disabled=true;
+  const tot=(G[+gr.dataset.g].items||[]).length;$("h3 small",gr).textContent=`${$(".in",gr).children.length} / ${tot}`;
+  if(!W.querySelector(".wchip:not([disabled])"))$(".state",W).textContent="✓ All sorted";};
+Kit.pick(W,".wchip",".grp",(ch,gr)=>{if(ch.dataset.g!==gr.dataset.g)return false;put(ch,gr);return true;});
+W.addEventListener("click",e=>{const b=e.target.closest("[data-x]");if(!b)return;
+  if(b.dataset.x==="reset"){W.querySelectorAll(".grp .in").forEach(x=>x.innerHTML="");W.querySelectorAll(".grp").forEach(gr=>$("h3 small",gr).textContent=`0 / ${(G[+gr.dataset.g].items||[]).length}`);
+    W.querySelectorAll(".wchip").forEach(x=>{x.disabled=false;x.classList.remove("sel");});$(".state",W).textContent="";}
+  else W.querySelectorAll(".wchip:not([disabled])").forEach(ch=>put(ch,W.querySelector(`.grp[data-g="${ch.dataset.g}"]`)));});
+</script>
+</body>
+</html>
