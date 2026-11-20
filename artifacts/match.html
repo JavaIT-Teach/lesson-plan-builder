@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Match</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="kit.css">
+<style>
+/* Match: tap one on the left, then its partner on the right. Each pair gets its own colour. */
+.wrap{flex:1;min-height:0;display:flex;flex-direction:column;gap:20px}
+.cols{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:56px;overflow:auto;align-content:start}
+.col{display:flex;flex-direction:column;gap:12px}
+.mi{border:0;border-radius:18px;background:var(--card);box-shadow:0 0 0 2px var(--line) inset;min-height:76px;padding:12px 22px;text-align:left;
+  display:flex;align-items:center;gap:18px;font:600 30px/1.25 var(--body)}
+.mi i{font-style:normal;flex:none;width:44px;height:44px;border-radius:12px;background:var(--paper);display:grid;place-items:center;font:800 21px/1 var(--display);color:var(--ink2)}
+.mi.sel{box-shadow:0 0 0 4px var(--ink) inset;background:color-mix(in srgb,var(--sun) 30%,#fff)}
+.mi.ok{background:var(--h);color:#fff;box-shadow:none}
+.mi.ok i{background:rgba(255,255,255,.22);color:#fff}
+.mi img{max-height:110px;max-width:220px;border-radius:10px}
+</style>
+</head>
+<body>
+<script src="kit.js"></script>
+<script>
+// Settings: {tpl:"match", page, sec, num, title, task, left:[…], right:[…], answers:[…]}
+//   answers[i] = index in right of the partner of left[i]. Leave the book's 1–n / a–z out; the page adds them.
+//   An item can be a book picture: "img:beginner/p12-a.png".
+const DEMO={tpl:"match",page:"22",sec:"Vocabulary · Free time",num:"2",title:"Verb + activity",task:"Match the verbs with the activities.",
+  left:["play","go","watch","listen to","read"],right:["swimming","a magazine","football","music","TV"],answers:[2,0,4,3,1]};
+const {esc,el,$}=Kit;
+const c=Kit.load(DEMO);const F=Kit.frame(c);
+const L=c.left||[],R=c.right||[],A=c.answers||[];
+const cell=t=>/^img:/.test(t)?`<img alt="Book picture" data-src="${esc(t)}">`:`<span>${esc(t)}</span>`;
+const W=el(`<div class="wrap"><div class="cols">
+  <div class="col">${L.map((t,i)=>`<button class="mi L" data-i="${i}"><i>${i+1}</i>${cell(t)}</button>`).join("")}</div>
+  <div class="col">${R.map((t,i)=>`<button class="mi R" data-i="${i}"><i>${String.fromCharCode(97+i)}</i>${cell(t)}</button>`).join("")}</div></div>
+  <div class="acts"><span class="state"></span><span class="sp"></span><button class="chipbtn" data-x="reset">Start again</button><button class="chipbtn dark" data-x="show">Show answers</button></div></div>`);
+F.stage.appendChild(W);Kit.extras(F,c);
+W.querySelectorAll("img[data-src]").forEach(im=>Kit.picture(im,im.dataset.src,()=>{im.replaceWith(Object.assign(document.createElement("span"),{textContent:"(picture)"}));}));
+const HUE=["#2F54EB","#FF5A36","#00A878","#8A4DFF","#F2367E","#E08A00","#0C8599","#141833"];
+let sel=null,n=0;
+const pair=(l,r)=>{const h=HUE[n++%HUE.length];[l,r].forEach(x=>{x.classList.remove("sel");x.classList.add("ok");x.disabled=true;x.style.setProperty("--h",h);Kit.bounce(x);});
+  if(!W.querySelector(".mi.L:not(.ok)"))$(".state",W).textContent="✓ All matched";};
+W.addEventListener("click",e=>{const b=e.target.closest("button");if(!b||document.body.classList.contains("pen"))return;
+  if(b.dataset.x==="reset"){W.querySelectorAll(".mi").forEach(x=>{x.className=x.className.replace(/ (ok|sel)/g,"");x.disabled=false;});n=0;sel=null;$(".state",W).textContent="";return;}
+  if(b.dataset.x==="show"){W.querySelectorAll(".mi.L:not(.ok)").forEach(l=>{const r=W.querySelector(`.mi.R[data-i="${A[+l.dataset.i]}"]`);if(r&&!r.classList.contains("ok"))pair(l,r);});return;}
+  if(b.classList.contains("L")){W.querySelectorAll(".mi.L.sel").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");sel=b;return;}
+  if(b.classList.contains("R")){if(!sel)return Kit.nudge(b);if(A[+sel.dataset.i]===+b.dataset.i){pair(sel,b);sel=null;}else Kit.nudge(b);}});
+</script>
+</body>
+</html>

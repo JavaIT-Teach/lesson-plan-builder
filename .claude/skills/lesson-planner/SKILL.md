@@ -1,6 +1,6 @@
 ---
 name: lesson-planner
-description: Turns coursebook pages plus teacher's book pages into a lesson plan in Java's Lesson Plan Builder app, written in Java's own style, with a faithful copy of each coursebook exercise for the app's 3D lesson world (the board students see), and saves it into the right group's next lesson (synced through the private lesson-plan-data repo). Use when Java shares coursebook / teacher's book pages (images or PDF) and asks to plan, prepare or build a lesson for one of his groups, or asks to put a plan into the lesson plan builder.
+description: Turns coursebook pages plus teacher's book pages into a lesson plan in Java's Lesson Plan Builder app, written in Java's own style, with 1–3 lesson artifacts (interactive board pages: warmer games, grammar formulas, clocks, sorting, timelines, picture scenes) that Java opens on the board while teaching from the book, and saves it into the right group's next lesson (synced through the private lesson-plan-data repo). Use when Java shares coursebook / teacher's book pages (images or PDF) and asks to plan, prepare or build a lesson for one of his groups, or asks to put a plan into the lesson plan builder.
 ---
 
 # Lesson planner for the Lesson Plan Builder
@@ -74,9 +74,8 @@ Pre-Intermediate, Intermediate).
 
 Every plan has **two layers**:
 1. **The teacher's plan** (note, self, who, min…): Java's voice, for Java only. This step and the field list below.
-2. **The board** (`book` + each row's `world`): what the **students** see on the interactive board in the app's
-   lesson world. Step 2b copies the page so it looks and reads like the book they hold; Step 2c turns the TB
-   procedure into student steps and touch tasks. Nothing from Java's notes ever appears on the board.
+2. **The artifacts** (`artifacts`): 1–3 board pages for the points where seeing or doing beats the book (Step 2b).
+   Students see them. Nothing from Java's notes ever appears on them.
 
 That file is Java's own plan, built from CB + TB. It is the model for voice, density and choices. Rules:
 
@@ -173,148 +172,36 @@ to teach all 4 pages in one lesson. Then:
     Ex 4.*
   - Use the full words here. Never TTT, PW or similar: write "teacher talking time".
 
-## Step 2b: copy the book for the lesson world (always)
+## Step 2b: artifacts for the board (always). Read `reference/artifacts.md` first
 
-The app's **🌌 Lesson world** button opens the lesson as panels in a bright 3D space on the classroom's interactive
-board, one panel per exercise. Students keep their books open, so the board must mirror the page: same section
-headings, same colours, same exercise numbers, same instructions, same items, in the same order. Then a student
-glancing between the board and the book always knows where the class is. You write this copy from the CB pages.
+**Changed Nov 2026.** Java teaches from the book. He no longer uses the lesson world's slide copy of the page,
+because he couldn't run a lesson reliably from it. Plans from 13 Nov 2026 on get **artifacts** instead: separate
+full-screen pages in the app (`artifacts/*.html`) that make one point clearer than the book can, visual and often
+interactive, often a game. The builder shows one button per artifact in its top bar, named from the book place and
+the type (**p.42 · Grammar · Ex 6 · Clock**), so Java knows when to open which. Don't write `book` / `world` copies
+for new plans. Older plans keep theirs, and the 🌌 Lesson world button stays for them.
 
-**Copy, don't adapt.** The book copy is a transcription, not a summary:
-- `rubric` = the CB instruction line **word for word** (e.g. "Complete the sentences with the -ing form of the verbs
-  in brackets."). Never Java's `note`, never simplified, never "Ss…".
-- Items, word boxes, tables, texts and dialogues **word for word**, with the book's numbering and order. Keep the
-  book's spelling, punctuation and brackets. Write a gap as `___`.
-- Nothing teacher-facing in it: no notes to self, no TB tips, no CCQs.
-- Answers only in `answers` or a list's `answers` (they stay hidden until Java taps). Take them from the TB or the CB key.
-  A key you worked out yourself ("my key", see above) may go in too, because it is on the report's my-key list for
-  Java to check. Answers that depend on audio you can't hear stay out.
+1. **Pick 1–3 points** where the board beats the page (the rules in `reference/artifacts.md`): almost always the TB
+   **Warmer** as a `warmer` game (it replaces what the TB says to write on the board), a `formula` when the grammar is
+   a pattern, then at most one more that clearly earns its place. Skip anything the book already does well. Don't make
+   one per exercise: that rebuilds the slides that failed.
+2. **Reuse a template.** Fill it with this lesson's words, sentences and answers, taken from the CB and TB pages, in
+   the level's language. Each artifact's `page`, `sec` and `num` are copied from its plan row, so its button points
+   at the right place in the book. Never two artifacts with the same button name (`lpb.py` refuses it).
+3. **Need something new?** If none of the 8 templates can carry an idea, don't force it. In the report, propose a new
+   template in one or two lines (what it shows, what students do). Build it in the app only when Java agrees.
+4. **Pictures.** A `scene` (and optionally `drag` / `match`) uses a book picture. Java snips the picture and sends it
+   as its own image. Store it with `python3 scripts/lpb.py add-img snip.png <level>/p<page>-ex<num>.png` (same book =
+   same name, so other groups reuse it) and use it as `"image": "img:<level>/p<page>-ex<num>.png"`. Place `scene`
+   spots by looking at the snip. If the snip is missing, still write the artifact and list the snip in the report.
+5. **Check (always, after `write` or `set-artifacts`):** `node scripts/artifact_check.js GROUP` (add `--data DIR` if
+   the data clone is elsewhere). It opens each artifact at board size. Fix every `ERROR` and `CUT` (shorten the
+   content, or split it into two artifacts). Mention any `SCROLL` in the report. Add `--shots DIR` to look at them.
+   If Playwright is missing, say so in the report instead of skipping silently.
 
-**Capture the page look once per lesson** in the plan's `book` object, by looking at the CB pages:
-- `unitColor`: the unit's main colour (unit header, exercise-number badges), as hex. Estimate it from the image
-  (e.g. a strong pink is about `#D6336C`, a teal about `#0C8599`).
-- `sections`: the colour of each section heading, keyed by the exact `sec` text of the rows, e.g.
-  `{"Vocabulary · Personality": "#1C7ED6", "Grammar · -ing forms": "#D6336C"}`. Add one entry per section whose
-  heading colour differs from `unitColor`.
-- `numStyle`: how exercise numbers are printed: `circle` (number in a filled circle), `square` (filled square), or
-  `plain` (just a coloured number).
-- `headStyle`: how section headings are printed: `band` (white text on a coloured strip), `tab` (coloured tab), or
-  `text` (coloured text with a rule).
-- `font`: the page's feel: `rounded` (soft, round letters, common in Beginner and Elementary books), `sans`
-  (plain modern), or `serif`.
-
-Keep the same `book` for every lesson of the same book and unit, so the board doesn't change look mid-unit.
-
-**`world` on each row.** Warmer, Review and Cooler rows have no book exercise; give them a `world` only if there is
-something for students to read, such as the Warmer question.
-```json
-"world": {"rubric": "Complete the sentences with the -ing form of the verbs in brackets.",
-          "track": "07",
-          "blocks": [ … in the book's order … ]}
-```
-Use `track` only when the exercise has audio but its kind isn't Listening. The board then shows "Listen · Track 07".
-
-Blocks. Use the one that matches what's printed:
-
-| Book shows | Block |
-|---|---|
-| word box / word pool | `{"type": "words", "items": ["friendly", "shy", "funny"]}` |
-| numbered items, gap-fill, questions, true/false | `{"type": "list", "items": ["I enjoy ___ (read) comics.", "…"], "answers": ["reading", "…"]}`. Add `"numbering": "a"` for a, b, c, or `"none"`. With gaps: one answer per `___`, in order, filled into the gaps one tap at a time. Without gaps: one answer per item (e.g. T / F). |
-| two matching columns | `{"type": "match", "left": ["…"], "right": ["…"]}`. Leave out the book's 1–n and a–z; the board adds them. |
-| table / chart | `{"type": "table", "rows": [["Verb", "-ing form"], ["swim", "___"]]}`. The first row is the header. |
-| grammar box / rule box | `{"type": "rule", "title": "-ing forms", "items": ["We use -ing after love, like, enjoy…"]}` |
-| reading text, email, model text | `{"type": "text", "title": "My best friend", "body": "Paragraph 1\n\nParagraph 2"}` |
-| dialogue | `{"type": "dialogue", "lines": [["Amy", "What do you enjoy doing?"], ["Ben", "I love playing football."]]}` |
-| picture the task depends on | `{"type": "image", "src": "img:beginner/p16-ex1.png", "alt": "Pictures A–F"}` |
-| answer key to reveal at the end | `{"type": "answers", "items": ["1 b", "2 c", "3 a"]}` |
-| more than fits one column | `{"type": "break"}` starts a new column on the same slide (one exercise is always one slide) |
-
-**Size.** One exercise is one full-screen slide; Java wants it that way, never split over two. The board shrinks
-text to fit, but not below about 50%, so put a `break` between a long reading text and its questions (or halfway
-through a very long text) to set them side by side in columns: roughly 150 words of text, or 8 list items, per column,
-at most 3 columns. On the board Java can also resize any exercise himself (A− / Fit / A+ buttons, two-finger
-pinch, Ctrl + wheel, or the + − 0 keys): the text re-flows inside the slide, and if it gets taller than the slide the
-slide scrolls with a "More ↓" chip. So aim for a good automatic fit; he fine-tunes on the day.
-
-**Board check (always, after `write` or `set-world`).** Run
-`node scripts/board_check.js GROUP` (add `--data DIR` if the data clone is elsewhere). It opens every slide of the
-group's planned lessons at board and laptop sizes. `CUT` means content runs off the slide; `SMALL` means the board had
-to shrink it below 60%, too small to read from the back. Fix every flagged slide before reporting: put a `break` between
-a text and its questions so they sit side by side, drop a picture the stage doesn't need, or move part of a long
-`choose` / `ask` into a second stage. Run it again until it says 0 slides to fix, and mention the result in the report.
-If Playwright is missing, say so in the report instead of skipping silently.
-
-**Pictures.** Book pictures are often made for one task (match the photos, find the differences), so never
-replace them with web images. Java snips each picture a task needs (Windows snip tool) and sends it as its own
-image. For each one:
-1. Save the attachment to a file, then store it:
-   `python3 scripts/lpb.py add-img snip.png beginner/p16-ex1.png`. Name pictures `<level>/p<page>-ex<num>.png`,
-   adding `-a`, `-b` for several per exercise. The same book means the same name, so other groups of that level reuse it.
-2. Use it in the row's `world` as `{"type": "image", "src": "img:beginner/p16-ex1.png", "alt": "…"}`.
-
-If a task needs a picture Java hasn't sent, still add the image block (the board shows a labelled placeholder)
-and list the missing snips in your report: "Send me snips of: p. 16 ex 1 (the 6 photos)". Only tight crop-snips
-work; a whole-page photo is too small to read on the board.
-
-If the plan is already in the app and Java edited it, add the book copy without touching his rows:
-`python3 scripts/lpb.py set-world GROUP world.json [--for SECTION]`, where `world.json` is
-`{"book": {…}, "exercises": [{"page": "16", "num": "1", "sec": "Grammar · …", "world": {…}}]}`. Rows are matched by
-page + num, and by `sec` when a page has two exercises with the same number (Grammar ex 1 and Speaking ex 1).
-
-## Step 2c: turn the TB procedure into student steps (always)
-
-A board that only copies the page is no better than the book. Java wants the board to **run the lesson**: every
-exercise becomes a short run of student panels that follows the **teacher's book procedure**, plus touch tasks
-students do at the interactive board. Write them in the row's `world.steps`, in teaching order. The book copy is
-one of the steps (`{"type": "book"}`).
-
-The stages of one exercise share **one slide**: a strip at the top shows them all (done, now, still to come) and
-the content swaps in place. `ask`, `choose` and `pairs` stages also show the exercise's material (its `text`,
-`dialogue`, `table`, `rule` and `image` blocks) beside the task, so students can see what they work on. So put the
-reading text in the book copy's blocks, not only in a prompt.
-
-**How to read the TB into steps.** Go through the TB notes for the exercise move by move and turn every move
-students take part in into a step, phrased **for students**, never for the teacher:
-
-| TB says | Step |
-|---|---|
-| Books closed, lead-in, "ask the class…", "elicit…", look at the photo and predict | `ask`: the questions, one per tap, large. Add `[question, answer]` pairs when the answer should appear after the guess. Put the picture in `image`. |
-| Teach / revise language on the board (e.g. set the clock to 9.00, "It's nine o'clock") | `ask` with answers, or `clock` in `read` mode for times |
-| Concept check ("Check they understand that half past nine means 9.30") | `choose`: 2–3 quick taps with one right option |
-| Books open, do the exercise | `book` |
-| Check answers / "listen and check" | stays in the `book` step: answers are hidden there and appear on tap |
-| Gap-fill or word box exercise | after `book`, a `drag` at the board: the same sentences, with the box words as chips (add 1–2 likely wrong forms as distractors) |
-| Matching | `match` at the board |
-| Telling the time | `clock` in `set` mode: students move the hands |
-| True / false, multiple choice, "which is right?" | `choose` |
-| Pair work, ask and answer, mingle | `pairs`: the task, a model (from the book or TB example) and a timer in minutes |
-| Mixed ability / fast finishers | only if it gives students a task; otherwise it stays in `self` |
-
-Every exercise gets at least one step besides `book` when the TB gives you something to work with. Never put the
-teacher's moves on a panel ("Ask Ss…", "Board…"): turn them into what students read, answer or do.
-
-**Step formats** (all take an optional `label`, the small tag on the panel, and an optional `prompt`, the panel's
-instruction line; without a prompt the exercise rubric is shown):
-```json
-{"type": "ask", "label": "Before you read", "prompt": "Look at the photo. This is Christine.",
- "image": "img:beginner/p48-ex3.png", "questions": ["How old is she?", ["Where is she from?", "Scotland"]]}
-{"type": "book"}
-{"type": "choose", "label": "Think!", "questions": [{"q": "It's half past nine.", "options": ["9.30", "8.30"], "answer": 0}]}
-{"type": "drag", "label": "Come to the board", "prompt": "Drag the words into the sentences.",
- "items": ["She studies ___ and ___, and she ___ in the day."], "answers": ["in the evening", "at night", "sleeps"],
- "words": ["at night", "in the evening", "sleeps", "goes"]}
-{"type": "match", "prompt": "Match the words and pictures.", "left": ["bus", "train"], "right": ["fast", "slow"], "answers": [1, 0]}
-{"type": "clock", "mode": "set", "prompt": "Move the hands. Show the time.",
- "items": [{"time": "10:15", "say": "It's quarter past ten."}]}
-{"type": "pairs", "prompt": "Ask and answer with your partner.", "minutes": 3,
- "model": [["A", "What time do you get up?"], ["B", "I get up at seven o'clock."]]}
-```
-- `drag`: one answer per `___`, in order; `words` must include every answer.
-- `match`: `answers[i]` is the index in `right` of the item that matches `left[i]`.
-- `clock`: `time` as `h:mm`, hours 1–12, minutes in fives (the hands snap to 5 minutes). `read` mode shows the time
-  and reveals `say` on tap; `set` mode shows `say` and students set the hands, then tap Check.
-- Labels used so far: Before we start, Before you read, Read and check, Guess!, New words, Think!, Come to the board,
-  Check at the board, Your turn. Keep them short.
+To add or change only the artifacts of a plan Java has already edited:
+`python3 scripts/lpb.py set-artifacts GROUP art.json [--for SECTION]`, where `art.json` is `{"artifacts": [ … ]}`.
+It replaces that lesson's artifacts and touches nothing else.
 
 ## Telegram message for students (always write one)
 
@@ -403,7 +290,7 @@ for gid, g in db['groups'].items():
 ```
 
 **Reusing a plan another group already taught** (e.g. Elementary 10:30 following Elementary 17:00): copy the
-exercises (with their `world` book copy), the lesson's `book`, aims and Telegram text from that group's `history` lesson, drop its `fromCarry` rows, change the
+exercises, the `artifacts`, aims and Telegram text from that group's `history` lesson, drop its `fromCarry` rows, change the
 🗓 date, then `write ... --for`. Tell Java which lesson it came from.
 
 **Something wasn't finished in one group.** In that group's taught lesson set those exercises'
@@ -425,21 +312,24 @@ tracks, "my key" rows, aims in one line each, the snips still needed for the boa
 1. Write the plan as JSON, for example to the session scratchpad as `plan.json`:
    ```json
    {"unit": "2", "name": "Best Friends Forever",
-    "book": {"unitColor": "#D6336C", "numStyle": "circle", "headStyle": "band", "font": "rounded",
-             "sections": {"Grammar · -ing forms": "#D6336C"}},
     "telegram": "📘 Unit 2 · Best Friends Forever · Part 2\n🗓 Tue 13 Oct · Book p. 16–17\n\n✏️ GRAMMAR: …",
     "aims": {"main": "By the end of the lesson, Ss will be able to …", "sub": "…", "personal": "…",
              "prob1": "… Solution: …", "prob2": "… Solution: …"},
     "exercises": [
       {"page": "16", "num": "1", "sec": "Grammar · -ing forms", "kind": "Grammar", "grammar": "-ing forms", "who": "All together, I lead",
-       "min": 5, "note": "…", "self": "Do Warmer: … Answers 1a 2c 3b",
-       "world": {"rubric": "Complete the sentences with the -ing form of the verbs in brackets.",
-                 "blocks": [{"type": "list", "items": ["I enjoy ___ (read) comics.", "…"], "answers": ["reading", "…"]}]}}
+       "min": 5, "note": "…", "self": "Answers 1a 2c 3b"}
+    ],
+    "artifacts": [
+      {"tpl": "warmer", "page": "16", "sec": "Grammar · -ing forms", "num": "Warmer", "title": "What do you love doing?",
+       "task": "In teams, say an activity for each group.", "timer": 120, "teams": 2,
+       "rounds": [{"type": "categories", "columns": [{"name": "Sport", "items": ["swimming", "playing football"]}]}]},
+      {"tpl": "formula", "page": "16", "sec": "Grammar · -ing forms", "num": "1", "title": "Verb + -ing", "forms": {…}, "practice": [ … ]}
     ]}
    ```
 2. Preview it: `python3 scripts/lpb.py write GROUP plan.json --dry-run`. Fix any errors or warnings
-   (unknown kind or who, a Grammar row with no grammar point, total minutes far from 80, a missing book copy,
-   answers that don't match the gaps, a broken step, a picture not stored yet). Rows with a book copy show `[book copy]`.
+   (unknown kind or who, a Grammar row with no grammar point, total minutes far from 80, no artifacts,
+   answers that don't match the gaps, two artifacts with the same button, a picture not stored yet). Each artifact
+   shows as `[artifact] p.16 · Grammar · Warmer`, the way its button will read.
 3. Before writing, tell Java in one line to make sure the app's dot says **"Saved to GitHub"** (green).
    Then save and push:
    ```
@@ -447,7 +337,7 @@ tracks, "my key" rows, aims in one line each, the snips still needed for the boa
    python3 scripts/lpb.py write GROUP plan.json --for 2.2    # or a later lesson, planned ahead
    python3 scripts/lpb.py push "Plan: <group> Unit <u> Part <n> <name>"
    ```
-   `push` also sends the pictures stored with `add-img`.
+   `push` also sends the pictures stored with `add-img`. Then run the artifact check (Step 2b, 5).
    A lesson planned ahead appears in the app under **Upcoming lessons**. It becomes the next lesson by
    itself once the lessons before it are closed. To fill only the aims of a plan Java has already edited,
    use `set-aims GROUP aims.json [--for SECTION]`. It leaves the exercises untouched.
@@ -469,10 +359,9 @@ tracks, "my key" rows, aims in one line each, the snips still needed for the boa
 - Group, lesson ("Unit 4, Part 1 (2.2)"), date, how many exercises, and total minutes.
 - The 5 aims you wrote, in one short block.
 - Tracks you assigned, exercise by exercise.
-- The lesson world: the book look you captured (unit colour, number and heading style) in one line, the student
-  steps in one line per section (e.g. "Ex 1: clock lead-in, CCQ quiz, book, set the clocks at the board"), and the
-  **snips still needed** (page, exercise, what the picture shows). If none are missing, write: "Board copy complete.
-  Open 🌌 Lesson world to check it against the book."
+- Artifacts: one line each, as the button reads, what it does and when to open it (e.g. "**p.16 · Grammar · Warmer**:
+  team race, 3 categories, 2 min, open before Ex 1"). Then the check result, the **snips still needed** (page,
+  exercise, what the picture shows) and any new template you propose.
 - Assumptions you made (page numbers, missing TB pages, anything you simplified or suggest skipping).
 - "Open it in the app and adjust."
 
@@ -481,6 +370,7 @@ tracks, "my key" rows, aims in one line each, the snips still needed for the boa
 - Don't edit anything in `lessons.json` except the target group's draft (and `plans` / `customMins`
   through the script). Never touch taught lessons, other groups or carry-over unless Java asks.
 - Don't push while Java says a lesson is in progress.
-- Don't paraphrase the book in `world`, and don't put Java's notes there: students read it.
+- Don't put Java's notes, "Ss" or answers outside answer fields in an artifact: students read it.
+- Don't make an artifact for every exercise. 1–3 per lesson, where the board beats the book.
 - Don't use the words PW, TTT, GW, OCFB, Frontal or "stage" in `note` or `self`. The app uses plain
   words. "Ss" is fine, because Java uses it himself.

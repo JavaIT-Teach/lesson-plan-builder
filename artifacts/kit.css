@@ -93,11 +93,26 @@ h1.title{font:800 64px/1.02 var(--display);letter-spacing:-.025em;margin:12px 0 
 /* drawing layers */
 canvas.ink{position:fixed;inset:0;width:100%;height:100%;z-index:40;pointer-events:none;touch-action:none}
 body.pen canvas.ink.over{pointer-events:auto;cursor:crosshair}
-.board{position:fixed;inset:0;z-index:50;background:#FCFCFE;display:none}
-.board::before{content:"";position:absolute;inset:0;background-image:radial-gradient(#D5DAEA 1.6px,transparent 1.6px);background-size:36px 36px}
+.board{position:fixed;inset:0;z-index:50;background:#FFFFFF;display:none}
 body.boarding .board{display:block}
 .board canvas.ink{position:absolute;pointer-events:auto;cursor:crosshair;z-index:1}
 .board .lbl{position:absolute;left:24px;top:20px;z-index:2;font:700 18px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
 
 .missing{display:grid;place-items:center;height:100%;font:600 28px/1.4 var(--body);color:#fff;text-align:center;padding:40px}
 @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+
+/* shared task pieces: word chips, action row, panels, numbered rows */
+.panel{background:var(--card);border-radius:24px;padding:24px 28px;min-width:0;min-height:0}
+.acts{display:flex;gap:10px;align-items:center}
+.acts .sp{flex:1}
+.acts .ct{font:800 24px/1 var(--display);font-variant-numeric:tabular-nums;color:var(--ink2);padding:0 6px}
+.navb{width:56px;height:56px;border-radius:14px;border:0;background:var(--card);box-shadow:0 0 0 2px var(--line) inset;font:800 28px/1 var(--display)}
+.wchip{border:0;height:64px;padding:0 22px;border-radius:14px;background:var(--ink);color:#fff;font:700 30px/1 var(--body);touch-action:none}
+.wchip.sel{background:var(--sun);color:var(--ink);box-shadow:0 0 0 4px var(--ink) inset}
+.wchip[disabled]{opacity:0;pointer-events:none}
+.wchip.ghost{position:fixed;z-index:70;pointer-events:none;opacity:.92;transform:rotate(-3deg);box-shadow:0 18px 30px -12px rgba(20,24,51,.5)}
+.pool{display:flex;flex-wrap:wrap;gap:12px}
+.rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px;counter-reset:r}
+.rows>li{display:flex;align-items:center;gap:18px;font:600 32px/1.35 var(--body);counter-increment:r}
+.rows>li::before{content:counter(r);flex:none;width:46px;height:46px;border-radius:12px;background:var(--paper);display:grid;place-items:center;font:800 22px/1 var(--display);color:var(--ink2)}
+.state{font:800 26px/1 var(--display);color:var(--green);min-height:26px}

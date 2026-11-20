@@ -9,6 +9,17 @@
 // ---------- tiny view helpers ----------
 // bump when world.html changes, so the Lesson world button never opens a cached old copy
 const WORLD_V = '5';
+// bump when anything in artifacts/ changes, so artifact buttons never open a cached old copy
+const ART_V = '1';
+// lesson artifacts (artifacts/*.html): the button names the book place and the type, e.g. "p.42 · Grammar · Ex 6 · Clock"
+const ART_NAMES = { warmer: 'Warmer game', formula: 'Formula', clock: 'Clock', drag: 'Drag into gaps', match: 'Match', sort: 'Sort', timeline: 'Timeline', scene: 'Picture' };
+function artLabel(a) {
+  const n = String(a.num || '').trim(), sec = String(a.sec || '').split('·')[0].trim();
+  const parts = [a.page && 'p.' + a.page, sec, n && (/^\d/.test(n) ? 'Ex ' + n : n)].filter(Boolean);
+  const type = ART_NAMES[a.tpl] || a.tpl || 'Artifact';
+  if (!(a.tpl === 'warmer' && /warmer/i.test(n))) parts.push(type);
+  return parts.join(' · ');
+}
 const esc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const IF = (c, html) => (c ? html() : '');
 const FOR = (list, fn) => (list || []).map(fn).join('');
@@ -810,6 +821,10 @@ class App {
       startTime: g.start, endTime: g.end, teacher: db.teacher,
       lessonTitle: `${this.uLabel(L.unit || '?')}${L.name ? ' · ' + L.name : ''}`,
       goWeek: () => this.go('week'),
+      arts: (L.artifacts || []).map((a, i) => ({
+        label: artLabel(a), tip: a.title || '',
+        onClick: () => { const w = window.open(`artifacts/${encodeURIComponent(a.tpl)}.html?v=${ART_V}&g=${encodeURIComponent(s.gid)}&l=${encodeURIComponent(L.id)}&a=${i}`, 'lpb-artifact'); if (w) w.focus(); }
+      })),
       openWorld: () => { const w = window.open(`world.html?v=${WORLD_V}&g=${encodeURIComponent(s.gid)}&l=${encodeURIComponent(L.id)}`, 'lpb-world'); if (w) w.focus(); },
       goStart: () => this.go('start'),
       goAfter: () => this.go('after')
@@ -1188,6 +1203,7 @@ class App {
           cur.unit = src.unit; cur.name = src.name;
           cur.aims = Object.assign({}, src.aims);
           if (src.tg) cur.tg = src.tg.replace(/🗓 [A-Za-z]{3} \d{1,2} [A-Za-z]{3}/, '🗓 ' + this.fmtS(this.slotDate(tg, tk))); else delete cur.tg;
+          if (src.artifacts && src.artifacts.length) cur.artifacts = JSON.parse(JSON.stringify(src.artifacts)); else delete cur.artifacts;
           cur.exercises = keepCarry.concat(exs.map(e => Object.assign(JSON.parse(JSON.stringify(e)), { id: this.uid(), saved: true, fromCarry: null })));
         });
       }, { copy: null });
@@ -1686,7 +1702,7 @@ function tJump(v) {
   <label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#3A4566">Lesson<select${input(v.onLessonSel)}${v.lessonSelLocked ? ' disabled title="Lesson starts and Mid-lesson always run the next lesson"' : ''} style="max-width:340px;height:36px;border:1.5px solid #14213D;border-radius:8px;padding:0 8px;font-size:13.5px;font-weight:700;background:${esc(v.lessonSelBg)};color:#14213D;cursor:pointer">${FOR(v.lessonOpts, o => `<option value="${esc(o.id)}"${o.sel ? ' selected' : ''}>${esc(o.label)}</option>`)}</select></label>
   <span style="width:1px;height:22px;background:#E2E6F0;margin:0 6px"></span>
   ${FOR(v.jumpSteps, j => `<button${click(j.onClick)} style="border:none;background:${esc(j.bg)};color:${esc(j.fg)};font-weight:600;font-size:14px;padding:8px 12px;border-radius:8px;cursor:pointer;display:flex;gap:6px;align-items:center"><span style="font-family:'DM Mono';opacity:0.6">${j.num}</span>${esc(j.label)}</button>`)}
-  <button${click(v.openWorld)} title="Opens the lesson in its 3D world, in a second window that updates as you plan" style="margin-left:auto;border:1.5px solid #14213D;background:#fff;color:#14213D;font-weight:700;font-size:14px;padding:7px 12px;border-radius:8px;cursor:pointer;display:flex;gap:6px;align-items:center">🌌 Lesson world</button>
+  ${v.arts.length ? `<div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${FOR(v.arts, a => `<button${click(a.onClick)} title="${esc(a.tip ? a.tip + ' · opens on the board window' : 'Opens on the board window')}" style="border:1.5px solid #14213D;background:#fff;color:#14213D;font-weight:700;font-size:13px;padding:7px 11px;border-radius:8px;cursor:pointer;white-space:nowrap">${esc(a.label)}</button>`)}</div>` : `<button${click(v.openWorld)} title="Opens the lesson in its 3D world, in a second window that updates as you plan" style="margin-left:auto;border:1.5px solid #14213D;background:#fff;color:#14213D;font-weight:700;font-size:14px;padding:7px 12px;border-radius:8px;cursor:pointer;display:flex;gap:6px;align-items:center">🌌 Lesson world</button>`}
 </div>`;
 }
 

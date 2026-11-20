@@ -70,7 +70,7 @@ function Ink(canvas){
   canvas.addEventListener("pointermove",e=>{if(!cur)return;(e.getCoalescedEvents?e.getCoalescedEvents():[e]).forEach(x=>cur.p.push(pt(x)));draw();});
   const end=()=>{cur=null;};canvas.addEventListener("pointerup",end);canvas.addEventListener("pointercancel",end);
   addEventListener("resize",size);requestAnimationFrame(size);
-  return {st,undo(){strokes.pop();draw();},clear(){strokes=[];draw();}};
+  return {st,size,undo(){strokes.pop();draw();},clear(){strokes=[];draw();}};
 }
 
 function dock(){
@@ -89,7 +89,8 @@ function dock(){
   document.body.appendChild(d);
   let mode=null;const active=()=>mode==="board"?inkBoard:inkOver;
   const set=m=>{mode=mode===m?null:m;document.body.classList.toggle("pen",mode==="pen");document.body.classList.toggle("boarding",mode==="board");
-    d.classList.toggle("drawing",!!mode);$('[data-t="pen"]',d).setAttribute("aria-pressed",mode==="pen");$('[data-t="board"]',d).setAttribute("aria-pressed",mode==="board");sync();};
+    d.classList.toggle("drawing",!!mode);if(mode)active().size(); // measure now: a hidden board has no size
+    $('[data-t="pen"]',d).setAttribute("aria-pressed",mode==="pen");$('[data-t="board"]',d).setAttribute("aria-pressed",mode==="board");sync();};
   const sync=()=>{const s=active().st;d.querySelectorAll(".sw").forEach(b=>b.setAttribute("aria-pressed",!s.erase&&b.dataset.c===s.color));$('[data-t="erase"]',d).setAttribute("aria-pressed",s.erase);};
   d.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;const t=b.dataset.t;
     if(b.dataset.c){[inkOver,inkBoard].forEach(k=>{k.st.color=b.dataset.c;k.st.erase=false;});sync();}
@@ -129,5 +130,48 @@ function teams(names){
   return box;
 }
 
-window.Kit={load,frame,where,timer,teams,beep,esc,el,$};
+// timer in the header and a team scoreboard at the bottom: any artifact can have them
+function extras(F,c){if(c.timer)F.extra.appendChild(timer(c.timer));if(c.teams)F.stage.appendChild(teams(c.teams));}
+
+// book pictures: "img:beginner/p16-ex1.png" lives in the private data repo (img/…). The builder's GitHub sync key in
+// this browser fetches it; a cache keeps it for class without internet. Same store as the lesson world.
+async function imgUrl(src){
+  if(/^(data:image\/|https?:)/.test(src))return src;
+  const name=String(src).replace(/^img:/,"").replace(/^img\//,"");
+  let k=null;try{k=JSON.parse(localStorage.getItem(SYNCKEY));}catch(e){}
+  const url=k?`https://api.github.com/repos/${encodeURIComponent(k.owner)}/${encodeURIComponent(k.repo)}/contents/img/${name.split("/").map(encodeURIComponent).join("/")}`:null;
+  const cache=window.caches?await caches.open("lesson-world-img").catch(()=>null):null;
+  const hit=cache&&url?await cache.match(url).catch(()=>null):null;
+  if(hit)return URL.createObjectURL(await hit.blob());
+  if(!url||!k.token)throw new Error("Turn on GitHub sync in the builder to load book pictures.");
+  const r=await fetch(url,{headers:{Authorization:"Bearer "+k.token,Accept:"application/vnd.github.raw"}});
+  if(!r.ok)throw new Error("Picture not found yet: "+name);
+  if(cache)await cache.put(url,r.clone()).catch(()=>{});
+  return URL.createObjectURL(await r.blob());
+}
+// fill an <img> from a book picture, or show why it can't load
+function picture(img,src,onFail){imgUrl(src).then(u=>{img.src=u;},e=>onFail&&onFail(e.message));}
+const shuffle=a=>{const o=a.slice();for(let k=0;k<8;k++){for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}if(o.length<2||o.some((x,i)=>x!==a[i]))break;}return o;};
+const nudge=b=>{b.classList.remove("shake");void b.offsetWidth;b.classList.add("shake");};
+const bounce=b=>{b.classList.remove("pop");void b.offsetWidth;b.classList.add("pop");};
+
+// move a chip to a target: tap the chip then tap the target, or drag it there (works with fingers and pens).
+// drop(chip, target) returns true when the move is right; a wrong move shakes the target.
+function pick(root,chipSel,targetSel,drop){
+  let sel=null;const clear=()=>{sel&&sel.classList.remove("sel");sel=null;};
+  const tryDrop=(ch,t)=>{if(!t||!ch||ch.disabled)return;if(drop(ch,t)){bounce(t);clear();}else nudge(t);};
+  root.addEventListener("pointerdown",e=>{const ch=e.target.closest(chipSel);if(!ch||ch.disabled||document.body.classList.contains("pen"))return;
+    const x0=e.clientX,y0=e.clientY;let ghost=null;
+    const mv=m=>{if(!ghost&&Math.hypot(m.clientX-x0,m.clientY-y0)>12){ghost=ch.cloneNode(true);ghost.classList.add("ghost");ghost.classList.remove("sel");
+        const r=ch.getBoundingClientRect();ghost.style.width=r.width+"px";ghost.style.height=r.height+"px";document.body.appendChild(ghost);}
+      if(ghost){ghost.style.left=m.clientX-ghost.offsetWidth/2+"px";ghost.style.top=m.clientY-ghost.offsetHeight/2+"px";}};
+    const up=u=>{removeEventListener("pointermove",mv);removeEventListener("pointerup",up);removeEventListener("pointercancel",up);
+      if(ghost){ghost.remove();const t=document.elementsFromPoint(u.clientX,u.clientY).map(x=>x.closest&&x.closest(targetSel)).find(Boolean);if(t&&root.contains(t))tryDrop(ch,t);return;}
+      if(sel===ch)return clear();clear();sel=ch;ch.classList.add("sel");};
+    addEventListener("pointermove",mv);addEventListener("pointerup",up);addEventListener("pointercancel",up);});
+  root.addEventListener("click",e=>{const t=e.target.closest(targetSel);if(t&&sel&&!e.target.closest(chipSel))tryDrop(sel,t);});
+  return {clear};
+}
+
+window.Kit={load,frame,where,extras,pick,timer,teams,beep,picture,shuffle,nudge,bounce,esc,el,$};
 })();

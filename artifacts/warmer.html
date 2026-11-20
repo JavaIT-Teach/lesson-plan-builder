@@ -70,7 +70,6 @@ const DEMO={tpl:"warmer",page:"38",sec:"Vocabulary · Jobs",num:"Warmer",title:"
 const {esc,el,$}=Kit;
 const c=Kit.load(DEMO);
 const F=Kit.frame(c);
-if(c.timer)F.extra.appendChild(Kit.timer(c.timer));
 const rounds=(c.rounds&&c.rounds.length)?c.rounds:[{type:"words",items:c.items||[]}];
 const KC=["var(--cobalt)","var(--tomato)","var(--green)","var(--violet)","var(--pink)","#E08A00"];
 const wrap=el(`<div class="round"></div>`);
@@ -80,7 +79,7 @@ const area=el(`<div class="area"></div>`);wrap.appendChild(area);
 const bar=el(`<div class="bar"><span class="sp"></span><button class="chipbtn" data-x="hide">Hide all</button><button class="chipbtn dark" data-x="show">Show all</button></div>`);
 wrap.appendChild(bar);
 F.stage.appendChild(wrap);
-if(c.teams)F.stage.appendChild(Kit.teams(c.teams));
+Kit.extras(F,c);
 
 const views=rounds.map(r=>{
   if(r.type==="categories"){const cols=r.columns||[];

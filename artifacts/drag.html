@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Drag into gaps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="kit.css">
+<style>
+/* Drag into gaps: word chips on top, sentences below. Tap a word then a gap, or drag it. */
+.wrap{flex:1;min-height:0;display:flex;flex-direction:column;gap:22px}
+.wrap .pool{background:var(--card);border-radius:24px;padding:20px 22px;min-height:104px}
+.list{flex:1;min-height:0;overflow:auto;padding:4px 2px}
+.gap{display:inline-flex;align-items:center;justify-content:center;min-width:170px;height:56px;margin:0 6px;padding:0 16px;vertical-align:middle;
+  border-radius:12px;border:3px dashed #B8C0D8;background:#fff;color:var(--ink);font:700 30px/1 var(--body)}
+.gap.ok{border:0;background:color-mix(in srgb,var(--green) 18%,#fff);color:#006B4D}
+.gap.hint{border-color:var(--cobalt)}
+.side{display:grid;grid-template-columns:1fr auto;gap:22px;flex:1;min-height:0}
+.pic{background:var(--card);border-radius:24px;padding:14px;display:grid;place-items:center;max-width:520px;min-height:0}
+.pic img{max-width:100%;max-height:100%;object-fit:contain;border-radius:14px}
+.pic .miss{font:600 20px/1.4 var(--body);color:var(--ink2);text-align:center;padding:20px}
+</style>
+</head>
+<body>
+<script src="kit.js"></script>
+<script>
+// Settings: {tpl:"drag", page, sec, num, title, task, items:["She ___ up at seven.", …],
+//   answers:["gets", …] (one per ___, in order), words:[…] (all answers plus 1–2 wrong ones), image:"img:…" (optional)}
+const DEMO={tpl:"drag",page:"31",sec:"Grammar · Present Simple",num:"4",title:"My morning",
+  task:"Drag the verbs into the sentences.",
+  items:["Tom ___ up at seven o'clock.","He ___ a shower and ___ his teeth.","He ___ breakfast with his sister.","They ___ to school by bus.","School ___ at half past eight."],
+  answers:["gets","has","brushes","has","go","starts"],words:["gets","has","brushes","has","go","starts","goes","get"]};
+const {esc,el,$}=Kit;
+const c=Kit.load(DEMO);const F=Kit.frame(c);
+const ans=c.answers||[];let g=0;
+const rows=(c.items||[]).map(t=>`<li><span>${esc(t).replace(/_{3,}/g,()=>`<span class="gap" data-a="${esc(ans[g++]||"")}"></span>`)}</span></li>`).join("");
+const words=Kit.shuffle((c.words&&c.words.length?c.words:ans).map((w,i)=>[w,i])).map(([w,i])=>`<button class="wchip" data-w="${esc(w)}" data-i="${i}">${esc(w)}</button>`).join("");
+const W=el(`<div class="wrap"><div class="pool">${words}</div>
+  <div class="side"><div class="list"><ol class="rows">${rows}</ol></div>${c.image?`<div class="pic"><img alt="Book picture"></div>`:""}</div>
+  <div class="acts"><span class="state"></span><span class="sp"></span><button class="chipbtn" data-x="reset">Start again</button><button class="chipbtn dark" data-x="show">Show answers</button></div></div>`);
+if(!c.image)$(".side",W).style.gridTemplateColumns="1fr";
+F.stage.appendChild(W);Kit.extras(F,c);
+if(c.image)Kit.picture($(".pic img",W),c.image,msg=>{$(".pic",W).innerHTML=`<p class="miss">${esc(msg)}</p>`;});
+const norm=s=>String(s).trim().toLowerCase();
+const done=()=>{if(!W.querySelector(".gap:not(.ok)"))$(".state",W).textContent="✓ All correct";};
+Kit.pick(W,".wchip",".gap:not(.ok)",(ch,gp)=>{if(norm(ch.dataset.w)!==norm(gp.dataset.a))return false;gp.textContent=ch.dataset.w;gp.classList.add("ok");ch.disabled=true;done();return true;});
+W.addEventListener("click",e=>{const b=e.target.closest("[data-x]");if(!b)return;
+  if(b.dataset.x==="reset"){W.querySelectorAll(".gap").forEach(x=>{x.textContent="";x.className="gap";});W.querySelectorAll(".wchip").forEach(x=>{x.disabled=false;x.classList.remove("sel");});$(".state",W).textContent="";}
+  else{W.querySelectorAll(".gap:not(.ok)").forEach(gp=>{const ch=[...W.querySelectorAll(".wchip:not([disabled])")].find(x=>norm(x.dataset.w)===norm(gp.dataset.a));if(ch)ch.disabled=true;gp.textContent=gp.dataset.a;gp.classList.add("ok");});done();}});
+</script>
+</body>
+</html>

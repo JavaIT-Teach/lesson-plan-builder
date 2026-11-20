@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Clock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="kit.css">
+<style>
+/* Clock: a big clock students set at the board (set), or read aloud (read). */
+.wrap{flex:1;min-height:0;display:grid;grid-template-columns:600px 1fr;gap:28px}
+.face{background:var(--card);border-radius:28px;display:grid;place-items:center;padding:20px}
+.face svg{width:100%;height:100%;max-height:620px;touch-action:none;cursor:grab}
+.rim{fill:#fff;stroke:var(--ink);stroke-width:5}
+.tick{stroke:#B6BDD3;stroke-width:1.6}.tick.h{stroke:var(--ink);stroke-width:3.4}
+.num{font:800 15px var(--display);fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+.hh{stroke:var(--cobalt);stroke-width:8;stroke-linecap:round}
+.mh{stroke:var(--tomato);stroke-width:5.5;stroke-linecap:round}
+.pin{fill:var(--ink)}
+.hands{transition:none}
+.anim .hh,.anim .mh{transition:transform .7s cubic-bezier(.3,1.2,.5,1)}
+.side{display:flex;flex-direction:column;gap:20px;min-width:0}
+.say{background:var(--ink);color:#fff;border-radius:28px;padding:30px 34px;display:flex;flex-direction:column;gap:12px}
+.say small{font:800 17px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--sun)}
+.say b{font:800 58px/1.08 var(--display);letter-spacing:-.02em;text-wrap:balance}
+.say b.hid{color:transparent;background:repeating-linear-gradient(-45deg,#262B4D 0 12px,#1D2140 12px 24px);border-radius:14px}
+.dig{display:flex;align-items:center;gap:18px}
+.dig .d{font:800 92px/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.03em;background:var(--card);border-radius:22px;padding:14px 28px;min-width:280px;text-align:center}
+.dig .d.hid{color:transparent;background:repeating-linear-gradient(-45deg,var(--card) 0 12px,#EBEEF6 12px 24px)}
+.key{display:flex;gap:16px;font:700 20px/1 var(--body);color:var(--ink2)}
+.key i{display:inline-block;width:28px;height:8px;border-radius:4px;vertical-align:middle;margin-right:8px}
+.res{font:800 34px/1 var(--display);min-height:34px}
+.res.ok{color:var(--green)}.res.no{color:var(--tomato)}
+.side .acts{margin-top:auto}
+</style>
+</head>
+<body>
+<script src="kit.js"></script>
+<script>
+// Settings: {tpl:"clock", page, sec, num, title, task, mode:"set"|"read",
+//   items:[{time:"10:15", say:"It's quarter past ten."}, …]}   time as h:mm, minutes in fives
+// set: students move the hands to match "say", then Check. read: the clock shows the time, students say it, tap Show.
+const DEMO={tpl:"clock",page:"30",sec:"Vocabulary · Telling the time",num:"3",title:"What time is it?",
+  task:"Come to the board. Move the hands to show the time.",mode:"set",
+  items:[{time:"9:00",say:"It's nine o'clock."},{time:"10:30",say:"It's half past ten."},{time:"7:15",say:"It's quarter past seven."},
+    {time:"4:45",say:"It's quarter to five."},{time:"2:20",say:"It's twenty past two."}]};
+const {esc,el,$}=Kit;
+const c=Kit.load(DEMO);const F=Kit.frame(c);
+const read=c.mode==="read",items=c.items||[];
+const N=Array.from({length:12},(_,i)=>{const a=(i+1)*Math.PI/6;return `<text class="num" x="${(80*Math.sin(a)).toFixed(1)}" y="${(-80*Math.cos(a)).toFixed(1)}">${i+1}</text>`;}).join("");
+const T=Array.from({length:60},(_,i)=>{const a=i*Math.PI/30,r1=i%5?93:88;return `<line class="tick${i%5?"":" h"}" x1="${(r1*Math.sin(a)).toFixed(1)}" y1="${(-r1*Math.cos(a)).toFixed(1)}" x2="${(98*Math.sin(a)).toFixed(1)}" y2="${(-98*Math.cos(a)).toFixed(1)}"/>`;}).join("");
+const W=el(`<div class="wrap"><div class="face"><svg viewBox="-110 -110 220 220" aria-label="Clock"><circle r="104" class="rim"/>${T}${N}
+  <line class="hh" x1="0" y1="10" x2="0" y2="-50"/><line class="mh" x1="0" y1="12" x2="0" y2="-80"/><circle r="6.5" class="pin"/></svg></div>
+  <div class="side"><div class="say"><small>${read?"What time is it?":"Show this time"}</small><b></b></div>
+    <div class="dig"><span class="d"></span><span class="res"></span></div>
+    <div class="key"><span><i style="background:var(--cobalt)"></i>hour</span><span><i style="background:var(--tomato)"></i>minute</span></div>
+    <div class="acts"><button class="navb pv" aria-label="Previous">‹</button><span class="ct"></span><button class="navb nx" aria-label="Next">›</button><span class="sp"></span>
+      ${read?"":`<button class="chipbtn" data-x="check">Check</button>`}<button class="chipbtn dark" data-x="show">Show</button></div></div></div>`);
+F.stage.appendChild(W);Kit.extras(F,c);
+const svg=$("svg",W),hh=$(".hh",W),mh=$(".mh",W),sayB=$(".say b",W),dig=$(".d",W),res=$(".res",W);
+let m=0,i=0;           // m = minutes after 12:00, 0…719
+const parse=t=>{const [h,mm]=String(t||"12:00").split(":").map(Number);return ((h%12)*60+(mm||0))%720;};
+const fmt=v=>`${Math.floor(v/60)||12}:${String(v%60).padStart(2,"0")}`;
+const draw=()=>{hh.style.transform=`rotate(${m/2}deg)`;mh.style.transform=`rotate(${(m%60)*6}deg)`;if(!read&&!dig.classList.contains("hid"))dig.textContent=fmt(m);};
+[hh,mh].forEach(x=>x.style.transformOrigin="0 0");
+function show(k){i=k;const it=items[i]||{};res.textContent="";res.className="res";
+  $(".ct",W).textContent=items.length>1?`${i+1} / ${items.length}`:"";
+  if(read){m=parse(it.time);sayB.textContent=it.say||fmt(m);sayB.classList.add("hid");dig.textContent=fmt(m);dig.classList.add("hid");}
+  else{sayB.textContent=it.say||fmt(parse(it.time));sayB.classList.remove("hid");m=0;dig.classList.remove("hid");}
+  W.classList.remove("anim");draw();}
+show(0);
+// drag a hand: the minute hand snaps to 5 minutes and carries the hour hand with it, like a real clock
+if(!read){let grab=null,last=0;
+  const ang=e=>{const r=svg.getBoundingClientRect(),x=e.clientX-r.left-r.width/2,y=e.clientY-r.top-r.height/2;return {a:(Math.atan2(x,-y)*180/Math.PI+360)%360,d:Math.hypot(x,y)/(r.width/2)};};
+  svg.addEventListener("pointerdown",e=>{if(document.body.classList.contains("pen"))return;const p=ang(e);W.classList.remove("anim");
+    const dm=Math.abs(((p.a-(m%60)*6)+540)%360-180),dh=Math.abs(((p.a-m/2)+540)%360-180);
+    grab=(p.d<.5&&dh<40)||dh<dm-10?"h":"m";last=m%60;svg.setPointerCapture(e.pointerId);move(e);res.textContent="";});
+  const move=e=>{if(!grab)return;const p=ang(e);
+    if(grab==="m"){const mm=(Math.round(p.a/30)*5)%60;let h=Math.floor(m/60);if(last>=45&&mm<15)h++;else if(last<15&&mm>=45)h--;last=mm;m=(((h*60+mm)%720)+720)%720;}
+    else{const h=Math.floor(p.a/30)%12;m=h*60+m%60;}
+    draw();};
+  svg.addEventListener("pointermove",move);
+  const up=()=>{grab=null;};svg.addEventListener("pointerup",up);svg.addEventListener("pointercancel",up);}
+W.addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  if(b.classList.contains("pv")&&i>0)show(i-1);
+  else if(b.classList.contains("nx")&&i<items.length-1)show(i+1);
+  else if(b.dataset.x==="check"){const ok=m===parse(items[i]&&items[i].time);res.textContent=ok?"✓ Correct":"Not yet. Try again.";res.className="res "+(ok?"ok":"no");ok?Kit.bounce(res):Kit.nudge(res);}
+  else if(b.dataset.x==="show"){if(read){sayB.classList.remove("hid");dig.classList.remove("hid");Kit.bounce(sayB);}
+    else{W.classList.add("anim");m=parse(items[i]&&items[i].time);draw();res.textContent="";}}});
+</script>
+</body>
+</html>

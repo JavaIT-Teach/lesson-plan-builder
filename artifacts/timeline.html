@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Timeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="kit.css">
+<style>
+/* Timeline. place: put each sentence in its time zone (past / now / future, tenses).
+   order: put events in the right order along the line (daily routine, a story). */
+.wrap{flex:1;min-height:0;display:flex;flex-direction:column;gap:22px}
+.card{align-self:flex-start;background:var(--ink);color:#fff;border-radius:22px;padding:22px 30px;display:flex;align-items:center;gap:20px;max-width:100%}
+.card small{font:800 16px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--sun);flex:none}
+.card b{font:700 40px/1.2 var(--display);letter-spacing:-.01em}
+.card.empty b{color:#8E97C0}
+.line{flex:1;min-height:0;position:relative;display:grid;gap:16px;padding-bottom:58px}
+.line::after{content:"";position:absolute;left:0;right:20px;bottom:30px;height:8px;border-radius:4px;background:var(--ink)}
+.line::before{content:"";position:absolute;right:0;bottom:20px;border-left:28px solid var(--ink);border-top:14px solid transparent;border-bottom:14px solid transparent}
+.zone{position:relative;border:0;border-radius:24px;background:color-mix(in srgb,var(--k) 10%,#fff);box-shadow:0 0 0 3px color-mix(in srgb,var(--k) 35%,#fff) inset;
+  padding:18px;display:flex;flex-direction:column;gap:10px;text-align:left;min-height:0;overflow:auto}
+.zone h3{margin:0;font:800 30px/1 var(--display);color:var(--k)}
+.zone .got{display:flex;flex-direction:column;gap:8px}
+.zone .got span{background:#fff;border-radius:12px;padding:10px 14px;font:600 24px/1.25 var(--body);box-shadow:0 0 0 2px color-mix(in srgb,var(--k) 30%,#fff) inset}
+.zone .got em{display:block;font-style:normal;font:800 15px/1 var(--body);letter-spacing:.06em;text-transform:uppercase;color:var(--k);margin-bottom:4px}
+.zone.now{--k:var(--tomato)}
+/* order mode */
+.slots{flex:1;min-height:0;display:grid;gap:14px;position:relative;padding-bottom:70px}
+.slots::after{content:"";position:absolute;left:0;right:20px;bottom:30px;height:8px;border-radius:4px;background:var(--ink)}
+.slots::before{content:"";position:absolute;right:0;bottom:20px;border-left:28px solid var(--ink);border-top:14px solid transparent;border-bottom:14px solid transparent}
+.slot{position:relative;border-radius:20px;border:3px dashed #B8C0D8;display:flex;flex-direction:column;justify-content:flex-end;gap:8px;padding:16px;font:700 26px/1.25 var(--body)}
+.slot::after{content:attr(data-n);position:absolute;left:50%;bottom:-54px;width:36px;height:36px;margin-left:-18px;border-radius:50%;background:var(--paper);box-shadow:0 0 0 4px var(--ink) inset;display:grid;place-items:center;font:800 18px/1 var(--display)}
+.slot.on{border:0;background:var(--card);box-shadow:0 0 0 3px var(--cobalt) inset}
+.slot.on::after{background:var(--cobalt);color:#fff;box-shadow:none}
+.slot time{font:800 22px/1 var(--display);color:var(--cobalt)}
+.wrap .pool .wchip{height:auto;min-height:64px;padding:12px 20px;font-size:26px;line-height:1.2;text-align:left}
+</style>
+</head>
+<body>
+<script src="kit.js"></script>
+<script>
+// Settings: {tpl:"timeline", page, sec, num, title, task, mode:"place"|"order",
+//   place: zones:["Past","Now","Future"] (2–5; "now":index marks the present), items:[{text, zone:index, tag:"Past Simple"}]
+//   order: items:[{text, time:"7:00"}] in the right order (the page shuffles them)}
+const DEMO={tpl:"timeline",page:"52",sec:"Grammar · Past, present, future",num:"3",title:"When does it happen?",
+  task:"Read the sentence. Tap the right place on the timeline.",mode:"place",zones:["Past","Now","Future"],now:1,
+  items:[{text:"I played football yesterday.",zone:0,tag:"Past Simple"},{text:"I'm reading a book.",zone:1,tag:"Present Continuous"},
+    {text:"I'm going to visit my aunt.",zone:2,tag:"going to"},{text:"She was at home last night.",zone:0,tag:"was / were"},
+    {text:"They're watching TV.",zone:1,tag:"Present Continuous"},{text:"We'll see you tomorrow.",zone:2,tag:"will"}]};
+const {esc,el,$}=Kit;
+const c=Kit.load(DEMO);const F=Kit.frame(c);
+const items=c.items||[],acts=`<div class="acts"><span class="state"></span><span class="sp"></span><button class="chipbtn" data-x="reset">Start again</button><button class="chipbtn dark" data-x="show">Show answers</button></div>`;
+let W;
+if(c.mode==="order"){
+  const pool=Kit.shuffle(items.map((it,i)=>[it,i]));
+  W=el(`<div class="wrap"><div class="pool">${pool.map(([it,i])=>`<button class="wchip" data-i="${i}">${esc(it.text)}</button>`).join("")}</div>
+    <div class="slots" style="grid-template-columns:repeat(${items.length},minmax(0,1fr))">${items.map((it,i)=>`<div class="slot" data-n="${i+1}" data-i="${i}"></div>`).join("")}</div>${acts}</div>`);
+  const fill=(ch,sl)=>{const it=items[+sl.dataset.i];sl.innerHTML=`${it.time?`<time>${esc(it.time)}</time>`:""}<span>${esc(it.text)}</span>`;sl.classList.add("on");ch.disabled=true;
+    if(!W.querySelector(".slot:not(.on)"))$(".state",W).textContent="✓ Right order";};
+  Kit.pick(W,".wchip",".slot:not(.on)",(ch,sl)=>{if(ch.dataset.i!==sl.dataset.i)return false;fill(ch,sl);return true;});
+  W.addEventListener("click",e=>{const b=e.target.closest("[data-x]");if(!b)return;
+    if(b.dataset.x==="reset"){W.querySelectorAll(".slot").forEach(s=>{s.innerHTML="";s.classList.remove("on");});W.querySelectorAll(".wchip").forEach(x=>{x.disabled=false;x.classList.remove("sel");});$(".state",W).textContent="";}
+    else W.querySelectorAll(".slot:not(.on)").forEach(sl=>fill(W.querySelector(`.wchip[data-i="${sl.dataset.i}"]`),sl));});
+}else{
+  const Z=c.zones||["Past","Now","Future"],K=["var(--cobalt)","var(--violet)","var(--green)","var(--pink)","#E08A00"];
+  W=el(`<div class="wrap"><div class="card"><small>Sentence</small><b></b></div>
+    <div class="line" style="grid-template-columns:repeat(${Z.length},minmax(0,1fr))">${Z.map((z,i)=>`<button class="zone${i===c.now?" now":""}" data-z="${i}" style="--k:${K[i%5]}"><h3>${esc(z)}</h3><div class="got"></div></button>`).join("")}</div>${acts}</div>`);
+  let k=0;const card=$(".card",W);
+  const next=()=>{const it=items[k];card.classList.toggle("empty",!it);$("b",card).textContent=it?it.text:"All done";if(it)Kit.bounce(card);else $(".state",W).textContent="✓ All placed";};
+  const land=(it,zone)=>{$(".got",zone).appendChild(el(`<span class="pop">${it.tag?`<em>${esc(it.tag)}</em>`:""}${esc(it.text)}</span>`));};
+  W.addEventListener("click",e=>{if(document.body.classList.contains("pen"))return;const z=e.target.closest(".zone"),b=e.target.closest("[data-x]");
+    if(z&&items[k]){if(+z.dataset.z===items[k].zone){land(items[k],z);k++;next();}else Kit.nudge(z);}
+    if(b&&b.dataset.x==="reset"){k=0;W.querySelectorAll(".got").forEach(g=>g.innerHTML="");$(".state",W).textContent="";next();}
+    if(b&&b.dataset.x==="show"){while(items[k]){land(items[k],W.querySelector(`.zone[data-z="${items[k].zone}"]`));k++;}next();}});
+  next();
+}
+F.stage.appendChild(W);Kit.extras(F,c);
+</script>
+</body>
+</html>
